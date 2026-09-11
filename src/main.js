@@ -3,7 +3,7 @@ import { creerRun, chargerRun } from './moteur/run.js';
 import { creerRendu } from './rendu/rendu.js';
 import { audio } from './audio/audio.js';
 import { creerUI } from './ui/ui.js';
-import { SALLES } from './data/salles.js';
+import { SALLES, MODES_GRAVITE, MODE_GRAVITE_DEFAUT } from './data/salles.js';
 import { COMPETENCES } from './data/competences.js';
 
 const CLE_RUN = 'vertige.run', CLE_PROFIL = 'vertige.profil';
@@ -36,20 +36,30 @@ const ui = creerUI(document.getElementById('ui'), {
     demarrer([{ t: 'salle', index: run.etat.salleIndex, nom: run.etat.salle.nom }]);
   },
   ouvrirModeTest() {
-    ui.afficherTest({ salles: SALLES.map((s) => ({ id: s.id, nom: s.nom })), competences: COMPETENCES.map((c) => ({ id: c.id, nom: c.nom, rarete: c.rarete })) });
+    ui.afficherTest({
+      salles: SALLES.map((s) => ({ id: s.id, nom: s.nom })),
+      competences: COMPETENCES.map((c) => ({ id: c.id, nom: c.nom, rarete: c.rarete })),
+      modesGravite: Object.entries(MODES_GRAVITE).map(([id, m]) => ({ id, nom: m.nom, desc: m.desc })),
+      graviteDefaut: MODE_GRAVITE_DEFAUT,
+    });
   },
   lancerTest(config) {
     audio.init(); modeTest = true;
     run = creerRun({ seed: config.seed ?? Date.now(), salles: [config.salleId], competences: config.competences ?? [], difficulte: config.difficulte ?? 1,
-      options: { couleurs: config.couleurs ?? undefined, jauge: config.jauge ?? undefined } });
+      options: { couleurs: config.couleurs ?? undefined, jauge: config.jauge ?? undefined, gravite: config.gravite ?? undefined } });
     demarrer(run.evenementsInitiaux);
   },
   tourner(sens) {
+    rendu.previsualiserRotation(null);
     if (occupe || !run) return;
     audio.init();
     const ev = run.tourner(sens);
     if (!ev.length) { audio.jouer('erreur'); ui.message(run.etat.enAttente ? 'Choisis d’abord' : 'Plus de rotation disponible'); return; }
     jouer(ev);
+  },
+  // Télégraphe de rotation : appui maintenu ou survol d'une touche de rotation (null pour effacer).
+  previsualiser(sens) {
+    rendu.previsualiserRotation(sens == null || occupe || !run ? null : run.apercuRotation(sens));
   },
   choisir(id) {
     if (occupe || !run || !run.etat.enAttente) return;

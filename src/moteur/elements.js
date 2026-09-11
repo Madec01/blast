@@ -35,29 +35,42 @@ export function declencherElement(ctx, i, c, file) {
 }
 
 /**
- * Après une rotation : chaque ballon monte d'une case contre la nouvelle gravité.
- * Au bord (plafond), il éclate. Traités du haut vers le bas pour qu'ils ne se bloquent pas entre eux.
+ * Cœur pur (sans ctx, réutilisé par l'aperçu de rotation) : chaque ballon de la grille `g` monte
+ * d'une case contre la gravité `gravite`. Au bord (plafond), il éclate. Traités du haut vers le bas
+ * pour qu'ils ne se bloquent pas entre eux. Renvoie [{ c, de, vers, echange }] : vers = null si le
+ * ballon éclate, echange = la cellule qui prend sa place (elle descend d'une case) ou null.
  */
-export function monteeBallons(ctx) {
-  const g = ctx.grille, [gx, gy] = vecteur(ctx.etat.gravite);
+export function deplacerBallons(g, gravite) {
+  const [gx, gy] = vecteur(gravite);
   const ballons = [];
   for (let i = 0; i < g.cellules.length; i++) { const c = g.cellules[i]; if (c && c.type === 'element' && c.element.type === 'ballon') ballons.push(i); }
   // Ordre : du plus haut (le plus loin dans -G) au plus bas.
   const hauteur = (i) => { const [x, y] = coord(g, i); return -(x * gx + y * gy); };
   ballons.sort((a, b) => hauteur(b) - hauteur(a));
+  const r = [];
   for (const i of ballons) {
     const c = g.cellules[i];
     const [x, y] = coord(g, i), nx = x - gx, ny = y - gy;
-    if (!dans(g, nx, ny)) {
-      g.cellules[i] = null;
-      if (ctx.etat.objectif.type === 'ballons') ctx.etat.objectif.progres++;
-      evenement(ctx, i, c, 'eclate');
-      continue;
-    }
+    if (!dans(g, nx, ny)) { g.cellules[i] = null; r.push({ c, de: i, vers: null, echange: null }); continue; }
     const j = ny * g.w + nx, cible = g.cellules[j];
     if (cible && !tombe(cible)) continue; // un autre ballon au-dessus : il attend
     g.cellules[j] = c; g.cellules[i] = cible;
-    evenement(ctx, j, c, 'monte', { de: { x, y } });
-    if (cible) ctx.emettre({ t: 'chute', deplacements: [{ id: cible.id, de: { x: nx, y: ny }, vers: { x, y } }] });
+    r.push({ c, de: i, vers: j, echange: cible });
+  }
+  return r;
+}
+
+/** Après une rotation : montée des ballons, objectif et événements. */
+export function monteeBallons(ctx) {
+  const g = ctx.grille;
+  for (const m of deplacerBallons(g, ctx.etat.gravite)) {
+    if (m.vers === null) {
+      if (ctx.etat.objectif.type === 'ballons') ctx.etat.objectif.progres++;
+      evenement(ctx, m.de, m.c, 'eclate');
+      continue;
+    }
+    const [x, y] = coord(g, m.de), [nx, ny] = coord(g, m.vers);
+    evenement(ctx, m.vers, m.c, 'monte', { de: { x, y } });
+    if (m.echange) ctx.emettre({ t: 'chute', deplacements: [{ id: m.echange.id, de: { x: nx, y: ny }, vers: { x, y } }] });
   }
 }

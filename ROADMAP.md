@@ -6,11 +6,11 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 
 ## À faire maintenant
 
-1. Martin joue un run complet (`npm install && npm run dev`, http://localhost:5174) : rotation, chute, sons, style. Retour franc.
-2. Feel du tap : jouer chute et remplissage en parallèle dans `src/rendu/rendu.js` (aujourd'hui ~800 ms séquentiels par tap, cible < 450 ms — audit gameplay).
-3. Télégraphe de rotation : brancher `previsualiserRotation` (fantôme de la chute à l'appui long sur un bouton de rotation).
-4. Trancher D7 à D11 (ci-dessous) après la partie de Martin, puis appliquer.
-5. Polish : menu (plateau décoratif animé), écran de fin de run avec stats (spéciales créées, plus grosse chaîne, XP par salle).
+1. Martin rejoue (`npm run dev`, http://localhost:5174) avec la **gravité collante** (défaut) : les trous restent, tout retombe et se remplit à la rotation. Comparer avec « Mixte » et « Continue » via le champ *Gravité* du mode Test. Retour franc sur : la rotation sert-elle maintenant ? le tap sans chute est-il satisfaisant ? le télégraphe (appui maintenu ou survol d'une touche de rotation) est-il lisible ?
+2. Trancher D12 et D13 (appliqués provisoirement), puis D7 à D11.
+3. Selon le retour : rééquilibrer les salles pour la collante (bot avisé : Vestibule 81 %, Puits 52 %, proches de l'ancienne règle ; rien retouché) et revoir la jauge (116 rotations payées en coups sur 200 runs : la jauge n'est pas le facteur limitant).
+4. Polish : menu (plateau décoratif animé), écran de fin de run avec stats (spéciales créées, plus grosse chaîne, XP par salle).
+5. Profiler la boucle rAF continue (nuages) sur mobile.
 
 ---
 
@@ -18,7 +18,9 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 
 | # | Question | Ma recommandation |
 |---|---|---|
-| D7 | Le trou sous un ballon (il flotte et fait sol) reste vide jusqu'à la prochaine rotation. Garder ce comportement ou faire tomber le ballon comme les autres ? | Garder : c'est ce qui rend la rotation utile autour d'un ballon. À juger en jouant. |
+| D12 | **Appliqué provisoirement.** Gravité *collante* par défaut : un tap laisse ses trous, tout retombe et se remplit seulement à la rotation. Alternatives dans le mode Test : *mixte* (chute au tap, remplissage à la rotation) et *continue* (règle d'origine). | Collante : c'est la seule règle où la rotation déplace toute la grille (sim : 22 billes déplacées par rotation, contre 0,3 en continue). À juger en jouant ; mixte si le tap sans chute paraît mort. |
+| D13 | **Appliqué provisoirement.** À jauge vide, la rotation coûte un coup (pastille « −1 coup » sur les touches) au lieu d'être refusée. | Garder : sans ça, la collante bloque le joueur sans groupe. |
+| D7 | Le trou sous un ballon (il flotte et fait sol) reste vide jusqu'à la prochaine rotation. Garder ce comportement ou faire tomber le ballon comme les autres ? | Garder. En gravité collante (D12), tous les trous attendent la rotation : le point devient mineur. |
 | D8 | Audio en synthèse Web Audio (aucun fichier). Si ça sonne « 8-bit » à l'oreille de Martin, passer aux samples CC0 (Kenney) en phase 2 ? | Écouter d'abord. |
 
 | D9 | Audit gameplay : jauge de rotation 3 → 2 et bonus XP ×1,2 sur le tap qui suit une rotation, pour que tourner devienne une décision (le bot tourne 1 fois pour 25 taps). | Oui aux deux, après ton ressenti en jouant. |
@@ -51,6 +53,9 @@ Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 - [x] Restyle « Cartoon pop » du rendu + juice (textes flottants +XP, mots de combo, confettis, ondes de choc, squash du plateau, nuages)
 - [x] Test de fumée Playwright vert (`npm run smoke`) : 24 taps, 6 rotations, 10 choix, 0 erreur
 - [x] Captures vérifiées à l'œil (menu, jeu, niveau, fin de salle, mode test)
+- [x] Retour de Martin : « la grille se remplit constamment, ça rend le retournement inutile » → gravité **collante** par défaut (D12), trois modes dans le moteur, champ *Gravité* du mode Test, `sim --gravite` et politique `avisee` (2026-09-11)
+- [x] Télégraphe de rotation : `run.apercuRotation(sens)` (pur), fantômes + chevrons + cases d'entrée dans le rendu, appui maintenu ou survol des touches (2026-09-11)
+- [x] Feel du tap : chute et remplissage en parallèle, chute qui démarre à 70 % de la rotation (tap ≈ 90 ms en collante, ≈ 440 ms en continue) (2026-09-11)
 - [ ] Ressenti validé par Martin en jouant
 - [x] Audit code + audit gameplay de fin de phase (`docs/AUDIT_CODE.md`, `docs/AUDIT_GAMEPLAY.md`), bloquants et importants appliqués
 
@@ -72,9 +77,10 @@ Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 
 ## Bugs
 
+- [x] (bloquant, retour de Martin) La grille se remplissait à chaque coup : une grille pleine ne bouge pas, la rotation ne servait à rien (sim : 0,3 bille déplacée par rotation). Gravité collante par défaut, D12 (2026-09-11).
 - [x] (important) Rendu : la boucle rAF tournait après retour au menu — `pause()`/`reprendre()` appelés par main.js (audit code, 2026-09-11).
 - [x] (mineur) Rendu : une chaîne allouée par bille et par frame sans survol (audit code, 2026-09-11).
-- [ ] (à trancher, D7) Case vide sous un ballon jamais comblée tant qu'on ne tourne pas : l'audit code le classe bloquant, c'est un choix de design à valider en jouant.
+- [ ] (à trancher, D7) Case vide sous un ballon jamais comblée tant qu'on ne tourne pas : l'audit code le classe bloquant, c'est un choix de design à valider en jouant. Devenu mineur avec D12 (tous les trous attendent la rotation).
 - [ ] (mineur) Niveau atteint au tour où l'objectif est atteint : le choix d'effet est sauté (choix assumé : il serait sans effet), à confirmer.
 - [x] (bloquant) Plateau minuscule : la taille CSS du canvas n'était pas suivie après la mise en page — ResizeObserver dans le rendu + resize fenêtre (2026-09-11).
 - [x] (mineur) HUD : un effet valable toute la salle affichait « null » (2026-09-11).
@@ -105,6 +111,7 @@ Agent idées 2026-09-11 (18 idées dans `docs/IDEES.md`), son Top 5 :
 
 ## Fait
 
+- 2026-09-11 — Retour de Martin appliqué : gravité collante (D12), rotation payée en coup à jauge vide (D13), télégraphe de rotation, chute ∥ remplissage. Sim comparée sur 200 runs × 3 modes, 12 tests, fumée verte, build 435 Ko.
 - 2026-09-11 — Phase 1 jouable : rendu Cartoon pop + juice, UI bonbon, audits code et gameplay appliqués, build 412 Ko avec sourcemaps, zéro réseau.
 - 2026-09-11 — Phase 1 : moteur complet (1 200 lignes), données, UI, audio, sim, tests. Reste le rendu et l'intégration.
 - 2026-09-11 — Import du document de cadrage dans `vertige/CLAUDE.md`, création de `ROADMAP.md`, mesure des seuils (`tools/seuils.mjs`).

@@ -5,26 +5,38 @@ import { appliquerGravite, remplir, maree } from './chute.js';
 import { resoudre } from './speciales.js';
 import { monteeBallons } from './elements.js';
 import { SEUILS, ORDRE_SPECIALES } from '../data/speciales.js';
-import { RECHARGE_JAUGE } from '../data/salles.js';
+import { RECHARGE_JAUGE, MODES_GRAVITE, ROTATION_HORS_JAUGE } from '../data/salles.js';
 import { SEUILS_NIVEAU, NIVEAU_MAX, proposerEffets, expirerEffets } from './progression.js';
 
-/** File des prochaines entrées : couleurs pré-tirées (visibles avec Prévoyance). */
-export function tirerEntree(ctx) {
+/** File des prochaines entrées : couleurs pré-tirées (visibles avec Prévoyance et dans l'aperçu de rotation). */
+export function remplirFile(ctx) {
   const f = ctx.etat.prochainesEntrees;
   while (f.length < 24) f.push(ctx.rng.entier(ctx.etat.couleurs));
-  return nouvelleBille(ctx.grille, f.shift());
+  return f;
+}
+export function tirerEntree(ctx) {
+  return nouvelleBille(ctx.grille, remplirFile(ctx).shift());
 }
 
 function emettreCoups(ctx) { ctx.emettre({ t: 'coups', coups: ctx.etat.coups, jauge: ctx.etat.jauge }); }
 
-/** Chute puis remplissage. Utilisée par le tour et par les effets qui trouent la grille. */
-export function retomber(ctx) {
+/**
+ * Chute puis remplissage, selon le mode de gravité de la salle (MODES_GRAVITE, D12).
+ * `rotation` : le tour est une rotation — tout retombe et se remplit quel que soit le mode.
+ * Utilisée par le tour et par les effets qui trouent la grille.
+ */
+export function retomber(ctx, { rotation = false } = {}) {
   const g = ctx.grille, gr = ctx.etat.gravite;
-  const dep = appliquerGravite(g, gr);
-  if (dep.length) ctx.emettre({ t: 'chute', deplacements: dep });
-  ctx.bus.emettre('apresChute', ctx, { deplacements: dep });
-  const entrees = remplir(g, gr, () => tirerEntree(ctx));
-  if (entrees.length) { ctx.emettre({ t: 'remplissage', cellules: entrees }); ctx.bus.emettre('remplissage', ctx, { cellules: entrees }); }
+  const mode = MODES_GRAVITE[ctx.etat.modeGravite] ?? MODES_GRAVITE.continue;
+  if (rotation || mode.chuteAuTap) {
+    const dep = appliquerGravite(g, gr);
+    if (dep.length) ctx.emettre({ t: 'chute', deplacements: dep });
+    ctx.bus.emettre('apresChute', ctx, { deplacements: dep });
+  }
+  if (rotation || mode.remplissageAuTap) {
+    const entrees = remplir(g, gr, () => tirerEntree(ctx));
+    if (entrees.length) { ctx.emettre({ t: 'remplissage', cellules: entrees }); ctx.bus.emettre('remplissage', ctx, { cellules: entrees }); }
+  }
 }
 
 export function detruire(ctx, indices, cause = 'effet') {
@@ -35,12 +47,18 @@ export function detruire(ctx, indices, cause = 'effet') {
 export function jouerRotation(ctx, sens, options = {}) {
   const e = ctx.etat;
   const cout = options.gratuit || options.auto ? 0 : ctx.bus.reduire('coutRotation', 1, ctx, { sens });
-  if (cout > e.jauge) return false;
+  let enCoups = 0;
+  if (cout > e.jauge) {
+    // Jauge vide : la rotation se paie en coups (D13), pour ne jamais bloquer le joueur en gravité collante.
+    if (ROTATION_HORS_JAUGE !== 'coup' || e.coups < cout) return false;
+    enCoups = cout;
+  }
   ctx.bus.emettre('avantRotation', ctx, { sens, auto: !!options.auto });
   const de = e.gravite;
   e.gravite = tournerGravite(e.gravite, sens);
-  ctx.emettre({ t: 'rotation', de, vers: e.gravite, sens, auto: !!options.auto });
-  if (cout) { e.jauge -= cout; emettreCoups(ctx); }
+  ctx.emettre({ t: 'rotation', de, vers: e.gravite, sens, auto: !!options.auto, enCoups });
+  if (enCoups) { e.coups -= enCoups; emettreCoups(ctx); ctx.emettre({ t: 'message', texte: 'Jauge vide : la rotation coûte un coup' }); }
+  else if (cout) { e.jauge -= cout; emettreCoups(ctx); }
   monteeBallons(ctx);
   ctx.bus.emettre('apresRotation', ctx, { sens, auto: !!options.auto });
   return true;
@@ -81,7 +99,7 @@ export function jouerTap(ctx, x, y) {
 export function jouerRotationJoueur(ctx, sens) {
   if (ctx.etat.enAttente) return false;
   if (!jouerRotation(ctx, sens)) return false;
-  finDeTour(ctx);
+  finDeTour(ctx, { rotation: true });
   return true;
 }
 
@@ -114,7 +132,7 @@ function appliquerRotationAuto(ctx) {
   const a = ctx.etat.annonce;
   if (!a) return;
   jouerRotation(ctx, a.sens, { auto: true });
-  retomber(ctx);
+  retomber(ctx, { rotation: true });
 }
 
 function reapprovisionnerBallons(ctx) {
@@ -174,14 +192,14 @@ export function verifierFin(ctx) {
     if (e.coups <= 0) { finirSalle(ctx, false, 'coups'); return; }
   }
   if (!existeCoup(ctx.grille)) {
-    if (e.jauge > 0) ctx.emettre({ t: 'message', texte: 'Plus aucun groupe : tourne le plateau' });
+    if (e.jauge > 0 || (ROTATION_HORS_JAUGE === 'coup' && e.coups > 0)) ctx.emettre({ t: 'message', texte: 'Plus aucun groupe : tourne le plateau' });
     else finirSalle(ctx, false, 'bloque');
   }
 }
 
-export function finDeTour(ctx) {
+export function finDeTour(ctx, { rotation = false } = {}) {
   const e = ctx.etat;
-  retomber(ctx);
+  retomber(ctx, { rotation });
   e.tour++;
   appliquerMaree(ctx);
   appliquerRotationAuto(ctx);

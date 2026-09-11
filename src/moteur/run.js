@@ -2,12 +2,13 @@
 import { creerRng, seedDepuis } from './rng.js';
 import { creerBus } from './hooks.js';
 import { creerGrille, groupe, estTapable, existeCoup, nouvelleBille, nouvellePierre, nouvelElement, idx, coord } from './grille.js';
-import { retomber, detruire, jouerRotation, jouerTap, jouerRotationJoueur, verifierNiveau, verifierFin, majSeuilsXp } from './tour.js';
+import { retomber, detruire, jouerRotation, jouerTap, jouerRotationJoueur, verifierNiveau, verifierFin, majSeuilsXp, remplirFile } from './tour.js';
 import { appliquerEffet, retirerEffet, SEUILS_NIVEAU, NIVEAU_MAX } from './progression.js';
-import { SALLES, ORDRE_PHASE1 } from '../data/salles.js';
+import { SALLES, ORDRE_PHASE1, MODES_GRAVITE, MODE_GRAVITE_DEFAUT, ROTATION_HORS_JAUGE } from '../data/salles.js';
+import { apercuRotation } from './apercu.js';
 import { COMPETENCES, POIDS_RARETE } from '../data/competences.js';
 
-const VERSION = 1;
+const VERSION = 2; // 2 : mode de gravité (D12), la rotation à jauge vide coûte un coup (D13)
 
 function creerCtx(etat, rng) {
   const bus = creerBus();
@@ -17,7 +18,7 @@ function creerCtx(etat, rng) {
     get memo() { return etat.memo; },
     emettre(evt) { ctx.evenements.push(evt); },
     nb(id) { return etat.competences.filter((c) => c === id).length; },
-    retomber() { retomber(ctx); },
+    retomber(options) { retomber(ctx, options); },
     detruire(indices, cause) { detruire(ctx, indices, cause); },
     tourner(sens, options) { return jouerRotation(ctx, sens, options); },
     retirerEffet(id) { retirerEffet(ctx, id); },
@@ -61,6 +62,8 @@ function entrerSalle(ctx, index) {
   e.salleIndex = index;
   e.salle = { id: def.id, nom: def.nom, type: def.type, desc: def.desc, index, total: e.ordre.length, regles: def.regles ?? {} };
   e.couleurs = e.options.couleurs ?? def.couleurs;
+  const mode = e.options.gravite ?? def.regles?.gravite ?? MODE_GRAVITE_DEFAUT;
+  e.modeGravite = MODES_GRAVITE[mode] ? mode : MODE_GRAVITE_DEFAUT;
   e.gravite = 0; e.tour = 0; e.xpSalle = 0; e.niveau = 1; majSeuilsXp(e);
   e.coupsMax = ctx.bus.reduire('coupsInitiaux', Math.max(5, Math.round(def.coups / e.difficulte)), ctx, { salle: def });
   e.coups = e.coupsMax;
@@ -70,10 +73,12 @@ function entrerSalle(ctx, index) {
   if (def.objectif.type === 'couleur') e.objectif.couleur = ctx.rng.entier(e.couleurs);
   e.prochainesEntrees = [];
   e.grille = genererGrille(ctx, def);
+  remplirFile(ctx); // la file est connue dès l'entrée (Prévoyance, aperçu de rotation)
   e.annonce = def.regles?.rotationAuto ? (def.regles.rotationAuto === 'pendule' ? { sens: 1 } : { sens: ctx.rng.choix([-1, 1, 2]) }) : null;
   e.enAttente = null;
   ctx.activesCeTour.clear();
   ctx.emettre({ t: 'salle', index, nom: def.nom });
+  if (index === 0 && e.modeGravite === 'collante') ctx.emettre({ t: 'message', texte: 'Les trous restent : tourne le plateau pour tout faire retomber' });
   ctx.emettre({ t: 'coups', coups: e.coups, jauge: e.jauge });
   ctx.emettre({ t: 'objectif', progres: 0, cible: e.objectif.cible, atteint: false });
   ctx.bus.emettre('debutSalle', ctx, { salle: def });
@@ -154,7 +159,13 @@ function envelopper(ctx) {
       return groupe(g, i).map((k) => { const [cx, cy] = coord(g, k); return { x: cx, y: cy }; });
     },
     peutTaper(x, y) { return !e.enAttente && e.coups > 0 && x >= 0 && x < e.grille.w && y >= 0 && y < e.grille.h && estTapable(e.grille, idx(e.grille, x, y)); },
-    peutTourner(sens = 1) { return !e.enAttente && ctx.bus.reduire('coutRotation', 1, ctx, { sens }) <= e.jauge; },
+    peutTourner(sens = 1) {
+      if (e.enAttente) return false;
+      const cout = ctx.bus.reduire('coutRotation', 1, ctx, { sens });
+      return cout <= e.jauge || (ROTATION_HORS_JAUGE === 'coup' && e.coups >= cout);
+    },
+    /** Aperçu d'une rotation sans jouer : { sens, gravite, deplacements, entrees, eclatent } ou null. */
+    apercuRotation(sens) { return e.enAttente ? null : apercuRotation(e, sens); },
     serialiser() { e.rngEtat = ctx.rng.etat; return JSON.stringify({ version: VERSION, etat: e }); },
     /** Événements de démarrage (salle initiale) à jouer une fois par l'appelant. */
     evenementsInitiaux: [],
@@ -164,7 +175,7 @@ function envelopper(ctx) {
 }
 
 /**
- * Crée un run. options : { couleurs, jauge } pour le mode Test.
+ * Crée un run. options : { couleurs, jauge, gravite } pour le mode Test (gravite : clé de MODES_GRAVITE).
  * salles : liste d'ids (défaut : ORDRE_PHASE1).
  */
 export function creerRun({ seed = Date.now(), salles = null, competences = [], difficulte = 1, options = {} } = {}) {
@@ -174,7 +185,7 @@ export function creerRun({ seed = Date.now(), salles = null, competences = [], d
     version: VERSION, seed: s, rngEtat: s, ordre: salles ?? ORDRE_PHASE1.slice(), difficulte, options,
     salleIndex: 0, salle: null, grille: null, gravite: 0,
     coups: 0, coupsMax: 0, jauge: 0, jaugeMax: 0, tour: 0,
-    xpSalle: 0, niveau: 1, xpTotale: 0, couleurs: 5,
+    xpSalle: 0, niveau: 1, xpTotale: 0, couleurs: 5, modeGravite: MODE_GRAVITE_DEFAUT,
     objectif: null, competences: competences.slice(), effetsActifs: [], effetsVus: [],
     prochainesEntrees: [], annonce: null, enAttente: null, memo: {},
   };

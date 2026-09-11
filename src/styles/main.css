@@ -283,7 +283,16 @@ body::after {
   position: relative;
   z-index: 5;
 }
-#commandes .touche { flex: 1 1 0; font-size: 2rem; padding: .45em; }
+#commandes .touche { flex: 1 1 0; font-size: 2rem; padding: .45em; position: relative; touch-action: manipulation; -webkit-touch-callout: none; }
+/* Jauge vide : la rotation coûte un coup (D13) — pastille sur les touches */
+#commandes .touche-payante::after {
+  content: '−1 coup';
+  position: absolute; top: -10px; right: -4px;
+  font-size: .6rem; line-height: 1; padding: 4px 7px;
+  background: var(--rose, #ff5fa2); color: #fff;
+  border: 2px solid var(--encre); border-radius: 999px;
+  -webkit-text-stroke: 0; box-shadow: 0 2px 0 var(--encre-15);
+}
 
 /* =========================================================================
    Boutons — bonbon 3D
@@ -590,6 +599,7 @@ body::after {
 }
 .test-champ input[type="range"] { width: 100%; }
 .test-valeur { font-variant-numeric: tabular-nums; font-size: .85rem; opacity: .8; }
+.test-aide { display: block; width: 100%; font-size: .78rem; opacity: .75; font-weight: 600; }
 .test-case-defaut { display: flex; align-items: center; gap: 6px; font-size: .82rem; }
 
 .test-competences { display: flex; flex-wrap: wrap; gap: 8px; }

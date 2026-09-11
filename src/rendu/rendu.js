@@ -34,7 +34,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   let angleActuel = 0, echelleActuelle = 1;
   let angleTween = null; // {angleDebut,angleFin,echelleDebut,echelleFin,t,duree}
   let shakeMag = 0, shakeX = 0, shakeY = 0;
-  let previewSens = null; // aperçu de rotation : no-op accepté proprement (cf §5)
+  let apercu = null, apercuIds = null; // télégraphe de rotation (§5) : {sens, gravite, deplacements, entrees, eclatent} et ids qui bougent
   let tempsTotal = 0;     // accumulateur pour les micro-animations vivantes (sucette, étincelle)
   let dernierDetruit = null; // position écran de la dernière salve `detruit` (pour le +XP qui suit, §2)
   const surligneesSet = new Set();
@@ -161,6 +161,46 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     else if (el.type === 'ballon') dessinerCentre(sprites.ballon(bv.couleur != null ? bv.couleur : 0));
     else if (el.type === 'fusee') { ctx.save(); ctx.rotate(-angleActuel); dessinerCentre(sprites.fusee()); ctx.restore(); }
   }
+  function dessinerCellule(bv) {
+    if (bv.type === 'pierre') dessinerCentre(sprites.pierre());
+    else if (bv.type === 'element') dessinerElement(bv);
+    else dessinerBilleCouleur(bv);
+  }
+  // Télégraphe de rotation (pilier 1) : bande claire sur la rangée qui devient le sol, chevrons animés
+  // dans le sens de la nouvelle gravité, fantômes des billes à leur point de chute, cases d'entrée en
+  // pointillé (teintées si la couleur est connue : Prévoyance). Dessiné dans le repère du plateau.
+  function dessinerApercu() {
+    const G = vecteurG(apercu.gravite), cp = cellPixBase, demiW = (w * cp) / 2, demiH = (h * cp) / 2;
+    const long = G.x ? demiW : demiH, perp = G.x ? demiH : demiW; // demi-longueur le long de G et en travers
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    if (G.x) ctx.fillRect(G.x > 0 ? demiW - cp : -demiW, -demiH, cp, h * cp);
+    else ctx.fillRect(-demiW, G.y > 0 ? demiH - cp : -demiH, w * cp, cp);
+    const angle = Math.atan2(G.y, G.x), s = cp * 0.3;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    for (let k = -1; k <= 1; k++) { // trois chevrons dans la bande, vague qui court vers G
+      const cx = G.x * (long - cp / 2) - G.y * k * perp * 0.55, cy = G.y * (long - cp / 2) + G.x * k * perp * 0.55;
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+      ctx.globalAlpha = 0.55 + 0.45 * Math.sin(tempsTotal * 6 - k * 0.9);
+      ctx.beginPath(); ctx.moveTo(-s * 0.6, -s); ctx.lineTo(s * 0.5, 0); ctx.lineTo(-s * 0.6, s);
+      ctx.strokeStyle = ENCRE; ctx.lineWidth = Math.max(3, cp * 0.17); ctx.stroke();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5, cp * 0.08); ctx.stroke();
+      ctx.restore();
+    }
+    for (const d of apercu.deplacements) {
+      const bv = billes.get(d.id); if (!bv) continue;
+      ctx.save(); ctx.translate((d.vers.x - w / 2 + 0.5) * cp, (d.vers.y - h / 2 + 0.5) * cp);
+      ctx.globalAlpha = 0.75; ctx.scale(0.9, 0.9); dessinerCellule(bv);
+      ctx.restore();
+    }
+    ctx.setLineDash([cp * 0.12, cp * 0.1]); ctx.lineWidth = Math.max(1.5, cp * 0.06);
+    for (const c of apercu.entrees) {
+      ctx.beginPath(); ctx.arc((c.x - w / 2 + 0.5) * cp, (c.y - h / 2 + 0.5) * cp, cp * 0.36, 0, Math.PI * 2);
+      if (c.couleur != null) { ctx.globalAlpha = 0.5; ctx.fillStyle = couleurHex(c.couleur); ctx.fill(); }
+      ctx.globalAlpha = 0.85; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+    }
+    ctx.restore();
+  }
   function dessinerSurlignage(lx, ly) {
     ctx.save(); ctx.translate(lx, ly);
     ctx.beginPath(); ctx.arc(0, 0, cellPixBase * 0.46, 0, Math.PI * 2);
@@ -178,19 +218,19 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
       const lx = (bv.x - w / 2 + 0.5) * cellPixBase, ly = (bv.y - h / 2 + 0.5) * cellPixBase;
       if (surligneesSet.size && surligneesSet.has(`${Math.round(bv.x)},${Math.round(bv.y)}`)) dessinerSurlignage(lx, ly); // pas de chaîne allouée sans survol
       ctx.save();
-      ctx.translate(lx, ly); ctx.globalAlpha = bv.alpha; ctx.scale(bv.echelle * bv.squashX, bv.echelle * bv.squashY);
-      if (bv.type === 'pierre') dessinerCentre(sprites.pierre());
-      else if (bv.type === 'element') dessinerElement(bv);
-      else dessinerBilleCouleur(bv);
+      ctx.translate(lx, ly); ctx.globalAlpha = bv.alpha * (apercuIds && apercuIds.has(bv.id) ? 0.28 : 1); // en aperçu, ce qui bouge s'estompe
+      ctx.scale(bv.echelle * bv.squashX, bv.echelle * bv.squashY);
+      dessinerCellule(bv);
       ctx.restore();
     }
+    if (apercu) dessinerApercu();
     ctx.restore();
     juice.dessinerOndes(ctx, cellPixBase); juice.dessinerTextes(ctx, cellPixBase); particules.dessiner(ctx);
   }
   // Boucle en continu tant que visible (§2, décor), coupée sur document.hidden puis reprise par
   // 'visibilitychange'. `enAnimation` (§5) reflète l'activité de premier plan, pas cette boucle.
   function rienNAnime() {
-    if (angleTween || particules.enCours || juice.enCours || squashPlateau.actif || shakeMag > 0.05 || surligneesSet.size > 0) return false;
+    if (angleTween || apercu || particules.enCours || juice.enCours || squashPlateau.actif || shakeMag > 0.05 || surligneesSet.size > 0) return false;
     for (const [, bv] of billes) if (bv.chute || bv.glisse || bv.pulse || bv.fondu || bv.pop || bv.squash) return false;
     return true;
   }
@@ -295,12 +335,15 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     const delta = evt.sens === 2 ? Math.PI : evt.sens * (Math.PI / 2);
     angleTween = { angleDebut: angleActuel, angleFin: angleActuel + delta, echelleDebut: calcEchelle(avant), echelleFin: calcEchelle(graviteCourante), t: 0, duree: DUREE_ROTATION };
     if (courantAudio) courantAudio.jouer('rotation', { sens: evt.sens });
-    demarrerBoucle(); await attend(DUREE_ROTATION * 1000);
-    squashPlateau.declencher(); // squash élastique du plateau en fin de rotation (§2)
+    demarrerBoucle(); await attend(DUREE_ROTATION * 700); // la chute qui suit démarre pendant la fin (ease-out) de la rotation
+    setTimeout(() => squashPlateau.declencher(), DUREE_ROTATION * 300); // squash élastique du plateau en fin de rotation (§2)
+  }
+  function lancerChute(evt) {
+    for (const d of evt.deplacements || []) { const bv = billes.get(d.id); if (bv) demarrerChute(bv, d.de, d.vers); }
+    demarrerBoucle();
   }
   async function surChute(evt) {
-    for (const d of evt.deplacements || []) { const bv = billes.get(d.id); if (bv) demarrerChute(bv, d.de, d.vers); }
-    demarrerBoucle(); await attend(DUREE_CHUTE * 1000);
+    lancerChute(evt); await attend(DUREE_CHUTE * 1000);
     squashPlateau.declencher(); // squash élastique du plateau à l'atterrissage des billes (§2)
   }
   async function surRemplissage(evt) {
@@ -341,7 +384,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   function synchroniser(etat) {
     etatCourant = etat;
     w = etat.grille.w; h = etat.grille.h; forme = etat.grille.forme || null; graviteCourante = etat.gravite || 0;
-    angleTween = null; particules.vider(); juice.vider(); dernierDetruit = null;
+    angleTween = null; apercu = null; apercuIds = null; particules.vider(); juice.vider(); dernierDetruit = null;
     shakeMag = 0; shakeX = 0; shakeY = 0; surligneesSet.clear(); billes.clear();
     recalculerEchelles();
     angleActuel = graviteCourante * (Math.PI / 2); echelleActuelle = calcEchelle(graviteCourante);
@@ -356,8 +399,11 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   }
   async function jouer(evenements, { audio } = {}) {
     courantAudio = audio || null;
+    if (apercu) previsualiserRotation(null);
     demarrerBoucle();
-    for (const evt of evenements || []) {
+    const liste = evenements || [];
+    for (let i = 0; i < liste.length; i++) {
+      const evt = liste[i], suivant = liste[i + 1];
       switch (evt.t) {
         case 'tap': surTap(evt); break;
         case 'detruit': await surDetruit(evt); break;
@@ -365,7 +411,10 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
         case 'conversion': await surConversion(evt); break;
         case 'element': await surElement(evt); break;
         case 'rotation': await surRotation(evt); break;
-        case 'chute': await surChute(evt); break;
+        case 'chute': // chute et remplissage jouent en parallèle : une seule attente (audit gameplay, cible < 450 ms par tap)
+          if (suivant && suivant.t === 'remplissage') { lancerChute(evt); await surRemplissage(suivant); i++; }
+          else await surChute(evt);
+          break;
         case 'remplissage': await surRemplissage(evt); break;
         case 'maree': await surMaree(evt); break;
         case 'salle': await surSalle(evt); break;
@@ -381,7 +430,12 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     demarrerBoucle();
     if (!cellules || cellules.length === 0) dessinerFrame();
   }
-  function previsualiserRotation(sens) { previewSens = sens; } // no-op propre : accepté sans effet visuel
+  /** Télégraphe : `a` = run.apercuRotation(sens) ({sens, gravite, deplacements, entrees, eclatent}) ou null pour effacer. */
+  function previsualiserRotation(a) {
+    apercu = a && a.deplacements ? a : null;
+    apercuIds = apercu ? new Set([...apercu.deplacements.map((d) => d.id), ...(apercu.eclatent || []).map((d) => d.id)]) : null;
+    demarrerBoucle(); dessinerFrame();
+  }
   function redimensionner() { if (etatCourant) { recalculerEchelles(); dessinerFrame(); } }
   // La taille CSS du canvas change après mise en page (HUD, couche masquée) : on suit ces changements.
   let observateur = null;
@@ -398,5 +452,6 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   return {
     synchroniser, jouer, surligner, previsualiserRotation, redimensionner, detruire, pause, reprendre,
     get enAnimation() { return !rienNAnime(); },
+    get apercuActif() { return apercu !== null; },
   };
 }

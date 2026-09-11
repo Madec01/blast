@@ -92,7 +92,7 @@ export const EFFETS = [
       else ctx.emettre({ t: 'message', texte: 'Aucune pierre à faire fondre' });
     } },
   { id: 'demi_tour', palier: 2, nom: 'Volte-face', desc: 'Rotation 180° gratuite immédiate.', duree: null,
-    appliquer(ctx) { ctx.tourner(2, { gratuit: true }); ctx.retomber(); } },
+    appliquer(ctx) { ctx.tourner(2, { gratuit: true }); ctx.retomber({ rotation: true }); } },
   { id: 'teinte_prochaine', palier: 2, nom: 'Pinceau', desc: 'Le prochain tap teinte ses voisines de sa couleur avant d’exploser.', duree: 'salle',
     appliquer(ctx) {
       ctx.bus.on('avantTap', (c, e) => {

@@ -72,7 +72,15 @@ async function main() {
       await boutons.first().click(); choix++;
       continue;
     }
-    if (i >= 3 && !shotJeu++) await shot('02-jeu');
+    if (i >= 3 && !shotJeu++) {
+      await shot('02-jeu');
+      // Télégraphe : le survol d'une touche de rotation affiche l'aperçu (fantômes, chevrons).
+      await page.hover('#btn-rotation-droite'); await page.waitForTimeout(450);
+      if (!(await page.evaluate(() => window.vertige.rendu.apercuActif))) erreurs.push('aperçu de rotation absent au survol');
+      await shot('02b-apercu');
+      await page.mouse.move(5, 5); await page.waitForTimeout(60);
+      if (await page.evaluate(() => window.vertige.rendu.apercuActif)) erreurs.push('aperçu de rotation non effacé après le survol');
+    }
     if (i % 5 === 4 && etat.jauge > 0) { await page.locator('#btn-rotation-droite').click(); rotations++; continue; }
     if (!etat.meilleur) { await page.locator('#btn-rotation-gauche').click(); rotations++; continue; }
     // Un vrai tap par le pointeur : la case est projetée comme le rendu le fait (centrage, marge 6 %, rotation).

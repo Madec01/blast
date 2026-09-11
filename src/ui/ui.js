@@ -5,8 +5,11 @@ import { creerHud } from './hud.js';
 import { creerCartes } from './cartes.js';
 import { creerTest } from './test.js';
 import { formatNombre } from './utils.js';
+import { ROTATION_HORS_JAUGE } from '../data/salles.js';
 
 const DUREE_TOAST = 1600; // ms
+const DELAI_APPUI = 180;  // ms d'appui avant l'aperçu de rotation (tactile et souris)
+const DELAI_SURVOL = 300; // ms de survol (souris seulement)
 
 export function creerUI(racine, actions) {
   const doc = racine.ownerDocument || document;
@@ -128,14 +131,49 @@ export function creerUI(racine, actions) {
   const btnGauche = doc.getElementById('btn-rotation-gauche');
   const btnDroite = doc.getElementById('btn-rotation-droite');
   const btn180 = doc.getElementById('btn-rotation-180');
-  btnGauche?.addEventListener('click', () => actions.tourner(-1));
-  btnDroite?.addEventListener('click', () => actions.tourner(1));
-  btn180?.addEventListener('click', () => actions.tourner(2));
+
+  // Télégraphe : un appui maintenu (ou un survol à la souris) montre l'aperçu de la rotation ;
+  // relâcher sur la touche déclenche la rotation. Après un appui long, iOS n'émet pas toujours de
+  // `click` : on tourne dès le `pointerup` si l'aperçu était visible, et le `click` qui suit est ignoré.
+  function brancherRotation(bouton, sens) {
+    if (!bouton) return;
+    let minuteur = null, visible = false, dejaTourne = false;
+    const cacher = () => {
+      if (minuteur) { clearTimeout(minuteur); minuteur = null; }
+      if (visible) { visible = false; actions.previsualiser?.(null); }
+    };
+    const armer = (delai) => {
+      if (bouton.disabled) return;
+      if (minuteur) clearTimeout(minuteur);
+      minuteur = setTimeout(() => { minuteur = null; visible = true; actions.previsualiser?.(sens); }, delai);
+    };
+    bouton.addEventListener('pointerdown', () => { dejaTourne = false; armer(DELAI_APPUI); });
+    bouton.addEventListener('pointerenter', (evt) => { if (evt.pointerType === 'mouse') armer(DELAI_SURVOL); });
+    bouton.addEventListener('pointerup', () => {
+      const apresApercu = visible;
+      cacher();
+      if (apresApercu && !bouton.disabled) { dejaTourne = true; actions.tourner(sens); }
+    });
+    bouton.addEventListener('pointerleave', cacher);
+    bouton.addEventListener('pointercancel', cacher);
+    bouton.addEventListener('contextmenu', (evt) => evt.preventDefault()); // appui long tactile : pas de menu
+    bouton.addEventListener('click', () => {
+      if (dejaTourne) { dejaTourne = false; return; }
+      cacher(); actions.tourner(sens);
+    });
+  }
+  brancherRotation(btnGauche, -1);
+  brancherRotation(btnDroite, 1);
+  brancherRotation(btn180, 2);
 
   function majBoutonsRotation(etat) {
-    const desactive = (etat.jauge ?? 0) <= 0 || !!etat.enAttente;
+    const jaugeVide = (etat.jauge ?? 0) <= 0;
+    const payante = jaugeVide && ROTATION_HORS_JAUGE === 'coup' && (etat.coups ?? 0) > 0; // D13 : la rotation coûte un coup
+    const desactive = !!etat.enAttente || (jaugeVide && !payante);
     [btnGauche, btnDroite, btn180].forEach((bouton) => {
-      if (bouton) bouton.disabled = desactive;
+      if (!bouton) return;
+      bouton.disabled = desactive;
+      bouton.classList.toggle('touche-payante', payante && !etat.enAttente);
     });
   }
 

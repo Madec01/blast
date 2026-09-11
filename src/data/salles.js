@@ -29,3 +29,21 @@ export const SALLES = [
 ];
 export const ORDRE_PHASE1 = ['vestibule', 'puits', 'maree', 'tempete', 'pendule'];
 export const RECHARGE_JAUGE = 6; // taille de groupe qui rend +1 rotation
+
+/**
+ * Quand la grille retombe et se remplit (D12, retour de Martin 2026-09-11 : « la grille se remplit
+ * constamment de nouvelles boules, ça rend le retournement complètement inutile »). Une grille pleine
+ * ne bouge pas quand on la tourne : il faut des trous au moment de la rotation.
+ *   continue : chute + remplissage après chaque coup (règle d'origine : la rotation ne déplace rien)
+ *   mixte    : chute après chaque coup, les nouvelles billes n'entrent qu'à la rotation
+ *   collante : les trous restent ; tout retombe et se remplit à la rotation (§7.2 « Gravité collante »)
+ * Priorité : options.gravite (mode Test) > regles.gravite (salle) > MODE_GRAVITE_DEFAUT.
+ */
+export const MODES_GRAVITE = {
+  continue: { nom: 'Continue', desc: 'Chute et remplissage à chaque coup (règle d’origine).', chuteAuTap: true, remplissageAuTap: true },
+  mixte: { nom: 'Mixte', desc: 'Chute à chaque coup ; les nouvelles billes n’entrent qu’à la rotation.', chuteAuTap: true, remplissageAuTap: false },
+  collante: { nom: 'Collante', desc: 'Les trous restent ; tout retombe et se remplit à la rotation.', chuteAuTap: false, remplissageAuTap: false },
+};
+export const MODE_GRAVITE_DEFAUT = 'collante';
+/** À jauge vide : 'coup' = la rotation coûte un coup (D13), 'refus' = refusée (règle d'origine). */
+export const ROTATION_HORS_JAUGE = 'coup';

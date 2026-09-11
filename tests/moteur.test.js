@@ -36,8 +36,16 @@ test('groupe : flood fill orthogonal de même couleur', () => {
   assert.deepEqual(groupe(g, 6).sort(), [6, 7, 8]);
 });
 
-test('run : un tap détruit un groupe, décrémente les coups, la grille reste pleine', () => {
-  const run = creerRun({ seed: 42 });
+/** Joue le premier tap possible (répond d'abord à un choix de niveau en attente). */
+function premierTap(run) {
+  const e = run.etat;
+  if (e.enAttente?.type === 'niveau') run.choisir(e.enAttente.propositions[0].id);
+  for (let y = 0; y < e.grille.h; y++) for (let x = 0; x < e.grille.w; x++) if (run.peutTaper(x, y)) return run.tap(x, y);
+  return [];
+}
+
+test('run : un tap détruit un groupe, décrémente les coups ; en gravité continue la grille reste pleine', () => {
+  const run = creerRun({ seed: 42, options: { gravite: 'continue' } });
   const e = run.etat;
   const coups = e.coups;
   let joue = false;
@@ -51,15 +59,76 @@ test('run : un tap détruit un groupe, décrémente les coups, la grille reste p
   assert.ok(e.grille.cellules.every((c) => c !== null));
 });
 
-test('run : rotation consomme la jauge et change la gravité ; refusée à jauge 0', () => {
-  const run = creerRun({ seed: 3, options: { jauge: 1 } });
+test('run : rotation consomme la jauge et change la gravité ; à jauge 0 elle coûte un coup (D13)', () => {
+  const run = creerRun({ seed: 3, options: { jauge: 1, gravite: 'continue' } });
   const e = run.etat;
   assert.equal(e.jauge, 1);
   const ev = run.tourner(1);
-  assert.ok(ev.some((v) => v.t === 'rotation' && v.vers === 1));
+  assert.ok(ev.some((v) => v.t === 'rotation' && v.vers === 1 && !v.enCoups));
   assert.equal(e.jauge, 0);
-  assert.equal(run.tourner(1).length, 0);
+  const coups = e.coups;
+  assert.ok(run.peutTourner(1));
+  const ev2 = run.tourner(1);
+  assert.ok(ev2.some((v) => v.t === 'rotation' && v.vers === 2 && v.enCoups === 1));
+  assert.equal(e.coups, coups - 1);
+  assert.equal(e.jauge, 0);
   assert.ok(e.grille.cellules.every((c) => c !== null));
+});
+
+test('gravité collante (défaut, D12) : les trous restent après un tap ; tout retombe et se remplit à la rotation', () => {
+  const run = creerRun({ seed: 42 });
+  const e = run.etat, g = e.grille;
+  assert.equal(e.modeGravite, 'collante');
+  const tap = premierTap(run);
+  const detruites = tap.filter((v) => v.t === 'detruit').reduce((n, v) => n + v.cellules.length, 0);
+  assert.ok(detruites >= 2);
+  assert.ok(!tap.some((v) => v.t === 'chute' || v.t === 'remplissage'), 'ni chute ni remplissage au tap');
+  assert.equal(g.cellules.filter((c) => c === null).length, detruites);
+  const rot = run.tourner(1);
+  assert.ok(rot.some((v) => v.t === 'chute') && rot.some((v) => v.t === 'remplissage'));
+  assert.ok(g.cellules.every((c) => c !== null));
+});
+
+test('gravité mixte : chute après le tap sans remplissage, les trous sont côté haut visuel', () => {
+  const run = creerRun({ seed: 42, options: { gravite: 'mixte' } });
+  const e = run.etat, g = e.grille;
+  const tap = premierTap(run);
+  assert.ok(!tap.some((v) => v.t === 'remplissage'));
+  assert.ok(g.cellules.some((c) => c === null));
+  for (let x = 0; x < g.w; x++) {
+    let vu = false;
+    for (let y = 0; y < g.h; y++) { const c = g.cellules[y * g.w + x]; if (c) vu = true; else assert.ok(!vu, `trou sous une bille en (${x},${y})`); }
+  }
+  run.tourner(-1);
+  assert.ok(g.cellules.every((c) => c !== null));
+});
+
+test('aperçu de rotation : prédit exactement la chute et le remplissage, sans modifier l’état', () => {
+  const run = creerRun({ seed: 7 });
+  premierTap(run); premierTap(run); premierTap(run);
+  const e = run.etat;
+  const avant = JSON.stringify(e.grille.cellules), rngAvant = run.ctx.rng.etat;
+  const ap = run.apercuRotation(1);
+  assert.equal(JSON.stringify(e.grille.cellules), avant); assert.equal(run.ctx.rng.etat, rngAvant);
+  assert.equal(ap.gravite, 1);
+  assert.ok(ap.deplacements.length > 0 && ap.entrees.length > 0);
+  assert.ok(ap.entrees.every((c) => c.couleur === null), 'couleurs inconnues sans Prévoyance');
+  const ev = run.tourner(1);
+  const chute = ev.filter((v) => v.t === 'chute').flatMap((v) => v.deplacements);
+  const remplissage = ev.filter((v) => v.t === 'remplissage').flatMap((v) => v.cellules);
+  const cle = (d) => `${d.id}:${d.vers.x},${d.vers.y}`;
+  assert.deepEqual(new Set(chute.map(cle)), new Set(ap.deplacements.map(cle)));
+  assert.deepEqual(new Set(remplissage.map((c) => `${c.x},${c.y}`)), new Set(ap.entrees.map((c) => `${c.x},${c.y}`)));
+});
+
+test('aperçu de rotation : avec Prévoyance, les couleurs des entrées sont celles de la file', () => {
+  const run = creerRun({ seed: 7, competences: ['prevoyance'] });
+  premierTap(run); premierTap(run);
+  const ap = run.apercuRotation(2);
+  const ev = run.tourner(2);
+  const remplissage = ev.filter((v) => v.t === 'remplissage').flatMap((v) => v.cellules);
+  const parCase = new Map(remplissage.map((c) => [`${c.x},${c.y}`, c.couleur]));
+  for (const c of ap.entrees) assert.equal(c.couleur, parCase.get(`${c.x},${c.y}`));
 });
 
 test('sérialisation : même seed, même journal ; recharger reproduit la suite', () => {

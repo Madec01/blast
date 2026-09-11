@@ -1,5 +1,5 @@
 // Panneau Mode Test : configuration d'une salle isolée (salle, compétences,
-// seed, difficulté, couleurs, jauge) pour prototyper sans jouer tout le run.
+// seed, difficulté, couleurs, jauge, gravité) pour prototyper sans jouer tout le run.
 export function creerTest(conteneur, actions) {
   conteneur.classList.add('couche-test');
   conteneur.innerHTML = '';
@@ -98,6 +98,15 @@ export function creerTest(conteneur, actions) {
   });
   champ('Jauge initiale', inputJauge, valJauge, labelJaugeDefaut);
 
+  // --- Gravité : quand la grille retombe et se remplit (D12) ---
+  const selectGravite = document.createElement('select');
+  const descGravite = document.createElement('span');
+  descGravite.className = 'test-aide';
+  selectGravite.addEventListener('change', () => {
+    descGravite.textContent = selectGravite.selectedOptions[0]?.dataset.desc ?? '';
+  });
+  champ('Gravité', selectGravite, descGravite);
+
   // --- Pied : Lancer / Retour ---
   const pied = document.createElement('div');
   pied.className = 'test-pied';
@@ -125,6 +134,7 @@ export function creerTest(conteneur, actions) {
       difficulte: Number(inputDifficulte.value),
       couleurs: selectCouleurs.value ? Number(selectCouleurs.value) : null,
       jauge: caseJaugeDefaut.checked ? null : Number(inputJauge.value),
+      gravite: selectGravite.value || null,
     });
   });
 
@@ -133,8 +143,19 @@ export function creerTest(conteneur, actions) {
   conteneur.appendChild(panneau);
 
   return {
-    // config = { salles:[{id,nom}], competences:[{id,nom,rarete}] } (§7 CONTRATS).
+    // config = { salles:[{id,nom}], competences:[{id,nom,rarete}], modesGravite:[{id,nom,desc}], graviteDefaut } (§7 CONTRATS).
     afficher(config) {
+      selectGravite.innerHTML = '';
+      (config?.modesGravite ?? []).forEach((mode) => {
+        const option = document.createElement('option');
+        option.value = mode.id;
+        option.textContent = mode.nom + (mode.id === config.graviteDefaut ? ' (jeu normal)' : '');
+        option.dataset.desc = mode.desc ?? '';
+        selectGravite.appendChild(option);
+      });
+      if (config?.graviteDefaut) selectGravite.value = config.graviteDefaut;
+      descGravite.textContent = selectGravite.selectedOptions[0]?.dataset.desc ?? '';
+
       selectSalle.innerHTML = '';
       (config?.salles ?? []).forEach((salle) => {
         const option = document.createElement('option');

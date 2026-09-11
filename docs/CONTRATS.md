@@ -2,8 +2,11 @@
 
 Référence pour tous les modules et agents. Un module ne dépend que de ce qui est écrit ici.
 Décisions actées (2026-09-11) : gravité mobile sur données fixes ; remplissage par le haut visuel ;
-rotation payée par une **jauge** séparée des coups ; seuils de spéciales 4/6/8/10 ; Canvas 2D maison,
-Web Audio maison, aucune dépendance à l'exécution.
+rotation payée par une **jauge** séparée des coups (à jauge vide, elle coûte un coup — D13) ; seuils de spéciales 4/6/8/10 ;
+Canvas 2D maison, Web Audio maison, aucune dépendance à l'exécution.
+**Gravité collante par défaut (D12)** : un tap ne fait ni tomber ni remplir ; chute et remplissage n'ont lieu qu'après
+une rotation. `MODES_GRAVITE` (src/data/salles.js) : `collante` (défaut), `mixte` (chute au tap, remplissage à la rotation),
+`continue` (chute et remplissage à chaque coup). Priorité : `options.gravite` > `salle.regles.gravite` > `MODE_GRAVITE_DEFAUT`.
 
 ## 1. Conventions de grille
 
@@ -53,19 +56,21 @@ Encre `#1d1b3a` · ciel `#38b6ff`/`#8fe1ff` · champ du plateau `#3a2f8f`/`#2b22
 
 ```js
 import { creerRun, chargerRun } from './moteur/run.js';
-const run = creerRun({ seed:123, salles?:['vestibule',...], competences?:[], difficulte?:1, options?:{} });
+const run = creerRun({ seed:123, salles?:['vestibule',...], competences?:[], difficulte?:1, options?:{ couleurs?, jauge?, gravite? } });
 run.etat            // objet sérialisable, lecture seule pour les autres modules
 run.tap(x, y)       // → evenements[]  ([] si action refusée)
 run.tourner(sens)   // → evenements[]
 run.choisir(id)     // répond à etat.enAttente ('niveau' → id d'effet, 'competence' → id ou null pour passer, 'finSalle' → null)
 run.groupeA(x, y)   // → [{x,y}] groupe tapable contenant (x,y), [] sinon
 run.peutTaper(x,y), run.peutTourner(sens)   // booléens (faux si enAttente non nul)
+run.apercuRotation(sens)   // télégraphe, pur : { sens, gravite, deplacements:[{id,de,vers}], entrees:[{x,y,couleur|null,depuis}], eclatent:[{id,x,y}] } ; null si enAttente
+                           // couleur des entrées connue seulement avec Prévoyance (file prochainesEntrees)
 run.serialiser()    // → string JSON ;  chargerRun(json) → run
 ```
 
 `etat` (extrait) :
 ```js
-{ seed, salleIndex, salle:{id,nom,type,...}, grille:{w,h,forme,cellules}, gravite,
+{ seed, salleIndex, salle:{id,nom,type,...}, grille:{w,h,forme,cellules}, gravite, modeGravite:'collante'|'mixte'|'continue',
   coups, coupsMax, jauge, jaugeMax, tour, xpSalle, niveau, xpTotale,
   objectif:{type:'score'|'couleur'|'ballons'|'pierres', cible, progres, couleur?},
   competences:[ids], effetsActifs:[{id,nom,restant}], prochainesEntrees:[couleurs],
@@ -87,7 +92,7 @@ Liste ordonnée ; le rendu la joue séquentiellement, l'UI et l'audio y réagiss
 | `speciale` | `x,y,id,type` | la bille `id` devient spéciale `type` |
 | `conversion` | `cellules:[{x,y,id,couleur}]` | couleurs changées (propagation, domino, teinte) |
 | `element` | `x,y,id,type,activations,max,action:'activation'\|'eclate'\|'libere'\|'fusee'\|'monte'` | un élément réagit |
-| `rotation` | `de,vers,sens,auto` | le plateau tourne (auto = imposé par la salle) |
+| `rotation` | `de,vers,sens,auto,enCoups` | le plateau tourne (auto = imposé par la salle ; enCoups = coups payés à jauge vide, D13) |
 | `chute` | `deplacements:[{id,de:{x,y},vers:{x,y}}]` | résultat de la gravité ; ordre quelconque, tout est simultané |
 | `remplissage` | `cellules:[{id,x,y,couleur,type,depuis:{x,y}}]` | nouvelles billes ; `depuis` = case virtuelle hors plateau d'où elles entrent |
 | `maree` | `deplacements:[…], entrees:[…], sorties:[{id,x,y}]` | une ligne pousse tout contre la gravité |
@@ -111,14 +116,15 @@ rendu.synchroniser(etat)          // reconstruit tous les sprites depuis etat (d
 await rendu.jouer(evenements, { audio })   // anime la séquence ; appelle audio.jouer(...) aux bons moments ; résout à la fin
 rendu.enAnimation                 // booléen
 rendu.surligner([{x,y}])          // halo sur un groupe (survol souris) ; [] pour effacer
-rendu.previsualiserRotation(sens|null)   // optionnel : fantôme de la chute
+rendu.previsualiserRotation(apercu|null)   // télégraphe : apercu = run.apercuRotation(sens) ; null efface. rendu.apercuActif : booléen
 rendu.redimensionner()
 rendu.pause() / rendu.reprendre()  // coupe / relance la boucle d'animation (retour au menu)
 rendu.detruire()
 ```
 - Le rendu convertit pointeur → case plateau en inversant la rotation. Il ne connaît rien au moteur : il ne lit que `etat` et les événements.
 - Chute : intégrateur visuel par bille (accélération, rebond à l'arrivée avec restitution ~0.25), en unités de cases le long de `G`. Durée cible d'une chute complète ≈ 350 ms.
-- Rotation : le conteneur tourne de `sens*90°` en ≈ 380 ms (ease in-out), l'échelle s'adapte au nouveau rapport largeur/hauteur pendant la rotation.
+- Rotation : le conteneur tourne de `sens*90°` en ≈ 380 ms (ease in-out), l'échelle s'adapte au nouveau rapport largeur/hauteur pendant la rotation. La chute qui suit démarre à 70 % de la rotation ; `chute` suivi de `remplissage` jouent en parallèle (une seule attente de 350 ms).
+- Télégraphe : bande claire sur la rangée qui devient le sol, trois chevrons animés dans le sens de la nouvelle gravité, fantômes (alpha 0,75) des billes à leur point de chute — les originaux s'estompent (alpha 0,28) —, cases d'entrée en anneau pointillé (teinté si la couleur est connue). Dessiné dans le repère du plateau, sans le tourner.
 - Sprites pré-rendus par couleur sur canvas hors écran (billes cerclées, plateau), dessinés en `source-over`. Jamais de `filter` par frame. Les textes flottants et les mots de combo sont dessinés dans le canvas (police système grasse, contour encre).
 - Particules : pool fixe (≤ 800), textes flottants (≤ 16), zéro allocation par frame. Screenshake proportionnel à la taille de la salve, plafonné.
 - Icônes : `ligne` et `fusee` pointent le long de la gravité **à l'écran** (donc contre-rotation par rapport au plateau).
@@ -139,15 +145,17 @@ Interdit : son qui sonne 8-bit. Attendu : enveloppes, bruit filtré, couches, r�
 ```js
 import { creerUI } from './ui/ui.js';
 const ui = creerUI(document.getElementById('ui'), {
-  nouveauRun(), continuerRun(), lancerTest(config), tourner(sens), choisir(id), quitter(), muet(bool)
+  nouveauRun(), continuerRun(), lancerTest(config), tourner(sens), previsualiser(sens|null), choisir(id), quitter(), muet(bool)
 });
+// previsualiser : appelé par l'UI après 180 ms d'appui maintenu (ou 300 ms de survol à la souris) sur une touche de rotation, puis avec null au relâchement.
 ui.afficherMenu({ profil, runEnCours:bool })
 ui.afficherJeu()                     // masque le menu, montre le HUD
 ui.majHud(etat)                      // coups, jauge, XP/niveau, objectif, annonce, prochaines entrées (si compétence 'prevoyance')
 ui.afficherAttente(etat.enAttente)   // cartes de choix (niveau / compétence), écran de fin de salle, écran de fin de run
 ui.masquerAttente()
 ui.message(texte)                    // toast
-ui.afficherTest(config)              // panneau mode Test : salle, compétences, seed, difficulté, couleurs, jauge
+ui.afficherTest(config)              // panneau mode Test : salle, compétences, seed, difficulté, couleurs, jauge, gravité
+                                     // config = { salles, competences, modesGravite:[{id,nom,desc}], graviteDefaut }
 ```
 Le panneau Test reçoit les listes depuis `src/data/*.js` (salles, compétences) pour construire ses menus.
 

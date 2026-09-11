@@ -12,15 +12,17 @@ npm run dev        # http://localhost:5174
 npm run build      # dist/ à servir en statique (aucun appel réseau à l'exécution)
 ```
 
-- Tap / clic sur un groupe ≥ 2 billes. Une spéciale seule se tape aussi.
-- ⟲ ⟳ ↻ (ou Q / D / S, flèches) : rotation 90° gauche, 90° droite, 180°. Chaque rotation consomme la jauge ; un groupe de 6+ en rend une.
-- Mode Test depuis le menu : salle, compétences, seed, difficulté, couleurs, jauge.
+- Tap / clic sur un groupe ≥ 2 billes. Une spéciale seule se tape aussi. Les trous restent.
+- ⟲ ⟳ ↻ (ou Q / D / S, flèches) : rotation 90° gauche, 90° droite, 180°. Tout retombe et se remplit à la rotation.
+  Chaque rotation consomme la jauge ; un groupe de 6+ en rend une ; à jauge vide, elle coûte un coup.
+  Appui maintenu (ou survol) sur une touche : aperçu de la chute avant de tourner.
+- Mode Test depuis le menu : salle, compétences, seed, difficulté, couleurs, jauge, gravité (collante / mixte / continue).
 
 ## Développement
 
 ```
 npm test           # tests du moteur (node --test)
-npm run sim        # simulateur headless, statistiques d'équilibrage (--runs, --seed, --competences, --politique)
+npm run sim        # simulateur headless, statistiques d'équilibrage (--runs, --seed, --competences, --politique gourmande|aleatoire|avisee, --gravite)
 npm run smoke      # build + Chromium headless + scénario joué ; --shot pour des captures
 node tools/seuils.mjs   # distribution des tailles de groupes
 ```
