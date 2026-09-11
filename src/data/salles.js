@@ -23,12 +23,18 @@ export const SALLES = [
   { id: 'pendule', nom: 'Le Pendule', type: 'boss', acteMin: 1,
     desc: 'Un quart de tour à chaque tour, en balancier. Tiens jusqu’au score.',
     grille: { w: 8, h: 10 }, couleurs: 5, coups: 30, jauge: 3,
-    objectif: { type: 'score', cible: 1200 },
+    objectif: { type: 'score', cible: 1800 },
     elements: [{ type: 'ballon', n: 2 }, { type: 'bulle', n: 2 }, { type: 'fusee', n: 1 }, { type: 'pierre', n: 4 }],
     regles: { rotationAuto: 'pendule', ballons: { min: 1 } } },
 ];
 export const ORDRE_PHASE1 = ['vestibule', 'puits', 'maree', 'tempete', 'pendule'];
 export const RECHARGE_JAUGE = 6; // taille de groupe qui rend +1 rotation
+/**
+ * Renfort (règle de Martin, 2026-09-11) : dès que le nombre de billes passe sous `seuil` (fraction des cases
+ * de la grille), chaque tap fait entrer entre `min` et `max` billes au hasard. Surcharge par salle : `regles.renfort`
+ * ({seuil, min, max} ou null pour désactiver).
+ */
+export const RENFORT = { seuil: 0.4, min: 2, max: 5 };
 
 /**
  * Quand la grille retombe et se remplit (D12, retour de Martin 2026-09-11 : « la grille se remplit

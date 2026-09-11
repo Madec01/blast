@@ -1,11 +1,11 @@
 // Un tour de jeu : tap ou rotation → destructions → chute → remplissage → règles de salle → niveau → objectif.
 import { idx, coord, groupe, estTapable, existeCoup, nouvelleBille, nouvellePierre, nouvelElement, compter } from './grille.js';
 import { tourner as tournerGravite, colonnes, vecteur } from './gravite.js';
-import { appliquerGravite, remplir, maree } from './chute.js';
+import { appliquerGravite, remplir, maree, renforcer } from './chute.js';
 import { resoudre } from './speciales.js';
 import { monteeBallons } from './elements.js';
 import { SEUILS, ORDRE_SPECIALES } from '../data/speciales.js';
-import { RECHARGE_JAUGE, MODES_GRAVITE, ROTATION_HORS_JAUGE } from '../data/salles.js';
+import { RECHARGE_JAUGE, MODES_GRAVITE, ROTATION_HORS_JAUGE, RENFORT } from '../data/salles.js';
 import { SEUILS_NIVEAU, NIVEAU_MAX, proposerEffets, expirerEffets } from './progression.js';
 
 /** File des prochaines entrées : couleurs pré-tirées (visibles avec Prévoyance et dans l'aperçu de rotation). */
@@ -212,9 +212,25 @@ export function verifierFin(ctx) {
   }
 }
 
+/** Renfort : sous le seuil de billes, chaque tap fait tomber min..max billes au hasard dans la grille. */
+function appliquerRenfort(ctx) {
+  const e = ctx.etat, g = ctx.grille;
+  const regle = e.salle.regles.renfort === undefined ? RENFORT : e.salle.regles.renfort;
+  if (!regle) return;
+  const cases = g.forme.reduce((n, f) => n + f, 0);
+  if (compter(g, (c) => c.type === 'bille') >= Math.round(regle.seuil * cases)) return;
+  const n = regle.min + ctx.rng.entier(regle.max - regle.min + 1);
+  const entrees = renforcer(g, e.gravite, n, ctx.rng, () => tirerEntree(ctx));
+  if (!entrees.length) return;
+  if (!ctx.memo['renfort:' + e.salleIndex]) { ctx.memo['renfort:' + e.salleIndex] = 1; ctx.emettre({ t: 'message', texte: 'Renfort : des billes arrivent' }); }
+  ctx.emettre({ t: 'remplissage', cellules: entrees, renfort: true });
+  ctx.bus.emettre('remplissage', ctx, { cellules: entrees, renfort: true });
+}
+
 export function finDeTour(ctx, { rotation = false } = {}) {
   const e = ctx.etat;
   retomber(ctx, { rotation });
+  if (!rotation) appliquerRenfort(ctx);
   e.tour++;
   appliquerMaree(ctx);
   appliquerRotationAuto(ctx);

@@ -77,6 +77,7 @@ Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 
 ## Bugs
 
+- [x] (règle) Renfort : sous 40 % de billes, 2 à 5 billes par tap, au hasard. Boss remonté à 1 800 points (2026-09-11).
 - [x] (bloquant, retour de Martin) Mauvaise lecture de la règle : la grille ne doit **jamais** se remplir de l'extérieur. Mode `vide` par défaut, objectifs et seuils de niveau recalés au simulateur (2026-09-11).
 - [x] (bloquant, retour de Martin) La grille se remplissait à chaque coup : une grille pleine ne bouge pas, la rotation ne servait à rien (sim : 0,3 bille déplacée par rotation). Gravité collante par défaut, D12 (2026-09-11).
 - [x] (important) Rendu : la boucle rAF tournait après retour au menu — `pause()`/`reprendre()` appelés par main.js (audit code, 2026-09-11).
@@ -112,6 +113,7 @@ Agent idées 2026-09-11 (18 idées dans `docs/IDEES.md`), son Top 5 :
 
 ## Fait
 
+- 2026-09-11 — Renfort (règle de Martin) : la grille se vide mais reçoit 2 à 5 billes par tap sous 40 % ; bot avisé 100 / 100 / 99 / 75 / ~90 %, gourmand 79 / 54 / 91 / 84 / ~80 %.
 - 2026-09-11 — Règle de Martin appliquée : rien n'entre dans la grille (mode `vide`), objectif « billes », condition de blocage réelle (simulation des 3 rotations), rééquilibrage : bot avisé 100 / 96 / 97 / 52 / 60 %, bot gourmand 67 / 44 / 98 / 79 / 71 %.
 - 2026-09-11 — Retour de Martin appliqué : gravité collante (D12), rotation payée en coup à jauge vide (D13), télégraphe de rotation, chute ∥ remplissage. Sim comparée sur 200 runs × 3 modes, 12 tests, fumée verte, build 435 Ko.
 - 2026-09-11 — Phase 1 jouable : rendu Cartoon pop + juice, UI bonbon, audits code et gameplay appliqués, build 412 Ko avec sourcemaps, zéro réseau.

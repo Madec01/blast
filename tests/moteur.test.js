@@ -157,6 +157,27 @@ test('sérialisation : même seed, même journal ; recharger reproduit la suite'
   assert.equal(JSON.stringify(jouer(a)), JSON.stringify(jouer(c)));
 });
 
+test('renfort : sous le seuil de billes, chaque tap fait entrer 2 à 5 billes au hasard, posées sur la pile', async () => {
+  const run = creerRun({ seed: 21 });
+  const e = run.etat, g = e.grille;
+  const seuil = Math.round(0.4 * g.cellules.length);
+  // On vide artificiellement la grille jusqu'à passer sous le seuil, en gardant la compaction (on retire par le haut).
+  for (let i = 0; i < g.cellules.length && g.cellules.filter((c) => c).length > seuil - 3; i++) g.cellules[i] = null;
+  const dep = run.ctx.etat.gravite; void dep;
+  const ev = premierTap(run);
+  const renfort = ev.filter((v) => v.t === 'remplissage' && v.renfort).flatMap((v) => v.cellules);
+  assert.ok(renfort.length >= 2 && renfort.length <= 5, 'entre 2 et 5 billes, reçu ' + renfort.length);
+  for (const c of renfort) assert.ok(g.cellules[c.y * g.w + c.x] && g.cellules[c.y * g.w + c.x].id === c.id, 'la bille est bien posée à la case annoncée');
+  // Grille compactée : rien ne flotte.
+  const { colonnes } = await import('../src/moteur/gravite.js');
+  for (const col of colonnes(g.w, g.h, e.gravite)) for (let i = 0; i < col.length - 1; i++) {
+    const c = g.cellules[col[i]];
+    if (c && !(c.type === 'element' && c.element.type === 'ballon')) assert.notEqual(g.cellules[col[i + 1]], null, 'bille en l’air');
+  }
+  const ev2 = premierTap(run);
+  assert.ok(ev2.some((v) => v.t === 'remplissage' && v.renfort), 'le renfort revient à chaque tap sous le seuil');
+});
+
 test('spéciale : un groupe ≥ 4 crée une bombe sur la case tapée', () => {
   const run = creerRun({ seed: 5 });
   const e = run.etat, g = e.grille;

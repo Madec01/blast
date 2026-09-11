@@ -53,6 +53,32 @@ export function remplir(g, gravite, tirer) {
 }
 
 /**
+ * Renfort : `n` billes entrent par le haut visuel dans des colonnes tirées au hasard (avec remise) et
+ * se posent directement sur la pile (la grille doit être compactée). Colonnes pleines ignorées.
+ * Renvoie les entrées au même format que remplir().
+ */
+export function renforcer(g, gravite, n, rng, tirer) {
+  const entrees = [];
+  const [gx, gy] = vecteur(gravite);
+  const cols = colonnes(g.w, g.h, gravite).filter((col) => g.forme[col[0]] === 1 && g.cellules[col[0]] === null);
+  const empiles = new Map(); // colonne → nombre de billes déjà entrées dans cette salve (pour l'animation en pile)
+  for (let k = 0; k < n && cols.length; k++) {
+    const ci = rng.entier(cols.length), col = cols[ci];
+    let i = 0;
+    while (i < col.length && g.forme[col[i]] === 1 && g.cellules[col[i]] === null) i++;
+    const cible = col[i - 1];
+    const c = tirer();
+    g.cellules[cible] = c;
+    const nb = (empiles.get(col) ?? 0) + 1; empiles.set(col, nb);
+    const p = pos(g, cible), haut = pos(g, col[0]);
+    entrees.push({ id: c.id, x: p.x, y: p.y, couleur: c.couleur, type: c.type, speciale: c.speciale,
+      depuis: { x: haut.x - gx * nb, y: haut.y - gy * nb } });
+    if (g.cellules[col[0]] !== null) cols.splice(ci, 1); // colonne pleine
+  }
+  return entrees;
+}
+
+/**
  * Marée : une ligne entre par le bas (côté G) et pousse toute la colonne d'une case vers le haut.
  * La cellule du haut sort du plateau. Renvoie {deplacements, entrees, sorties}.
  */

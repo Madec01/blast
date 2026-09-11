@@ -96,7 +96,7 @@ Liste ordonnée ; le rendu la joue séquentiellement, l'UI et l'audio y réagiss
 | `element` | `x,y,id,type,activations,max,action:'activation'\|'eclate'\|'libere'\|'fusee'\|'monte'` | un élément réagit |
 | `rotation` | `de,vers,sens,auto,enCoups` | le plateau tourne (auto = imposé par la salle ; enCoups = coups payés à jauge vide, D13) |
 | `chute` | `deplacements:[{id,de:{x,y},vers:{x,y}}]` | résultat de la gravité ; ordre quelconque, tout est simultané |
-| `remplissage` | `cellules:[{id,x,y,couleur,type,depuis:{x,y}}]` | nouvelles billes ; `depuis` = case virtuelle hors plateau d'où elles entrent |
+| `remplissage` | `cellules:[{id,x,y,couleur,type,depuis:{x,y}}], renfort?:true` | nouvelles billes ; `depuis` = case virtuelle hors plateau d'où elles entrent ; `renfort` = billes tombées au hasard sous le seuil (règle Renfort) |
 | `maree` | `deplacements:[…], entrees:[…], sorties:[{id,x,y}]` | une ligne pousse tout contre la gravité |
 | `xp` | `gain,xpSalle,niveau,multiplicateur` | XP gagnée |
 | `niveau` | `niveau,propositions` | montée de niveau ; `etat.enAttente` est posé |
