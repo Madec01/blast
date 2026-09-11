@@ -14,6 +14,7 @@ function texteObjectif(objectif) {
     case 'couleur': return `${progres} / ${cible}`;
     case 'ballons': return `Ballons ${progres} / ${cible}`;
     case 'pierres': return `Pierres ${progres} / ${cible}`;
+    case 'billes':  return `Billes ${progres} / ${cible}`;
     default:        return `${progres} / ${cible}`;
   }
 }
