@@ -126,7 +126,8 @@ export function creerHud(elHud) {
       }
 
       const aPrevoyance = etat.competences?.includes('prevoyance');
-      const entrees = (etat.prochainesEntrees ?? []).slice(0, 8);
+      const regles = etat.salle?.regles ?? {};
+      const entrees = regles.maree || regles.entree || etat.modeGravite !== 'vide' ? (etat.prochainesEntrees ?? []).slice(0, 8) : [];
       if (aPrevoyance && entrees.length) {
         entreesEl.hidden = false;
         entreesBilles.innerHTML = '';

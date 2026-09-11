@@ -5,6 +5,7 @@ import { tourner } from './gravite.js';
 import { appliquerGravite, remplir } from './chute.js';
 import { coord } from './grille.js';
 import { deplacerBallons } from './elements.js';
+import { MODES_GRAVITE } from '../data/salles.js';
 
 /**
  * @returns {{ sens, gravite, deplacements:[{id,de,vers}], entrees:[{x,y,couleur|null,depuis}], eclatent:[{id,x,y}] }}
@@ -24,7 +25,9 @@ export function apercuRotation(etat, sens) {
   deplacements.push(...appliquerGravite(copie, gravite));
   const file = etat.competences?.includes('prevoyance') ? etat.prochainesEntrees ?? [] : [];
   let k = 0;
-  const entrees = remplir(copie, gravite, () => ({ id: 0, type: 'bille', couleur: file[k++] ?? null, speciale: null }))
-    .map(({ x, y, couleur, depuis }) => ({ x, y, couleur, depuis }));
+  const mode = MODES_GRAVITE[etat.modeGravite];
+  const entrees = mode && mode.remplissageRotation === false ? [] // rien n'entre jamais
+    : remplir(copie, gravite, () => ({ id: 0, type: 'bille', couleur: file[k++] ?? null, speciale: null }))
+      .map(({ x, y, couleur, depuis }) => ({ x, y, couleur, depuis }));
   return { sens, gravite, deplacements, entrees, eclatent };
 }

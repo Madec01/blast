@@ -7,7 +7,7 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 ## À faire maintenant
 
 1. Martin rejoue (`npm run dev`, http://localhost:5174) avec la **gravité collante** (défaut) : les trous restent, tout retombe et se remplit à la rotation. Comparer avec « Mixte » et « Continue » via le champ *Gravité* du mode Test. Retour franc sur : la rotation sert-elle maintenant ? le tap sans chute est-il satisfaisant ? le télégraphe (appui maintenu ou survol d'une touche de rotation) est-il lisible ?
-2. Trancher D12 et D13 (appliqués provisoirement), puis D7 à D11.
+2. Trancher D13 (rotation payée en coup à jauge vide, appliquée provisoirement), puis D7 à D11.
 3. Selon le retour : rééquilibrer les salles pour la collante (bot avisé : Vestibule 81 %, Puits 52 %, proches de l'ancienne règle ; rien retouché) et revoir la jauge (116 rotations payées en coups sur 200 runs : la jauge n'est pas le facteur limitant).
 4. Polish : menu (plateau décoratif animé), écran de fin de run avec stats (spéciales créées, plus grosse chaîne, XP par salle).
 5. Profiler la boucle rAF continue (nuages) sur mobile.
@@ -18,7 +18,7 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 
 | # | Question | Ma recommandation |
 |---|---|---|
-| D12 | **Appliqué provisoirement.** Gravité *collante* par défaut : un tap laisse ses trous, tout retombe et se remplit seulement à la rotation. Alternatives dans le mode Test : *mixte* (chute au tap, remplissage à la rotation) et *continue* (règle d'origine). | Collante : c'est la seule règle où la rotation déplace toute la grille (sim : 22 billes déplacées par rotation, contre 0,3 en continue). À juger en jouant ; mixte si le tap sans chute paraît mort. |
+| D12 | **Tranchée par Martin.** Gravité *vide* : les billes tombent dans les trous à chaque coup, mais **rien n'entre jamais de l'extérieur** — la grille se vide, la rotation regroupe ce qui reste. Marée haute reste la seule source de billes (règle de salle). Modes *continue*, *mixte*, *collante* conservés dans le mode Test. | Appliquée. Objectifs recalés (Vestibule et Puits : vider N billes ; Pendule : score 1 200), seuils de niveau divisés par ~1,7. |
 | D13 | **Appliqué provisoirement.** À jauge vide, la rotation coûte un coup (pastille « −1 coup » sur les touches) au lieu d'être refusée. | Garder : sans ça, la collante bloque le joueur sans groupe. |
 | D7 | Le trou sous un ballon (il flotte et fait sol) reste vide jusqu'à la prochaine rotation. Garder ce comportement ou faire tomber le ballon comme les autres ? | Garder. En gravité collante (D12), tous les trous attendent la rotation : le point devient mineur. |
 | D8 | Audio en synthèse Web Audio (aucun fichier). Si ça sonne « 8-bit » à l'oreille de Martin, passer aux samples CC0 (Kenney) en phase 2 ? | Écouter d'abord. |
@@ -77,6 +77,7 @@ Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 
 ## Bugs
 
+- [x] (bloquant, retour de Martin) Mauvaise lecture de la règle : la grille ne doit **jamais** se remplir de l'extérieur. Mode `vide` par défaut, objectifs et seuils de niveau recalés au simulateur (2026-09-11).
 - [x] (bloquant, retour de Martin) La grille se remplissait à chaque coup : une grille pleine ne bouge pas, la rotation ne servait à rien (sim : 0,3 bille déplacée par rotation). Gravité collante par défaut, D12 (2026-09-11).
 - [x] (important) Rendu : la boucle rAF tournait après retour au menu — `pause()`/`reprendre()` appelés par main.js (audit code, 2026-09-11).
 - [x] (mineur) Rendu : une chaîne allouée par bille et par frame sans survol (audit code, 2026-09-11).
@@ -111,6 +112,7 @@ Agent idées 2026-09-11 (18 idées dans `docs/IDEES.md`), son Top 5 :
 
 ## Fait
 
+- 2026-09-11 — Règle de Martin appliquée : rien n'entre dans la grille (mode `vide`), objectif « billes », condition de blocage réelle (simulation des 3 rotations), rééquilibrage : bot avisé 100 / 96 / 97 / 52 / 60 %, bot gourmand 67 / 44 / 98 / 79 / 71 %.
 - 2026-09-11 — Retour de Martin appliqué : gravité collante (D12), rotation payée en coup à jauge vide (D13), télégraphe de rotation, chute ∥ remplissage. Sim comparée sur 200 runs × 3 modes, 12 tests, fumée verte, build 435 Ko.
 - 2026-09-11 — Phase 1 jouable : rendu Cartoon pop + juice, UI bonbon, audits code et gameplay appliqués, build 412 Ko avec sourcemaps, zéro réseau.
 - 2026-09-11 — Phase 1 : moteur complet (1 200 lignes), données, UI, audio, sim, tests. Reste le rendu et l'intégration.

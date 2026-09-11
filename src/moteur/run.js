@@ -79,6 +79,7 @@ function entrerSalle(ctx, index) {
   ctx.activesCeTour.clear();
   ctx.emettre({ t: 'salle', index, nom: def.nom });
   if (index === 0 && e.modeGravite === 'collante') ctx.emettre({ t: 'message', texte: 'Les trous restent : tourne le plateau pour tout faire retomber' });
+  if (index === 0 && e.modeGravite === 'vide') ctx.emettre({ t: 'message', texte: 'Rien n’entre : la grille se vide, tourne pour regrouper ce qui reste' });
   ctx.emettre({ t: 'coups', coups: e.coups, jauge: e.jauge });
   ctx.emettre({ t: 'objectif', progres: 0, cible: e.objectif.cible, atteint: false });
   ctx.bus.emettre('debutSalle', ctx, { salle: def });

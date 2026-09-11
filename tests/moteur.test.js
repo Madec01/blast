@@ -75,8 +75,23 @@ test('run : rotation consomme la jauge et change la gravité ; à jauge 0 elle c
   assert.ok(e.grille.cellules.every((c) => c !== null));
 });
 
-test('gravité collante (défaut, D12) : les trous restent après un tap ; tout retombe et se remplit à la rotation', () => {
+test('gravité vide (défaut) : chute au tap, rien n’entre jamais, la grille se vide et reste compactée', () => {
   const run = creerRun({ seed: 42 });
+  const e = run.etat, g = e.grille;
+  assert.equal(e.modeGravite, 'vide');
+  const total = g.cellules.filter((c) => c !== null).length;
+  const tap = premierTap(run);
+  const detruites = tap.filter((v) => v.t === 'detruit').reduce((n, v) => n + v.cellules.length, 0);
+  assert.ok(detruites >= 2);
+  assert.ok(!tap.some((v) => v.t === 'remplissage'), 'aucun remplissage au tap');
+  assert.equal(g.cellules.filter((c) => c !== null).length, total - detruites);
+  const rot = run.tourner(1);
+  assert.ok(rot.some((v) => v.t === 'rotation') && !rot.some((v) => v.t === 'remplissage'), 'aucun remplissage à la rotation');
+  assert.equal(g.cellules.filter((c) => c !== null).length, total - detruites - rot.filter((v) => v.t === 'detruit').reduce((n, v) => n + v.cellules.length, 0));
+});
+
+test('gravité collante (option, D12) : les trous restent après un tap ; tout retombe et se remplit à la rotation', () => {
+  const run = creerRun({ seed: 42, options: { gravite: 'collante' } });
   const e = run.etat, g = e.grille;
   assert.equal(e.modeGravite, 'collante');
   const tap = premierTap(run);
@@ -104,8 +119,9 @@ test('gravité mixte : chute après le tap sans remplissage, les trous sont côt
 });
 
 test('aperçu de rotation : prédit exactement la chute et le remplissage, sans modifier l’état', () => {
-  const run = creerRun({ seed: 7 });
+  const run = creerRun({ seed: 7, options: { gravite: 'collante' } });
   premierTap(run); premierTap(run); premierTap(run);
+  while (run.etat.enAttente) run.choisir(run.etat.enAttente.propositions?.[0]?.id ?? null); // un niveau peut être en attente
   const e = run.etat;
   const avant = JSON.stringify(e.grille.cellules), rngAvant = run.ctx.rng.etat;
   const ap = run.apercuRotation(1);

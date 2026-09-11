@@ -116,7 +116,7 @@ Mettre à jour ROADMAP.md et CLAUDE.md (§12 Journal) avant chaque clear.
 1. Le joueur **tape un groupe** (≥ 2 billes adjacentes orthogonalement de même couleur) → elles sont détruites, XP gagnée, éléments adjacents activés, spéciales créées si groupe ≥ seuil.
 2. **OU** le joueur **tourne le plateau** : 90° gauche, 90° droite ou 180°. Coût : 1 coup (modifiable par compétences).
 3. **Chute** : toutes les billes tombent vers le bas actuel, avec physique (accélération, léger rebond, glissement latéral possible si compétence). Les cascades (nouveaux groupes formés par la chute ne se déclenchent **pas** automatiquement — c'est un tap-blast, pas un match-3 ; par contre les spéciales qui tombent sur une explosion en cours s'enchaînent).
-4. **Remplissage** : de nouvelles billes entrent depuis le haut actuel selon les règles de la salle.
+4. **Remplissage** : **par défaut, aucun** — les billes tombent dans les trous mais ne sont jamais remplacées de l'extérieur, la grille se vide (règle de Martin, 2026-09-11). Seule une règle de salle fait entrer des billes (Marée haute : une ligne par le bas).
    > D12 (2026-09-11) : par défaut (gravité *collante*), les étapes 3 et 4 n'ont lieu qu'après une **rotation** ; un tap laisse ses trous. Sinon une grille toujours pleine ne bouge pas quand on la tourne. Modes *mixte* et *continue* conservés (§12).
 5. **Effets de fin de tour** : ruches qui pondent, marée, rotation automatique de la salle, etc.
 6. Vérifier objectif / échec.
@@ -418,6 +418,8 @@ Toutes les compétences et effets passent par un **système de hooks** central :
 | 2026-09-11 | 1 | Salles anarchiques : la rotation imposée est toujours annoncée avant l'action du joueur (Tempête tire ±1/2 au hasard, Pendule suit +1,+1,−1,−1) | Préserve le pilier 1 (prévisibilité) |
 | 2026-09-11 | 1 | Une pierre détruite par adjacence ne propage rien (ni pierres voisines, ni éléments) | Sinon un amas de pierres disparaît d'un coup (audit code) |
 | 2026-09-11 | 1 | Avidité plafonnée à 3 par salle ; Propagation verte limitée aux groupes tapés | Combo à coups infinis, XP ×10 (audit gameplay) |
+| 2026-09-11 | 1 | **Rien n'entre dans la grille** (mode `vide` par défaut) : chute au tap, jamais de remplissage ; la grille se vide et la rotation regroupe ce qui reste. Les modes continue / mixte / collante restent en mode Test | Règle centrale précisée par Martin après deux mauvaises lectures (« remplissage selon les règles de la salle ») |
+| 2026-09-11 | 1 | Objectif « billes » (vider N billes) ; seuils de niveau [0,100,250,450,700,1000,1350,…] | ~1 000 XP par salle sans remplissage |
 | 2026-09-11 | 1 | Compétence *Coup de trop* reformulée : « à 0 coup, un dernier tap gratuit (une fois par salle) » | Avec la jauge, une rotation gratuite à 0 coup ne servait à rien |
 | 2026-09-11 | 1 | **D12** : gravité *collante* par défaut — un tap ne fait ni tomber ni remplir, tout retombe et se remplit à la rotation. Modes *continue* (règle d'origine) et *mixte* (chute au tap, remplissage à la rotation) conservés dans le moteur (`MODES_GRAVITE`) et le mode Test | Retour de Martin après sa partie : « la grille se remplit constamment, ça rend le retournement inutile ». Une grille pleine ne bouge pas : sim, 0,3 bille déplacée par rotation en continue, 22 en collante. Provisoire, à confirmer en jouant |
 | 2026-09-11 | 1 | **D13** : à jauge vide, la rotation coûte un coup (`ROTATION_HORS_JAUGE`) au lieu d'être refusée | Sans ça la collante bloque le joueur sans groupe. Pastille « −1 coup » sur les touches |

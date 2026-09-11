@@ -33,10 +33,21 @@ export function retomber(ctx, { rotation = false } = {}) {
     if (dep.length) ctx.emettre({ t: 'chute', deplacements: dep });
     ctx.bus.emettre('apresChute', ctx, { deplacements: dep });
   }
-  if (rotation || mode.remplissageAuTap) {
+  if ((rotation && mode.remplissageRotation !== false) || mode.remplissageAuTap) {
     const entrees = remplir(g, gr, () => tirerEntree(ctx));
     if (entrees.length) { ctx.emettre({ t: 'remplissage', cellules: entrees }); ctx.bus.emettre('remplissage', ctx, { cellules: entrees }); }
   }
+}
+
+/** Une rotation (n'importe laquelle) ferait-elle apparaître un groupe tapable ? Simulé sur une copie. */
+export function rotationUtile(ctx) {
+  const g = ctx.grille;
+  for (const sens of [1, -1, 2]) {
+    const copie = { w: g.w, h: g.h, forme: g.forme, cellules: g.cellules.slice(), prochainId: g.prochainId };
+    appliquerGravite(copie, tournerGravite(ctx.etat.gravite, sens));
+    if (existeCoup(copie)) return true;
+  }
+  return false;
 }
 
 export function detruire(ctx, indices, cause = 'effet') {
@@ -192,7 +203,11 @@ export function verifierFin(ctx) {
     if (e.coups <= 0) { finirSalle(ctx, false, 'coups'); return; }
   }
   if (!existeCoup(ctx.grille)) {
-    if (e.jauge > 0 || (ROTATION_HORS_JAUGE === 'coup' && e.coups > 0)) ctx.emettre({ t: 'message', texte: 'Plus aucun groupe : tourne le plateau' });
+    const peutTourner = e.jauge > 0 || (ROTATION_HORS_JAUGE === 'coup' && e.coups > 0);
+    const mode = MODES_GRAVITE[e.modeGravite] ?? MODES_GRAVITE.continue;
+    if (!compter(ctx.grille, (c) => c.type === 'bille')) finirSalle(ctx, false, 'vide');
+    // Sans remplissage, tourner ne sert que si la chute recrée un groupe : sinon la salle est perdue.
+    else if (peutTourner && (mode.remplissageRotation !== false || rotationUtile(ctx))) ctx.emettre({ t: 'message', texte: 'Plus aucun groupe : tourne le plateau' });
     else finirSalle(ctx, false, 'bloque');
   }
 }

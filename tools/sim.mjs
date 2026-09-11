@@ -4,7 +4,7 @@
  *   node tools/sim.mjs                  # 200 runs, seeds 1..200
  *   node tools/sim.mjs --runs 50 --seed 7 --politique gourmande|aleatoire|avisee --competences vertige,domino
  *   (avisee : choisit le sens de rotation avec l'aperçu, comme un joueur qui lit le télégraphe)
- *   node tools/sim.mjs --gravite continue|mixte|collante   # mode de gravité (D12), défaut : celui du jeu
+ *   node tools/sim.mjs --gravite vide|continue|mixte|collante   # mode de gravité (D12), défaut : celui du jeu (vide)
  *   node tools/sim.mjs --verbose        # journal du premier run
  */
 import { creerRun } from '../src/moteur/run.js';
@@ -66,14 +66,15 @@ function agir(run, rng) {
   return null;
 }
 
+/** Invariant (modes avec chute au tap) : la grille est compactée — sous chaque cellule qui tombe, jamais de vide. */
 function verifierPleine(e) {
+  if (e.modeGravite === 'collante') return;
   const g = e.grille;
   for (const col of colonnes(g.w, g.h, e.gravite)) {
-    let sousBallon = false;
-    for (const i of col) {
-      const c = g.cellules[i];
-      if (c && c.type === 'element' && c.element.type === 'ballon') sousBallon = true;
-      else if (c === null && !sousBallon) throw new Error('case vide hors ombre de ballon, tour ' + e.tour + ' salle ' + e.salle.id);
+    for (let i = 0; i < col.length - 1; i++) {
+      const c = g.cellules[col[i]];
+      const fixe = c && c.type === 'element' && c.element.type === 'ballon';
+      if (c && !fixe && g.cellules[col[i + 1]] === null) throw new Error('bille en l\'air, tour ' + e.tour + ' salle ' + e.salle.id);
     }
   }
 }
@@ -83,7 +84,7 @@ function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = 
 const stats = { runs: 0, victoires: 0, parSalle: {}, speciales: {}, niveauxMax: [], xpTotale: 0, tours: 0, erreurs: 0,
   taps: 0, rotations: 0, rotationsPayees: 0, deplacesRotation: 0, entreesRotation: 0, trousRotation: 0 };
 const nbVides = (g) => { let n = 0; for (const c of g.cellules) if (c === null) n++; return n; };
-const salleStat = (id) => (stats.parSalle[id] ??= { jouees: 0, gagnees: 0, xp: 0, niveau: 0, coupsRestants: 0, raisons: {} });
+const salleStat = (id) => (stats.parSalle[id] ??= { jouees: 0, gagnees: 0, xp: 0, niveau: 0, coupsRestants: 0, restantes: 0, raisons: {} });
 
 for (let s = 0; s < RUNS; s++) {
   const run = creerRun({ seed: SEED0 + s, competences: COMPETENCES, options: GRAVITE ? { gravite: GRAVITE } : {} });
@@ -108,7 +109,7 @@ for (let s = 0; s < RUNS; s++) {
         if (x.t === 'speciale') stats.speciales[x.type] = (stats.speciales[x.type] ?? 0) + 1;
         if (x.t === 'finSalle') {
           const st = salleStat(e.salle.id);
-          st.jouees++; if (x.victoire) st.gagnees++; st.xp += e.xpSalle; st.niveau += e.niveau; st.coupsRestants += e.coups;
+          st.jouees++; if (x.victoire) st.gagnees++; st.xp += e.xpSalle; st.niveau += e.niveau; st.coupsRestants += e.coups; st.restantes += e.grille.cellules.filter((c) => c && c.type === 'bille').length;
           st.raisons[x.raison] = (st.raisons[x.raison] ?? 0) + 1;
           stats.tours += e.tour;
         }
@@ -129,4 +130,4 @@ console.log(`victoires : ${stats.victoires} (${((100 * stats.victoires) / Math.m
 console.log('spéciales créées :', stats.speciales);
 console.table(Object.fromEntries(Object.entries(stats.parSalle).map(([id, s]) => [id, {
   jouees: s.jouees, 'gagnées %': ((100 * s.gagnees) / s.jouees).toFixed(0), 'xp moy': (s.xp / s.jouees).toFixed(0),
-  'niveau moy': (s.niveau / s.jouees).toFixed(1), 'coups restants': (s.coupsRestants / s.jouees).toFixed(1), raisons: JSON.stringify(s.raisons) }])));
+  'niveau moy': (s.niveau / s.jouees).toFixed(1), 'coups rest.': (s.coupsRestants / s.jouees).toFixed(1), 'billes rest.': (s.restantes / s.jouees).toFixed(0), raisons: JSON.stringify(s.raisons) }])));

@@ -1,7 +1,8 @@
 // XP et niveau en salle (§6.1). Seuils cumulés : index = niveau − 1.
 import { EFFETS } from '../data/effets.js';
 
-export const SEUILS_NIVEAU = [0, 150, 400, 750, 1200, 1750, 2400, 3200, 4100, 5200];
+// Recalés le 2026-09-11 pour ~1 000 XP par salle (la grille ne se remplit plus).
+export const SEUILS_NIVEAU = [0, 100, 250, 450, 700, 1000, 1350, 1800, 2300, 2900];
 export const NIVEAU_MAX = 7; // paliers 8-10 verrouillés en phase 1
 
 export function palierPour(niveau) { return niveau <= 3 ? 1 : niveau <= 7 ? 2 : 3; }

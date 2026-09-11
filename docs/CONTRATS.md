@@ -28,6 +28,8 @@ une rotation. `MODES_GRAVITE` (src/data/salles.js) : `collante` (défaut), `mixt
 - `tombe` : bille, pierre, bulle, fusée tombent ; **ballon ne tombe pas** (il flotte, sert de sol, monte d'une case
   contre la gravité à chaque rotation, éclate au plafond ou après 2 activations).
 
+**Règle centrale (2026-09-11)** : par défaut (`MODE_GRAVITE_DEFAUT = 'vide'`), les billes tombent dans les trous à chaque coup mais **rien n'entre jamais de l'extérieur** ; l'événement `remplissage` n'apparaît que dans les salles à règle (`maree`) ou dans les modes de Test *continue / mixte / collante*.
+
 ## 2. Style « Cartoon pop » et couleurs (src/data/couleurs.js)
 
 **Décision 2026-09-11 (remplace « Atelier », jugé trop sobre par Martin).** Référence : **Toon Blast** pour le dessin, **Candy Crush** pour le juice.

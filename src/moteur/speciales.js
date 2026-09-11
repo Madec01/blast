@@ -93,7 +93,7 @@ export function resoudre(ctx, initiale) {
         const c = g.cellules[i], [x, y] = coord(g, i);
         evt.push({ x, y, id: c.id, couleur: c.couleur, type: c.type });
         if (c.type === 'pierre') { nPierres++; if (objectif.type === 'pierres') objectif.progres++; }
-        else { nBilles++; if (objectif.type === 'couleur' && c.couleur === objectif.couleur) objectif.progres++; }
+        else { nBilles++; if (objectif.type === 'billes' || (objectif.type === 'couleur' && c.couleur === objectif.couleur)) objectif.progres++; }
         if (c.speciale && !declenchees.has(c.id)) {
           declenchees.add(c.id);
           file.push({ cellules: [...zoneSpeciale(ctx, i, c)], cause: c.speciale, origine: { x, y }, profondeur: s.profondeur + 1 });
