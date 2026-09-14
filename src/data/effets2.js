@@ -319,8 +319,9 @@ export const EFFETS_NOUVEAUX = [
     } },
 
   { id: 'mise_en_jeu', palier: 3, rarete: 'epique', famille: 'xp', risque: true, nom: 'Mise en jeu',
-    desc: '×2 XP jusqu’à la fin de la salle, mais plus aucun sursis à 0 coup.', duree: 'salle',
-    appliquer(ctx) {
+    desc: '−3 coups tout de suite et plus aucun sursis à 0 coup, mais ×2 XP jusqu’à la fin de la salle.', duree: 'salle',
+    appliquer(ctx, options = {}) {
+      if (!options.reprise) { ctx.etat.coups = Math.max(1, ctx.etat.coups - 3); ctx.emettre({ t: 'coups', coups: ctx.etat.coups, jauge: ctx.etat.jauge }); } // audit gameplay 2 : le pari était gratuit
       ctx.memo.sansFilet = true; // lu par Sursis (coups_epuises_sursis) ; Coup de trop (compétence) reste hors de portée
       ctx.bus.on('xpGain', (v) => v * 2, src('mise_en_jeu'));
     } },

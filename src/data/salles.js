@@ -19,13 +19,13 @@ export const SALLES = [
     desc: 'Le plateau tourne tout seul à chaque tour. La rotation est annoncée : oriente tes fusées.',
     grille: { w: 8, h: 10 }, couleurs: 5, coups: 24, jauge: 2,
     objectif: { type: 'ballons', cible: 4 },
-    elements: [{ type: 'ballon', n: 2 }, { type: 'fusee', n: 2 }], regles: { rotationAuto: 'tempete', ballons: { min: 2 } } },
+    elements: [{ type: 'ballon', n: 2 }, { type: 'fusee', n: 2 }], regles: { rotationAuto: 'tempete', ballons: { min: 2 }, renfort: { seuil: 0.45, min: 2, max: 5 } } },
   { id: 'pendule', nom: 'Le Pendule', type: 'boss', acteMin: 1,
     desc: 'Un quart de tour à chaque tour, en balancier. Tiens jusqu’au score.',
     grille: { w: 8, h: 10 }, couleurs: 5, coups: 30, jauge: 2,
-    objectif: { type: 'score', cible: 1800 },
+    objectif: { type: 'score', cible: 2200 }, // audit gameplay 2 : 1 800 ne filtrait rien
     elements: [{ type: 'ballon', n: 2 }, { type: 'bulle', n: 2 }, { type: 'fusee', n: 1 }, { type: 'pierre', n: 4 }],
-    regles: { rotationAuto: 'pendule', ballons: { min: 1 } } },
+    regles: { rotationAuto: 'pendule', ballons: { min: 1 }, renfort: { seuil: 0.45, min: 2, max: 5 } } },
 ];
 export const ORDRE_PHASE1 = ['vestibule', 'puits', 'maree', 'tempete', 'pendule'];
 export const RECHARGE_JAUGE = 6; // taille de groupe qui rend +1 rotation

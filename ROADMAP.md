@@ -36,6 +36,9 @@ Fait le 2026-09-14 : **Lot A** (juice du tap, ciel étoilé qui tourne, étoile 
 | D17 | **Tranchée** : fin de run + quasi-victoire + échec nommé maintenant ; défi quotidien et série **plus tard** ; règle « jamais de vies ni de timers » écrite dans CLAUDE.md. | Lot C. |
 | D18 | **Tranchée** : A → C → D → B → E, avec E1 (le ciel) juste après A. | En cours. |
 
+| D19 | Audit gameplay 2 : la relance des cartes (1 point de jauge sur 2) n'est jamais rationnelle. Baisser à « gratuite une fois par salle » ? ou creuser l'écart entre cartes ? | Une relance gratuite par salle, puis 1 jauge. |
+| D20 | Audit gameplay 2 : les effets de rotation du palier 3 (Débridé, Synchronisation, Apesanteur) sont ≤ 0 en impact. Les rendre « majeurs » (durée 3 → 5 tours, effet immédiat en plus) ? | Oui, après ta partie. |
+
 Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 
 ---
@@ -86,6 +89,7 @@ Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 
 ## Bugs
 
+- [x] (important) Audit gameplay 2 : le boss ne filtrait rien (cible 1 800 → 2 200 : bot avisé 54 % contre 74 % à Tempête) ; « Mise en jeu » était un pari gratuit (−3 coups à la prise) ; Tempête et Pendule bloquaient 1 run sur 5 (seuil de renfort 45 %) (2026-09-14).
 - [x] (règle) Renfort : sous 40 % de billes, 2 à 5 billes par tap, au hasard. Boss remonté à 1 800 points (2026-09-11).
 - [x] (bloquant, retour de Martin) Mauvaise lecture de la règle : la grille ne doit **jamais** se remplir de l'extérieur. Mode `vide` par défaut, objectifs et seuils de niveau recalés au simulateur (2026-09-11).
 - [x] (bloquant, retour de Martin) La grille se remplissait à chaque coup : une grille pleine ne bouge pas, la rotation ne servait à rien (sim : 0,3 bille déplacée par rotation). Gravité collante par défaut, D12 (2026-09-11).
