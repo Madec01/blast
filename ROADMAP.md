@@ -6,6 +6,8 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 
 ## À faire maintenant
 
+**Feuille de route web à annoter par Martin** (statut + commentaire par point, bouton Enregistrer lu par Claude) : https://claude.ai/code/artifact/0aae216f-64a0-44c3-949d-482473879eb2 — rien n'est codé avant ses réponses.
+
 1. Martin rejoue (`npm run dev`, http://localhost:5174) avec la **gravité collante** (défaut) : les trous restent, tout retombe et se remplit à la rotation. Comparer avec « Mixte » et « Continue » via le champ *Gravité* du mode Test. Retour franc sur : la rotation sert-elle maintenant ? le tap sans chute est-il satisfaisant ? le télégraphe (appui maintenu ou survol d'une touche de rotation) est-il lisible ?
 2. Trancher D13 (rotation payée en coup à jauge vide, appliquée provisoirement), puis D7 à D11.
 3. Selon le retour : rééquilibrer les salles pour la collante (bot avisé : Vestibule 81 %, Puits 52 %, proches de l'ancienne règle ; rien retouché) et revoir la jauge (116 rotations payées en coups sur 200 runs : la jauge n'est pas le facteur limitant).
@@ -27,7 +29,7 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 | D10 | Audit gameplay : seuil croix 8 → 7 (croix = 3,5 % des spéciales créées). | Attendre : à revoir avec les compétences de conversion de la phase 2. |
 | D11 | Audit gameplay : mettre fusées et ballons dès le Vestibule et le Puits pour que la rotation serve dès la première salle. | Oui, une fusée dans le Vestibule, un ballon dans le Puits. |
 
-| D14 | Contexte du jeu (recherche 2026-09-14) : Buanderie (tambour de machine à laver, décor par acte, actes = programmes de lavage), Horloger, ou autre ? | Buanderie si le décor par acte est accepté. Détail : `docs/RECHERCHE_CONTEXTE.md`, réserve dans `docs/RECHERCHE_SYNTHESE.md` §5. |
+| D14 | **Tranchée par Martin (2026-09-14)** : contexte **Carrousel cosmique** (planétarium ; le ciel étoilé tourne avec le plateau). Buanderie écartée. Détail à valider point par point dans la feuille de route web. | Appliquer après validation des points de la section 0 de la feuille web. |
 | D15 | Niveaux : 3 cartes dont 1 à risque, raretés par palier, reroll payé en jauge, `NIVEAU_MAX` 10, 25 nouveaux effets ? | Oui. `docs/RECHERCHE_NIVEAUX.md`. |
 | D16 | Assets : sprites Kenney CC0 embarqués (~150 Ko) pour halo/fumée/traînées ; aucune bibliothèque d'animation (GSAP écarté) ? | Oui / oui. `docs/RECHERCHE_VFX.md`. |
 | D17 | Boucle : défi quotidien à seed fixe (historique local), streak avec jour de grâce, écran de fin de run avec titre de build ; jamais de vies ni de timers ? | Oui, à graver dans CLAUDE.md. `docs/RECHERCHE_BOUCLE.md`. |
