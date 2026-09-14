@@ -9,6 +9,7 @@
 | Tours par salle (durée) | 16,2 | 20,8 | stable après le juice |
 | Taps par rotation | 6,4 | 0,3 | la rotation reste utile, pas décorative |
 | Rotations utiles (groupe ≥3 juste après) | 84 % | 5 % | ne pas baisser |
+| Rotations productives (moteur, F09 : groupe ≥3 plus gros qu'avant, ou un groupe ≥3 de plus) | 87 % | 5 % | ne pas baisser ; alimente la frénésie (D25) |
 | Groupe tapé moyen | 3,86 billes | 3,85 | ne pas baisser fortement |
 | Spéciales explosées / créées | 60 % | 57 % | monter (une spéciale stockée est perdue) |
 | Chaîne max moyenne par run (max) | 3,4 (6) | 2,8 (6) | monter avec les cascades |
@@ -16,6 +17,8 @@
 | XP moyenne par run | 7 396 | 4 333 | — |
 
 Mesurées le 2026-09-14 après D19, D20 et les 5 épiques de palier 3. Le ressenti (durée réelle d'une salle, juice) se mesure en jouant : Martin.
+
+Étape 1 Feel (F08, F09, hitstop — 2026-09-14 après-midi) : **toutes les lignes ci-dessus inchangées** (feel pur, aucune règle touchée) ; seule la ligne « rotations productives » est nouvelle.
 
 ## Sonde par effet (`tools/_sonde_effets.mjs`, 800 runs avisée, contrefactuel = proposé mais non pris, ±4 points)
 

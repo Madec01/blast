@@ -10,13 +10,14 @@ import { creerDessinCellule } from './dessin.js';
 import { creerSpecialesFx } from './speciales-fx.js';
 import { creerFinale } from './finale.js';
 import { COULEURS } from '../data/couleurs.js';
+import { FEEL, palierGroupe } from '../data/paliers.js';
 const HEX = COULEURS.map((c) => c.hex);
 const couleurHex = (i) => HEX[i] ?? '#8a857b';
 // durées (s) rotation/chute (§5) · accél. chute (cases/s²) · restitution au rebond · shake max (px) · marge plateau
 const DUREE_ROTATION = 0.38, DUREE_CHUTE = 0.35, GRAVITE_CASES = 78, RESTITUTION = 0.25, SHAKE_MAX = 10, MARGE = 0.94;
 const CAUSES_EXPLOSION = new Set(['bombe', 'ligne', 'croix', 'couleur', 'fusee']); // anneau d'onde de choc (§2)
-// a1 (anticipation, 80 ms, squash x1,08/y0,92 + recul) · a3 (overshoot d'atterrissage 0,10→0,14) · a4 (pulsation spéciales, 1,2 s)
-const DUREE_ANTICIPATION = 0.08, AMPLI_ANTICIPATION = 0.08, RECUL_ANTICIPATION = 0.055, AMPLI_ATTERRISSAGE = 0.14;
+// a1 (anticipation : durée, squash et recul lus dans FEEL[palier], F08) · a3 (overshoot d'atterrissage 0,10→0,14) · a4 (pulsation spéciales, 1,2 s)
+const AMPLI_ATTERRISSAGE = 0.14;
 const clamp01 = (t) => Math.max(0, Math.min(1, t)), lerp = (a, b, t) => a + (b - a) * t;
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2), easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 const attend = (ms) => new Promise((res) => setTimeout(res, ms)); // gravité en coordonnées plateau, table fixe (§1)
@@ -39,7 +40,8 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   let cellPixBase = 40, fitNormalPx = 40, fitSwapPx = 40, angleActuel = 0, echelleActuelle = 1;
   let angleTween = null; // {angleDebut,angleFin,echelleDebut,echelleFin,t,duree}
   let shakeMag = 0, shakeX = 0, shakeY = 0, tempsTotal = 0; // tempsTotal : micro-animations vivantes (sucette, étincelle)
-  let dernierDetruit = null; // position écran de la dernière salve `detruit` (pour le +XP qui suit, §2)
+  let dernierDetruit = null, dernierPalier = 0; // position écran et palier (F08) de la dernière salve `detruit` (pour le +XP qui suit, §2)
+  let hitstopRestant = 0, hitstopFait = false; // F08 : micro-pause (60-90 ms) avant une explosion 8+, au plus une par coup joué
   const surligneesSet = new Set();
   let courantAudio = null, rafId = null, dernierT = null;
   // fabrique un sprite visuel de bille à partir d'une Cellule (§1)
@@ -129,12 +131,21 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   }
   // a1 : amorce le squash + recul vers le barycentre des billes du groupe qui va être détruit
   // (avancé chaque frame dans majAnimations). Purement cosmétique : n'affecte pas le jeu.
-  function demarrerAnticipation(cellules) {
+  function demarrerAnticipation(cellules, f) {
     let sx = 0, sy = 0, n = 0; const vus = [];
     for (const c of cellules) { const bv = billes.get(c.id); if (bv) { vus.push(bv); sx += bv.x; sy += bv.y; n++; } }
     if (n === 0) return;
     const bx = sx / n, by = sy / n;
-    for (const bv of vus) { const dx = bx - bv.x, dy = by - bv.y, dist = Math.hypot(dx, dy) || 1; bv.anticip = { t: 0, duree: DUREE_ANTICIPATION, x0: bv.x, y0: bv.y, dx: dx / dist, dy: dy / dist }; }
+    for (const bv of vus) { const dx = bx - bv.x, dy = by - bv.y, dist = Math.hypot(dx, dy) || 1; bv.anticip = { t: 0, duree: f.anticipation, ampli: f.squash, recul: f.recul, x0: bv.x, y0: bv.y, dx: dx / dist, dy: dy / dist }; }
+  }
+  // F08 : gel de toutes les animations pendant `duree` s (les frames continuent d'être dessinées) — le
+  // groupe reste figé en plein pré-squash, puis explose. Une seule par appel de jouer() pour ne pas
+  // ralentir une chaîne (le ralenti de chaîne, item 5, prend le relais dès la profondeur 2).
+  async function gelerHitstop(duree) {
+    if (hitstopFait || !(duree > 0)) return;
+    hitstopFait = true; hitstopRestant = duree;
+    demarrerBoucle(); await attend(duree * 1000);
+    hitstopRestant = 0;
   }
   const declencherShake = (intensite) => { shakeMag = Math.min(SHAKE_MAX, Math.max(shakeMag, SHAKE_MAX * intensite)); };
   function majShake(dt) {
@@ -145,6 +156,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   const env = {
     billes, particules, impact, juice, sprites, couleurHex, ecran: localVersEcran, glisser: demarrerGlisse, shake: declencherShake,
     cellPix: () => cellPixBase, w: () => w, h: () => h, G: () => vecteurG(graviteCourante), cw: () => canvas.width, ch: () => canvas.height, audio: () => courantAudio,
+    squashPlateau: (amplitude) => squashPlateau.declencher(amplitude), // F08 : le plateau encaisse une explosion 8+
   };
   function dessinerFrame() {
     const plateau = sprites.plateau(); // E1/E2 : ciel étoilé tourné avec le plateau ; taille transmise pour placer la planète hors du cadre
@@ -194,8 +206,8 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
       if (bv.squash) { bv.squash.t += dt; const p = clamp01(bv.squash.t / bv.squash.duree), s = Math.sin(p * Math.PI), a = bv.squash.ampli ?? 0.1; bv.squashX = 1 + a * s; bv.squashY = 1 - a * s; if (p >= 1) { bv.squash = null; bv.squashX = 1; bv.squashY = 1; } }
       if (bv.anticip) { // a1 : squash x1,08/y0,92 + recul vers le barycentre, avant destruction
         const an = bv.anticip; an.t += dt;
-        const p = clamp01(an.t / an.duree), e = easeOutCubic(p), recul = RECUL_ANTICIPATION * e;
-        bv.squashX = 1 + AMPLI_ANTICIPATION * e; bv.squashY = 1 - AMPLI_ANTICIPATION * e;
+        const p = clamp01(an.t / an.duree), e = easeOutCubic(p), recul = an.recul * e;
+        bv.squashX = 1 + an.ampli * e; bv.squashY = 1 - an.ampli * e;
         bv.x = an.x0 + an.dx * recul; bv.y = an.y0 + an.dy * recul;
         if (p >= 1) bv.anticip = null;
       }
@@ -208,7 +220,8 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (dernierT == null) dernierT = ts;
     const rawDt = Math.min(0.05, (ts - dernierT) / 1000); dernierT = ts;
     specialesFx.maj(rawDt); finale.maj(rawDt); // item 5 : temps réel, sinon le ralenti de chaîne s'auto-prolongerait
-    majAnimations(rawDt * specialesFx.dtScale); dessinerFrame(); // le reste du jeu suit dtScale (×0,5 pendant 150 ms)
+    const gel = hitstopRestant > 0; if (gel) hitstopRestant -= rawDt; // F08 : hitstop = dt nul, l'image est tenue
+    majAnimations(gel ? 0 : rawDt * specialesFx.dtScale); dessinerFrame(); // le reste du jeu suit dtScale (×0,5 pendant 150 ms)
     if (typeof document !== 'undefined' && document.hidden) { rafId = null; return; } // repris par 'visibilitychange'
     rafId = requestAnimationFrame(tick);
   }
@@ -224,20 +237,23 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   // groupe qui va être détruit — `detruitSuivant` = l'événement `detruit` qui suit immédiatement
   // ce `tap` dans le journal (peeké par jouer()), ou null s'il n'y en a pas.
   async function surTap(evt, detruitSuivant) {
-    const ecran = localVersEcran(evt.x, evt.y);
+    const ecran = localVersEcran(evt.x, evt.y), f = FEEL[palierGroupe(evt.taille || 0)]; // F08 : 3/5/8/10+
     juice.emettreCombo(ecran.x, ecran.y, evt.taille || 0);
     if (courantAudio) courantAudio.jouer('tap', { taille: evt.taille });
     if (detruitSuivant && detruitSuivant.cellules && detruitSuivant.cellules.length) {
-      demarrerAnticipation(detruitSuivant.cellules);
-      demarrerBoucle(); await attend(DUREE_ANTICIPATION * 1000); // les `detruit` qui suivent attendent ces 80 ms
+      demarrerAnticipation(detruitSuivant.cellules, f);
+      demarrerBoucle(); await attend(f.anticipation * 1000); // les `detruit` qui suivent attendent l'anticipation (60-140 ms selon le palier)
+      await gelerHitstop(f.hitstop); // 8+ : micro-pause, le groupe tenu en plein squash, puis l'explosion
     } else demarrerBoucle();
   }
-  function surXp(evt) { // +gain à la position de la dernière salve `detruit` (§2, xp suit toujours detruit)
-    if (dernierDetruit) juice.emettreXP(dernierDetruit.x, dernierDetruit.y, evt.gain);
+  function surXp(evt) { // +gain à la position de la dernière salve `detruit` (§2, xp suit toujours detruit), taille selon son palier (F08)
+    if (dernierDetruit) juice.emettreXP(dernierDetruit.x, dernierDetruit.y - cellPixBase * (0.5 + 0.25 * dernierPalier), evt.gain, FEEL[dernierPalier].xp); // décalé au-dessus du mot de combo
     demarrerBoucle();
   }
   const GESTIONNAIRES_FX = { bombe: 'jouerBombe', ligne: 'jouerLigne', couleur: 'jouerCouleur', fusee: 'jouerFusee' }; // items 1-4 ; les autres causes sont déléguées, génériques, à jouerGenerique
   async function surDetruit(evt, combo = false) {
+    dernierPalier = palierGroupe((evt.cellules || []).length);
+    if (evt.cause !== 'groupe') await gelerHitstop(FEEL[dernierPalier].hitstop); // F08 : explosion 8+ (le tap a déjà eu la sienne dans surTap)
     if ((evt.profondeur || 0) >= 2) specialesFx.declencherChaine(evt, env); // item 5 : chaîne, quelle que soit la cause
     demarrerBoucle();
     const nomFx = GESTIONNAIRES_FX[evt.cause];
@@ -287,6 +303,24 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     demarrerBoucle(); await attend(DUREE_ROTATION * 700); // la chute qui suit démarre pendant la fin (ease-out) de la rotation
     setTimeout(() => squashPlateau.declencher(), DUREE_ROTATION * 300); // squash élastique du plateau en fin de rotation (§2)
     setTimeout(() => squashRebond.declencher(), DUREE_ROTATION * 300 + 250); // item 8 : second rebond, juste après le premier
+  }
+  // F09 : résultat d'une rotation du joueur, joué après la chute — le groupe formé pulse bille par
+  // bille, « Bon angle ! » (ou « ALIGNEMENT ! » dès 8) au barycentre, la taille en dessous. Rien si
+  // la rotation n'a rien produit : le silence est l'information.
+  async function surRotationResultat(evt) {
+    if (!evt.productive || !evt.cellules || !evt.cellules.length) return;
+    let sx = 0, sy = 0, n = 0;
+    for (const c of evt.cellules) {
+      const bv = billes.get(c.id); if (!bv) continue;
+      bv.pulse = { t: -n * 0.035, duree: 0.28 }; // t négatif = départ différé, une bille après l'autre
+      const e = localVersEcran(bv.x, bv.y); sx += e.x; sy += e.y; n++;
+    }
+    if (!n) return;
+    const cx = sx / n, cy = sy / n, grand = evt.apres >= 8;
+    juice.emettreMot(cx, cy, grand ? 'ALIGNEMENT !' : 'Bon angle !', grand ? 1.1 : 1);
+    juice.emettreInfo(cx, cy - cellPixBase * 1.05, evt.apres + ' billes', 0.5); // au-dessus du mot, monte en s'éloignant
+    if (courantAudio) courantAudio.jouer('bonAngle', { taille: evt.apres });
+    demarrerBoucle(); await attend(200 + n * 35);
   }
   function lancerChute(evt) {
     for (const d of evt.deplacements || []) {
@@ -354,6 +388,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     demarrerBoucle();
     const liste = evenements || [];
     let salvesExplosives = 0; // item 6 : combo — dès la 2e salve explosive de ce même appel de jouer()
+    hitstopFait = false; hitstopRestant = 0; // F08 : au plus un hitstop par coup joué
     const estCombo = (evt) => !!(evt.cause && CAUSES_EXPLOSION.has(evt.cause) && ++salvesExplosives >= 2);
     for (let i = 0; i < liste.length; i++) {
       const evt = liste[i], suivant = liste[i + 1];
@@ -364,6 +399,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
         case 'conversion': await surConversion(evt); break;
         case 'element': await surElement(evt); break;
         case 'rotation': await surRotation(evt); break;
+        case 'rotationResultat': await surRotationResultat(evt); break; // F09 : après la chute
         case 'chute': // chute et remplissage jouent en parallèle : une seule attente (audit gameplay, cible < 450 ms par tap)
           if (suivant && suivant.t === 'remplissage') { lancerChute(evt); await surRemplissage(suivant); i++; }
           else await surChute(evt);

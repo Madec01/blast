@@ -249,6 +249,9 @@ export function construireDetruit(ctx, { taille = 1, cause = 'pierre', profondeu
         const freq = (500 + Math.random() * 500) * ratioProfondeur * variationHauteur();
         tintementVerre(ctx, c, { tDebut: tDebut + i * 0.015, frequence: freq, duree: 0.22, niveau: 0.5 });
       }
+      // F08 : un 8+ a du poids (souffle grave), un 10+ a un sub — le son suit les paliers 3/5/8/10+ du rendu
+      if (taille >= 8) bruitFiltreEnveloppe(ctx, c, { tDebut, type: 'lowpass', freqDebut: 900, freqFin: 150, duree: 0.28, niveau: 0.3, Q: 0.8, attaque: 0.002 });
+      if (taille >= 10) oscillateurGlissant(ctx, c, { tDebut, freqDebut: 70, freqFin: 38, duree: 0.35, niveau: 0.45, type: 'sine' });
       break;
     }
     case 'bombe': {
@@ -287,6 +290,15 @@ export function construireDetruit(ctx, { taille = 1, cause = 'pierre', profondeu
 }
 
 // 'speciale' : tintement cristallin court (la réverb globale fait le reste).
+// F09 : rotation productive — deux tintements ascendants, plus hauts et plus longs si le groupe formé est grand.
+export function construireBonAngle(ctx, { taille = 3 } = {}) {
+  const c = nouvelleConstruction(ctx);
+  const t = clamp((taille - 3) / 7, 0, 1), tDebut = ctx.currentTime, v = variationHauteur();
+  tintementVerre(ctx, c, { tDebut, frequence: (520 + t * 200) * v, duree: 0.18, niveau: 0.42 });
+  tintementVerre(ctx, c, { tDebut: tDebut + 0.09, frequence: (780 + t * 320) * v, duree: 0.26 + t * 0.14, niveau: 0.5 });
+  return finaliser(c);
+}
+
 export function construireSpeciale(ctx, { type = 'defaut' } = {}) {
   const c = nouvelleConstruction(ctx);
   const freqBase = (700 + hashTypeVariation(type) * 260) * variationHauteur();

@@ -84,7 +84,7 @@ function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = 
 const stats = { runs: 0, victoires: 0, parSalle: {}, speciales: {}, niveauxMax: [], xpTotale: 0, tours: 0, salles: 0, erreurs: 0,
   taps: 0, rotations: 0, rotationsPayees: 0, rotationsUtiles: 0, deplacesRotation: 0, entreesRotation: 0, trousRotation: 0,
   // Baseline (feuille de route de Martin, étape 0) : taille des groupes, spéciales utilisées, chaîne max, premier gros moment.
-  tailleGroupes: 0, specialesExplosees: 0, chaineMaxCumul: 0, chaineMaxAbs: 0, premierGrosMoment: 0, runsAvecGrosMoment: 0 };
+  tailleGroupes: 0, specialesExplosees: 0, chaineMaxCumul: 0, chaineMaxAbs: 0, premierGrosMoment: 0, runsAvecGrosMoment: 0, rotationsProductives: 0 };
 const TYPES_SPECIALES = ['bombe', 'ligne', 'croix', 'couleur'];
 const nbVides = (g) => { let n = 0; for (const c of g.cellules) if (c === null) n++; return n; };
 const salleStat = (id) => (stats.parSalle[id] ??= { jouees: 0, gagnees: 0, xp: 0, niveau: 0, coupsRestants: 0, restantes: 0, raisons: {} });
@@ -129,6 +129,7 @@ for (let s = 0; s < RUNS; s++) {
     if (run.etat.enAttente?.victoire) stats.victoires++;
     stats.xpTotale += run.etat.xpTotale;
     const cm = run.etat.stats?.chaineMax ?? 0; stats.chaineMaxCumul += cm; if (cm > stats.chaineMaxAbs) stats.chaineMaxAbs = cm;
+    stats.rotationsProductives += run.etat.stats?.rotationsProductives ?? 0; // F09 : compteur du moteur (groupe ≥3 plus gros qu'avant, ou un de plus)
     if (grosMoment) { stats.premierGrosMoment += grosMoment; stats.runsAvecGrosMoment++; }
   } catch (err) { stats.erreurs++; console.error('seed', SEED0 + s, err.message); if (VERBOSE) console.error(err.stack); }
 }
@@ -139,7 +140,7 @@ console.log(`rotations : ${stats.rotations} pour ${stats.taps} taps (1 pour ${(s
 console.log(`victoires : ${stats.victoires} (${((100 * stats.victoires) / Math.max(1, stats.runs)).toFixed(0)} %) — XP moyenne par run ${(stats.xpTotale / Math.max(1, stats.runs)).toFixed(0)} — erreurs ${stats.erreurs}`);
 console.log('spéciales créées :', stats.speciales);
 const nbSpeciales = Object.values(stats.speciales).reduce((a, b) => a + b, 0);
-console.log(`métriques : ${(stats.tours / Math.max(1, stats.salles)).toFixed(1)} tours par salle — groupe tapé moyen ${(stats.tailleGroupes / Math.max(1, stats.taps)).toFixed(2)} billes — rotations utiles (groupe ≥3 juste après) ${((100 * stats.rotationsUtiles) / r).toFixed(0)} % — spéciales explosées / créées ${((100 * stats.specialesExplosees) / Math.max(1, nbSpeciales)).toFixed(0)} % — chaîne max moyenne par run ${(stats.chaineMaxCumul / Math.max(1, stats.runs)).toFixed(2)} (max ${stats.chaineMaxAbs}) — premier gros moment (groupe 6+ ou chaîne) au tap ${(stats.premierGrosMoment / Math.max(1, stats.runsAvecGrosMoment)).toFixed(1)} (${((100 * stats.runsAvecGrosMoment) / Math.max(1, stats.runs)).toFixed(0)} % des runs)`);
+console.log(`métriques : ${(stats.tours / Math.max(1, stats.salles)).toFixed(1)} tours par salle — groupe tapé moyen ${(stats.tailleGroupes / Math.max(1, stats.taps)).toFixed(2)} billes — rotations utiles (groupe ≥3 juste après) ${((100 * stats.rotationsUtiles) / r).toFixed(0)} % — rotations productives (moteur, F09) ${((100 * stats.rotationsProductives) / r).toFixed(0)} % — spéciales explosées / créées ${((100 * stats.specialesExplosees) / Math.max(1, nbSpeciales)).toFixed(0)} % — chaîne max moyenne par run ${(stats.chaineMaxCumul / Math.max(1, stats.runs)).toFixed(2)} (max ${stats.chaineMaxAbs}) — premier gros moment (groupe 6+ ou chaîne) au tap ${(stats.premierGrosMoment / Math.max(1, stats.runsAvecGrosMoment)).toFixed(1)} (${((100 * stats.runsAvecGrosMoment) / Math.max(1, stats.runs)).toFixed(0)} % des runs)`);
 console.table(Object.fromEntries(Object.entries(stats.parSalle).map(([id, s]) => [id, {
   jouees: s.jouees, 'gagnées %': ((100 * s.gagnees) / s.jouees).toFixed(0), 'xp moy': (s.xp / s.jouees).toFixed(0),
   'niveau moy': (s.niveau / s.jouees).toFixed(1), 'coups rest.': (s.coupsRestants / s.jouees).toFixed(1), 'billes rest.': (s.restantes / s.jouees).toFixed(0), raisons: JSON.stringify(s.raisons) }])));

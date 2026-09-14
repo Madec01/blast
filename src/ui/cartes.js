@@ -296,6 +296,7 @@ export function creerCartes(conteneur, actions) {
           ['XP totale', formatNombre(enAttente.xpTotale ?? 0)],
           ['Monnaie méta', `+${formatNombre(enAttente.monnaieMeta ?? 0)}`],
           ['Plus grosse chaîne', `×${(stats.chaineMax ?? 0) + 1}`],
+          ['Rotations productives', `${stats.rotationsProductives ?? 0} / ${stats.rotations ?? 0}`], // F09
           ['Spéciales créées', formatNombre(totalSpeciales),
             `Bombe ${speciales.bombe ?? 0} · Ligne ${speciales.ligne ?? 0} · Croix ${speciales.croix ?? 0} · Couleur ${speciales.couleur ?? 0}`],
         ].forEach(([label, valeur, detail], i) => statsGrille.appendChild(tuileStat(label, valeur, detail, i)));

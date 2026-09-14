@@ -1,5 +1,5 @@
 // Un tour de jeu : tap ou rotation → destructions → chute → remplissage → règles de salle → niveau → objectif.
-import { idx, coord, groupe, estTapable, existeCoup, nouvelleBille, nouvellePierre, nouvelElement, compter } from './grille.js';
+import { idx, coord, groupe, estTapable, existeCoup, nouvelleBille, nouvellePierre, nouvelElement, compter, tousGroupes } from './grille.js';
 import { tourner as tournerGravite, colonnes, vecteur } from './gravite.js';
 import { appliquerGravite, remplir, maree, renforcer } from './chute.js';
 import { resoudre } from './speciales.js';
@@ -112,10 +112,32 @@ export function jouerTap(ctx, x, y) {
   return true;
 }
 
+/** Bilan des groupes tapables : plus gros groupe (indices) et nombre de groupes ≥ 3 (F09). */
+function bilanGroupes(g) {
+  let taille = 0, meilleur = null, nb3 = 0;
+  for (const gr of tousGroupes(g)) { if (gr.length >= 3) nb3++; if (gr.length > taille) { taille = gr.length; meilleur = gr; } }
+  return { taille, meilleur, nb3 };
+}
+
+/**
+ * F09 (feuille de Martin) : après la chute d'une rotation du joueur, dire ce qu'elle a produit.
+ * Productive = un groupe ≥ 3 plus gros qu'avant la rotation, ou un groupe ≥ 3 de plus. Émet
+ * `rotationResultat` (le rendu met en scène le meilleur groupe) et compte `stats.rotationsProductives`.
+ */
+function evaluerRotation(ctx, avant) {
+  const g = ctx.grille, apres = bilanGroupes(g);
+  const productive = apres.taille >= 3 && (apres.taille > avant.taille || apres.nb3 > avant.nb3);
+  if (productive) ctx.etat.stats.rotationsProductives = (ctx.etat.stats.rotationsProductives ?? 0) + 1;
+  const cellules = productive ? apres.meilleur.map((i) => { const [x, y] = coord(g, i); return { x, y, id: g.cellules[i].id }; }) : [];
+  ctx.emettre({ t: 'rotationResultat', productive, avant: avant.taille, apres: apres.taille, groupes: apres.nb3, groupesAvant: avant.nb3, cellules });
+  ctx.bus.emettre('rotationEvaluee', ctx, { productive, avant: avant.taille, apres: apres.taille });
+}
+
 export function jouerRotationJoueur(ctx, sens) {
   if (ctx.etat.enAttente) return false;
+  const avant = bilanGroupes(ctx.grille); // F09 : ce que le plateau offrait avant de tourner
   if (!jouerRotation(ctx, sens)) return false;
-  finDeTour(ctx, { rotation: true });
+  finDeTour(ctx, { rotation: true, avant });
   return true;
 }
 
@@ -235,9 +257,10 @@ function appliquerRenfort(ctx) {
   ctx.bus.emettre('remplissage', ctx, { cellules: entrees, renfort: true });
 }
 
-export function finDeTour(ctx, { rotation = false } = {}) {
+export function finDeTour(ctx, { rotation = false, avant = null } = {}) {
   const e = ctx.etat;
   retomber(ctx, { rotation });
+  if (rotation && avant) evaluerRotation(ctx, avant); // F09 : avant la rotation automatique de la salle (Tempête, Pendule)
   if (!rotation) appliquerRenfort(ctx);
   e.tour++;
   appliquerMaree(ctx);

@@ -40,7 +40,7 @@ Rien de beige, rien de sobre, rien de néon.
 - **Plateau** : cadre épais peint (jaune-orange `#ffb347` avec bord clair `#ffd27a` en haut, bord foncé `#e0801a` en bas, contour encre 3 px, coins très arrondis, quatre boulons/étoiles aux coins). Intérieur : champ indigo `#3a2f8f` → `#2b2270` en bas avec cuvettes en losange un ton plus clair. Le contraste champ sombre / billes claires est ce qui fait « pop ».
 - **Billes** : grosses (elles remplissent 88 % de la case), aplat saturé + dégradé léger, **contour encre 2,5 px**, gros reflet blanc en haut-gauche (goutte allongée) + petit point, ombre interne au bord bas-droit, petite ombre portée sur le champ. Style « gomme brillante ».
 - **Spéciales** : bombe = bombe noire cartoon avec mèche et étincelle animée ; ligne = bille avec fusée/flèche blanche épaisse alignée sur la gravité à l'écran ; croix = étoile à 4 branches blanche sur la bille ; couleur = sucette arc-en-ciel (spirale 6 couleurs) qui tourne lentement. Pierre : rocher gris-bleu cartoon avec facettes et contour. Bulle : sphère transparente avec contour blanc et reflet, contenu miniature. Ballon : ballon rouge/rose brillant avec nœud et ficelle, contour encre. Fusée : fusée cartoon rouge et blanche pointant vers le bas de l'écran.
-- **Juice (obligatoire)** : texte flottant `+XP` à chaque salve (police grasse blanche cernée d'encre, monte et s'efface) ; mots de combo sur la case tapée selon la taille (4 « Joli ! », 6 « Super ! », 8 « Énorme ! », 10+ « VERTIGE ! ») en très gros, avec rebond élastique et rotation ±6° ; confettis multicolores (rectangles qui tournent, gravité) + étoiles à 4 branches à chaque destruction ; anneau d'onde de choc sur les explosions ; le plateau entier fait un petit « squash » élastique à l'atterrissage des billes et à la fin d'une rotation ; screenshake proportionnel ; les billes rebondissent (restitution 0,25) et se déforment légèrement (squash vertical 10 %) à l'impact.
+- **Juice (obligatoire)** : texte flottant `+XP` à chaque salve (police grasse blanche cernée d'encre, monte et s'efface) ; mots de combo sur la case tapée selon la taille (4 « Étincelle ! », 6 « Stellaire ! », 8 « Supernova ! », 10+ « BIG BANG ! » — Carrousel cosmique) en très gros, avec rebond élastique et rotation ±6°, jamais hors du canvas ; confettis multicolores (rectangles qui tournent, gravité) + étoiles à 4 branches à chaque destruction ; anneau d'onde de choc sur les explosions ; le plateau entier fait un petit « squash » élastique à l'atterrissage des billes et à la fin d'une rotation ; screenshake proportionnel ; les billes rebondissent (restitution 0,25) et se déforment légèrement (squash vertical 10 %) à l'impact.
 - **Interface** : boutons « bonbon » 3D (dégradé clair→saturé, bande inférieure foncée de 6 px, contour encre 3 px, texte blanc gras cerné d'encre, enfoncement au :active) — vert `#5ad341` pour l'action principale, orange `#ff9f1c`, rose `#ff5fa2`, bleu `#2f8cff`. Panneaux et cartes : blanc cassé `#fff8e7`, contour encre 3 px, coins 20 px, ombre portée nette encre à 25 %, bandeau de titre coloré. Titres en police ronde et grasse système (`"Arial Rounded MT Bold", "Trebuchet MS", "Nunito", "Segoe UI", sans-serif`, 900) avec `-webkit-text-stroke` encre et `paint-order: stroke fill`. HUD : compteurs dans des badges (coups dans un badge rouge, jauge = étoiles jaunes, XP = barre verte cernée avec le niveau dans une pastille, objectif dans un badge bleu avec icône).
 
 | index | nom | hex | contour |
@@ -82,7 +82,7 @@ run.serialiser()    // → string JSON ;  chargerRun(json) → run
             |{type:'competence',propositions:[{id,nom,desc,rarete}]}
             |{type:'finSalle',victoire,raison,xpSalle,niveau,coups,objectif:{type,progres,cible,manque}}
             |{type:'finRun',victoire,xpTotale,monnaieMeta,salleIndex,totalSalles,competences,stats} }
-  // stats (cumul du run) : { debut, fin, taps, rotations, chaineMax, plusGrosGroupe, billesDetruites, etoilesLiberees,
+  // stats (cumul du run) : { debut, fin, taps, rotations, rotationsProductives (F09), chaineMax, plusGrosGroupe, billesDetruites, etoilesLiberees,
   //   speciales:{bombe,ligne,croix,couleur}, effets:[ids], salles:[{id,nom,xp,niveau,victoire,raison}] }
 ```
 
@@ -98,6 +98,7 @@ Liste ordonnée ; le rendu la joue séquentiellement, l'UI et l'audio y réagiss
 | `conversion` | `cellules:[{x,y,id,couleur}]` | couleurs changées (propagation, domino, teinte) |
 | `element` | `x,y,id,type,activations,max,action:'activation'\|'eclate'\|'libere'\|'fusee'\|'monte'` | un élément réagit |
 | `rotation` | `de,vers,sens,auto,enCoups` | le plateau tourne (auto = imposé par la salle ; enCoups = coups payés à jauge vide, D13) |
+| `rotationResultat` | `productive,avant,apres,groupes,groupesAvant,cellules:[{x,y,id}]` | F09 : après la `chute` d'une rotation du **joueur** (jamais auto) — `avant`/`apres` = plus gros groupe tapable avant/après, `groupes` = groupes ≥ 3 ; `productive` si `apres ≥ 3` et (plus gros qu'avant ou un groupe ≥ 3 de plus) ; `cellules` = le meilleur groupe si productive, sinon `[]` |
 | `chute` | `deplacements:[{id,de:{x,y},vers:{x,y}}]` | résultat de la gravité ; ordre quelconque, tout est simultané |
 | `remplissage` | `cellules:[{id,x,y,couleur,type,depuis:{x,y}}], renfort?:true` | nouvelles billes ; `depuis` = case virtuelle hors plateau d'où elles entrent ; `renfort` = billes tombées au hasard sous le seuil (règle Renfort) |
 | `maree` | `deplacements:[…], entrees:[…], sorties:[{id,x,y}]` | une ligne pousse tout contre la gravité |
@@ -133,6 +134,8 @@ rendu.detruire()
 - Télégraphe : bande claire sur la rangée qui devient le sol, trois chevrons animés dans le sens de la nouvelle gravité, fantômes (alpha 0,75) des billes à leur point de chute — les originaux s'estompent (alpha 0,28) —, cases d'entrée en anneau pointillé (teinté si la couleur est connue). Dessiné dans le repère du plateau, sans le tourner.
 - Sprites pré-rendus par couleur sur canvas hors écran (billes cerclées, plateau), dessinés en `source-over`. Jamais de `filter` par frame. Les textes flottants et les mots de combo sont dessinés dans le canvas (police système grasse, contour encre).
 - Particules : pool fixe (≤ 800), textes flottants (≤ 16), zéro allocation par frame. Screenshake proportionnel à la taille de la salve, plafonné.
+- **Feel par paliers (F08)** : `src/data/paliers.js` — paliers 3 / 5 / 8 / 10+ (`palierGroupe(taille)` → 0..4) et table `FEEL` lue par le rendu et l'audio : durée/amplitude de l'anticipation, confettis par bille + rafale au centre, flash/halo, onde (dès 5), secousse, squash du plateau (dès 8), taille du +XP. **Hitstop** : 60 ms dès 8, 90 ms dès 10 — toutes les animations gelées (dt nul), l'image tenue en plein pré-squash, puis l'explosion ; au plus un par appel de `jouer()` (la chaîne garde son ralenti).
+- **Rotation productive (F09)** : sur `rotationResultat` productive, le meilleur groupe pulse bille par bille, « Bon angle ! » (ou « ALIGNEMENT ! » dès 8) au barycentre, « N billes » au-dessus, son `bonAngle`. Rien si la rotation n'a rien produit.
 - Icônes : `ligne` et `fusee` pointent le long de la gravité **à l'écran** (donc contre-rotation par rapport au plateau).
 
 ## 6. Audio (src/audio/audio.js) — Web Audio, synthèse en couches
@@ -168,6 +171,7 @@ Le panneau Test reçoit les listes depuis `src/data/*.js` (salles, compétences)
 ## 8. Hooks (src/moteur/hooks.js)
 
 `bus.on(nom, fn, {source, duree?})`, `bus.off(source)`, `bus.emettre(nom, ctx, evt)`, `bus.reduire(nom, valeur, ctx, evt)`.
-Événements : `debutSalle finSalle debutTour finTour avantTap groupeDetruit explosion specialeCreee avantRotation apresRotation avantChute apresChute remplissage coupsEpuises`.
+Événements : `debutSalle finSalle debutTour finTour avantTap groupeDetruit explosion specialeCreee avantRotation apresRotation rotationEvaluee avantChute apresChute remplissage coupsEpuises`.
+`rotationEvaluee` (F09) : `{ productive, avant, apres }` après la chute d'une rotation du joueur — base de la frénésie (D25).
 Valeurs réductibles : `seuils xpGain coupsInitiaux jaugeInitiale propositionsNiveau`.
 Compétences et effets de niveau ne sont **jamais** codés en dur dans grille/chute/speciales.

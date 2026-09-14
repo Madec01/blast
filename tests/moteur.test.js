@@ -260,3 +260,44 @@ test('épique Dernière danse : la rotation qui vide la jauge unit la rangée du
   const ev2 = run.tourner(1); // payée en coups : rien ne se passe
   assert.ok(!ev2.some((v) => v.t === 'conversion'));
 });
+
+test('F08 paliers de feel : 2 → 0, 3-4 → 1, 5-7 → 2, 8-9 → 3, 10+ → 4 ; amplitudes croissantes', async () => {
+  const { palierGroupe, FEEL, PALIERS_GROUPE } = await import('../src/data/paliers.js');
+  assert.deepEqual(PALIERS_GROUPE, [3, 5, 8, 10]);
+  assert.deepEqual([1, 2, 3, 4, 5, 7, 8, 9, 10, 25].map(palierGroupe), [0, 0, 1, 1, 2, 2, 3, 3, 4, 4]);
+  assert.equal(FEEL.length, 5);
+  for (const cle of ['particules', 'impact', 'shake', 'anticipation', 'squash', 'plateau', 'hitstop', 'xp', 'onde', 'rafale']) {
+    for (let p = 1; p < FEEL.length; p++) assert.ok(FEEL[p][cle] >= FEEL[p - 1][cle], `${cle} décroît au palier ${p}`);
+  }
+  assert.equal(FEEL[2].hitstop, 0); // pas de micro-pause sous 8
+  assert.ok(FEEL[3].hitstop >= 0.06 && FEEL[4].hitstop <= 0.09); // 60-90 ms dès 8 (feuille de Martin, étape 1)
+});
+
+test('F09 rotationResultat : émis après la chute d’une rotation du joueur, jamais pour une rotation automatique ; productive cohérente', () => {
+  let productives = 0, muettes = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const run = creerRun({ seed, salles: ['vestibule'], options: { jauge: 9 } });
+    const e = run.etat;
+    // deux taps d'abord pour creuser la grille, puis une rotation
+    for (let k = 0; k < 2; k++) { const g = tousGroupes(e.grille).sort((a, b) => b.length - a.length)[0]; if (g) run.tap(g[0] % e.grille.w, (g[0] / e.grille.w) | 0); }
+    if (e.enAttente) continue;
+    const avant = tousGroupes(e.grille).reduce((m, g) => Math.max(m, g.length), 0);
+    const ev = run.tourner(1);
+    const iChute = ev.findIndex((v) => v.t === 'chute'), iRes = ev.findIndex((v) => v.t === 'rotationResultat');
+    assert.ok(iRes >= 0, 'rotationResultat absent');
+    assert.ok(iChute < 0 || iRes > iChute, 'rotationResultat doit suivre la chute');
+    const r = ev[iRes];
+    assert.equal(r.avant, avant);
+    assert.equal(r.apres, tousGroupes(e.grille).reduce((m, g) => Math.max(m, g.length), 0));
+    if (r.productive) { productives++; assert.equal(r.cellules.length, r.apres); assert.ok(r.apres >= 3); }
+    else { muettes++; assert.equal(r.cellules.length, 0); }
+    assert.equal(e.stats.rotationsProductives, r.productive ? 1 : 0);
+  }
+  assert.ok(productives > 0 && muettes > 0, `productives ${productives}, muettes ${muettes}`);
+  // Tempête : la rotation automatique de fin de tour n'est pas évaluée (ce n'est pas une décision du joueur)
+  const run = creerRun({ seed: 5, salles: ['tempete'] });
+  const g = tousGroupes(run.etat.grille)[0];
+  const ev = run.tap(g[0] % run.etat.grille.w, (g[0] / run.etat.grille.w) | 0);
+  assert.ok(ev.some((v) => v.t === 'rotation' && v.auto));
+  assert.ok(!ev.some((v) => v.t === 'rotationResultat'));
+});

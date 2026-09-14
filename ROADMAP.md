@@ -9,13 +9,15 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 **Feuille de route de Martin (2026-09-14, classeur → `docs/FEUILLE_DE_ROUTE_MARTIN.md`)** : ordre Feel → Cascades → Spéciales & combos → Finale → Builds → Niveaux → Carte → Méta. Règle d'or : pas de contenu tant que les 60 secondes en salle ne sont pas satisfaisantes. Elle remplace l'ordre précédent (lot E, D21-D23 passent après).
 
 0. **Baseline — fait** : `docs/METRIQUES.md` (sim avisée/gourmande : tours par salle, taps/rotation, groupe moyen, spéciales explosées/créées, chaîne max, premier gros moment), 17 tests, fumée.
-1. **Feel (F08, F09, micro-pause)** : amplitudes distinctes 3/5/8/10+ (le lot A a posé pré-squash, flash, poussière, mots de combo : rester sur ces pools), hitstop de 60-90 ms avant les explosions 8+, feedback « rotation productive » (le télégraphe existe : afficher le résultat obtenu). À valider par Martin en jouant.
+1. **Feel (F08, F09, micro-pause) — livré, à valider par Martin en jouant** : paliers 3/5/8/10+ dans une seule table (`src/data/paliers.js` : anticipation, confettis, flash, onde dès 5, secousse, squash du plateau dès 8, taille du +XP, son plus grave dès 8), hitstop 60 ms dès 8 / 90 ms dès 10 (un par coup), « Bon angle ! » / « ALIGNEMENT ! » (8+) avec le groupe qui pulse après une rotation productive (`rotationResultat`, `stats.rotationsProductives` en fin de run). Sim identique à la baseline. Questions à Martin : un 6 paraît-il nettement plus fort qu'un 3 ? le hitstop gêne-t-il le rythme ? le mot après rotation est-il assez lisible ?
 2. **Cascades (F01-F03) — à trancher, D24-D25** : CLAUDE.md §3.1 interdit les cascades automatiques (« tap-blast, pas match-3 »). Recommandation : cascades **sur rotation seulement** (les groupes de 5+ formés par la chute explosent, comme l'épique Avalanche) — la rotation devient le moteur de chaîne, le tap reste un tap-blast. Attention : sans remplissage, chaque cascade draine la grille (`docs/METRIQUES.md`, « une bille est une munition »). Frénésie / mode VERTIGE : proposer les chiffres avant de coder.
 3. **Spéciales & combos (F04-F06) — recettes à valider, D26** : bombe+bombe = bombe rayon 2 ; ligne+ligne = croix ; bombe+ligne = 3 lignes ; couleur+bombe = toutes les billes de la couleur deviennent des bombes ; couleur+ligne = elles deviennent des lignes ; couleur+couleur = tout le plateau. En règle de base (aujourd'hui seule *Double amorce*, compétence).
 4. **Finale (F07)** : la supernova de fin de salle existe (`finale.js`) ; il manque la conversion des coups et rotations restants en score, façon Sugar Crush.
 5. Puis Builds (F10-F11 : familles déjà dans les données, à afficher), Niveaux (F12-F13), Carte (F14-F15, **D27** : carte du monde à étoiles façon Candy Crush ou carte de run façon Slay the Spire ?), Méta (F16-F17).
 
 Toujours en attente : retour de Martin après sa partie ; titre / noms de salles / Krator / sprite Cosmo (lot E) ; audit gameplay 3 (`docs/AUDIT_GAMEPLAY_3.md`) et D21-D23.
+
+Fait le 2026-09-14 (soir) : **étape 1 Feel** (F08 paliers 3/5/8/10+, hitstop, F09 rotation productive), 19 tests, fumée verte, sim identique à la baseline + métrique « rotations productives » 87 % (avisée) / 5 % (gourmande).
 
 Fait le 2026-09-14 (après-midi) : **D19** (relance gratuite une fois par salle), **D20** (Débridé, Synchronisation, Apesanteur majeurs ; durée en coups), **5 épiques de palier 3** (Dernière danse, Danse des couleurs, Absorption, Jackpot, Avalanche), audit gameplay 3, HUD masqué sous la fin de run, 3 mineurs de l'audit code 2. 17 tests, fumée verte, sim avisée 38 % (39 % avant).
 
@@ -106,6 +108,7 @@ Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 - [x] (mineur, audit code 2) `surSalle` résolvait avant l'atterrissage sur les grandes grilles ; police reconstruite à chaque texte ; écouteur clavier sans retrait — corrigés (2026-09-14).
 - [x] (équilibrage, sonde) Les premières versions de Dernière danse et Comète noire détruisaient des billes à 10 XP : −6 et −10 points — une bille est une munition dans une grille qui ne se remplit pas. Réécrites en conversion (Dernière danse unit le sol ; Absorption teinte les voisines avant le tap) (2026-09-14).
 - [ ] (mineur, audit code 2) 8 pools à tableaux typés dupliqués dans 4 fichiers du rendu : mutualisables, non fait.
+- [x] (mineur, sonde feel) Un mot de combo sur une case du bord sortait du canvas (« G BANG ! ») ; le +XP se superposait au mot — police bornée à 90 % de la largeur, centre ramené dans les marges, +XP décalé au-dessus (2026-09-14).
 - [x] (important) Audit gameplay 2 : le boss ne filtrait rien (cible 1 800 → 2 200 : bot avisé 54 % contre 74 % à Tempête) ; « Mise en jeu » était un pari gratuit (−3 coups à la prise) ; Tempête et Pendule bloquaient 1 run sur 5 (seuil de renfort 45 %) (2026-09-14).
 - [x] (règle) Renfort : sous 40 % de billes, 2 à 5 billes par tap, au hasard. Boss remonté à 1 800 points (2026-09-11).
 - [x] (bloquant, retour de Martin) Mauvaise lecture de la règle : la grille ne doit **jamais** se remplir de l'extérieur. Mode `vide` par défaut, objectifs et seuils de niveau recalés au simulateur (2026-09-11).
@@ -149,6 +152,7 @@ Agent idées 2026-09-11 (18 idées dans `docs/IDEES.md`), son Top 5 :
 
 ## Fait
 
+- 2026-09-14 — Étape 1 Feel (feuille de Martin) : `src/data/paliers.js` (3/5/8/10+, une table pour rendu et audio), hitstop 60/90 ms avant les explosions 8+/10+, `rotationResultat` + « Bon angle ! » / « ALIGNEMENT ! », `stats.rotationsProductives` (fin de run, sim). 19 tests, fumée verte (77 taps, 14 rotations, 25 choix, 0 erreur), build 145 Ko de JS, sim inchangée.
 - 2026-09-14 — Feuille de route de Martin transcrite (`docs/FEUILLE_DE_ROUTE_MARTIN.md`), étape 0 faite (`docs/METRIQUES.md`, métriques dans `tools/sim.mjs`).
 - 2026-09-14 — D19 (relance gratuite 1×/salle), D20 (palier 3 rotation majeur, durée en coups `parTap`), 5 épiques de palier 3, audit gameplay 3 comparatif, HUD de fin de run, mineurs de l'audit code 2. 17 tests, fumée verte (78 taps, 16 rotations, 26 choix, 0 erreur), build 141 Ko de JS.
 - 2026-09-14 — Audits code 2 et gameplay 2 appliqués (`docs/AUDIT_CODE_2.md`, `docs/AUDIT_GAMEPLAY_2.md`) : boss à 2 200, Mise en jeu payante, renfort 45 % sur Tempête/Pendule, filets anti-blocage, dette côté moteur, texture d'étoiles plafonnée.

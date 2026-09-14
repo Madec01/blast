@@ -145,6 +145,7 @@ const FABRIQUES = {
   tap: synth.construireTap,
   detruit: synth.construireDetruit,
   speciale: synth.construireSpeciale,
+  bonAngle: synth.construireBonAngle, // F09 : rotation productive
   rotation: synth.construireRotation,
   chute: synth.construireChute,
   rebond: synth.construireRebond,

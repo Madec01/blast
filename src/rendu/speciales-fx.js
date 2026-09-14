@@ -10,6 +10,8 @@
 //   ecran(x,y)->{x,y}, cellPix()->px, w()->n, h()->n, G()->{x,y}, audio()->audio|null,
 //   shake(intensite), glisser(bv,de,vers,duree,retirerApres) (= demarrerGlisse de rendu.js)
 
+import { FEEL, palierGroupe } from '../data/paliers.js';
+
 const attend = (ms) => new Promise((res) => setTimeout(res, ms));
 const clamp01 = (t) => Math.max(0, Math.min(1, t));
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
@@ -335,24 +337,29 @@ export function creerSpecialesFx() {
   // causes sans activation dédiée ('groupe', 'croix', 'effet', 'maree', 'pierre') : comportement
   // existant (repris tel quel de rendu.js), déplacé ici pour que rendu.js reste < 400 lignes.
   // Renvoie le barycentre écran (pour dernierDetruit, lu par le `xp` suivant, §2) ou null.
+  // F08 : tout est lu dans FEEL[palier] (3/5/8/10+) — un 3 reste sec, un 6 pousse une onde, un 8+ secoue
+  // le plateau entier et lâche une rafale au barycentre, un 10+ est hors norme.
   async function jouerGenerique(evt, env, combo = false) {
-    const cellules = evt.cellules || [], taille = cellules.length || 1;
+    const cellules = evt.cellules || [], taille = cellules.length || 1, f = FEEL[palierGroupe(taille)];
     let sx = 0, sy = 0, n = 0;
     for (const c of cellules) {
       const bv = env.billes.get(c.id), pos = bv ? { x: bv.x, y: bv.y } : { x: c.x, y: c.y }, e = env.ecran(pos.x, pos.y);
       sx += e.x; sy += e.y; n++;
-      env.particules.emettreDestruction(e.x, e.y, env.couleurHex(c.couleur), Math.min(12, 4 + Math.round(16 / taille)));
+      env.particules.emettreDestruction(e.x, e.y, env.couleurHex(c.couleur), f.particules);
       env.billes.delete(c.id);
     }
     let centre = null;
     if (n > 0) {
       centre = { x: sx / n, y: sy / n };
-      if (CAUSES_EXPLOSION.has(evt.cause)) env.juice.emettreOnde(centre.x, centre.y, env.cellPix() * (0.8 + Math.min(1.4, taille * 0.07)));
       const dominante = cellules.find((c) => c.couleur != null); // a2 : flash + halo teinté — item 6 : ×1,5 en combo
-      env.impact.emettreImpact(centre.x, centre.y, dominante ? dominante.couleur : null, combo ? 1.5 : 1);
+      const explosion = CAUSES_EXPLOSION.has(evt.cause);
+      if (explosion || f.onde) env.juice.emettreOnde(centre.x, centre.y, env.cellPix() * (0.8 + Math.min(1.4, taille * 0.07)) * Math.max(1, f.onde), Math.max(1, f.onde));
+      env.impact.emettreImpact(centre.x, centre.y, dominante ? dominante.couleur : null, f.impact * (combo ? 1.5 : 1));
+      if (f.rafale) env.particules.emettreDestruction(centre.x, centre.y, env.couleurHex(dominante ? dominante.couleur : 3), f.rafale); // rafale d'étoiles au centre (5+)
+      if (f.plateau) env.squashPlateau(f.plateau); // le plateau encaisse le coup (8+)
       if (combo) env.juice.emettreMot(centre.x, centre.y, MOT_COMBO_FORCE, 1.3); // item 6 : mot forcé
     }
-    env.shake(Math.min(1, taille / 10) * (combo ? 1.4 : 1)); // item 6 : secousse +40 % en combo
+    env.shake(f.shake * (combo ? 1.4 : 1)); // item 6 : secousse +40 % en combo
     if (CAUSES_EXPLOSION.has(evt.cause)) jouerSon(env, 'speciale', { type: evt.cause }); // item 9 : activation (croix)
     jouerSon(env, 'detruit', { taille, cause: evt.cause, profondeur: evt.profondeur || 0 });
     await attend(90);

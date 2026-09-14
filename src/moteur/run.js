@@ -195,7 +195,7 @@ export function creerRun({ seed = Date.now(), salles = null, competences = [], d
     xpSalle: 0, niveau: 1, xpTotale: 0, couleurs: 5, modeGravite: MODE_GRAVITE_DEFAUT,
     objectif: null, competences: competences.slice(), effetsActifs: [], effetsVus: [],
     prochainesEntrees: [], annonce: null, enAttente: null, memo: {}, elan: false, pitie: 0, relanceGratuite: true,
-    stats: { debut: Date.now(), taps: 0, rotations: 0, chaineMax: 0, plusGrosGroupe: 0, billesDetruites: 0, etoilesLiberees: 0, speciales: { bombe: 0, ligne: 0, croix: 0, couleur: 0 }, effets: [], salles: [] },
+    stats: { debut: Date.now(), taps: 0, rotations: 0, rotationsProductives: 0, chaineMax: 0, plusGrosGroupe: 0, billesDetruites: 0, etoilesLiberees: 0, speciales: { bombe: 0, ligne: 0, croix: 0, couleur: 0 }, effets: [], salles: [] },
   };
   const ctx = creerCtx(etat, rng);
   installerCompetences(ctx);
@@ -213,6 +213,7 @@ export function chargerRun(json) {
   const etat = data.etat;
   etat.relanceGratuite ??= true; // sauvegardes antérieures à D19
   etat.stats ??= { debut: Date.now(), taps: 0, rotations: 0, chaineMax: 0, plusGrosGroupe: 0, billesDetruites: 0, etoilesLiberees: 0, speciales: { bombe: 0, ligne: 0, croix: 0, couleur: 0 }, effets: [], salles: [] };
+  etat.stats.rotationsProductives ??= 0; // sauvegardes antérieures à F09
   const rng = creerRng(etat.seed); rng.etat = etat.rngEtat;
   const ctx = creerCtx(etat, rng);
   installerCompetences(ctx);
