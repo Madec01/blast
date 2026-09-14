@@ -75,6 +75,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (canvas.height !== ch) canvas.height = ch;
     fitNormalPx = Math.min((cw * MARGE) / w, (ch * MARGE) / h); fitSwapPx = Math.min((cw * MARGE) / h, (ch * MARGE) / w);
     cellPixBase = Math.max(8, Math.floor(Math.max(fitNormalPx, fitSwapPx)));
+    juice.definirCadre(cellPixBase, cw, ch); // les textes flottants s'étalent et se bornent dans ce cadre
     sprites.regenererCases(cellPixBase); sprites.regenererPlateau(w, h, cellPixBase, forme); decor.regenerer(cellPixBase, cw, ch);
     if (!angleTween) echelleActuelle = calcEchelle(graviteCourante);
   }
