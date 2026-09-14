@@ -41,11 +41,12 @@ function activer(ctx, i, activations) {
 
 function xpSalve(ctx, salve, nBilles, nPierres) {
   let xp;
-  if (salve.cause === 'groupe') {
+  if (salve.cause === 'groupe' || salve.cause === 'cascade') {
     const n = nBilles + (salve.tapee !== undefined ? 1 : 0); // la bille devenue spéciale compte
     const te = ctx.bus.reduire('tailleGroupe', n, ctx, salve);
     xp = 10 * n * (1 + 0.15 * Math.max(0, te - 2));
-    if (ctx.etat.elan) xp *= BONUS_ELAN; // élan après une rotation (D9)
+    if (salve.cause === 'groupe' && ctx.etat.elan) xp *= BONUS_ELAN; // élan après une rotation (D9)
+    if (salve.cause === 'cascade') xp *= 1 + 0.25 * Math.min(8, salve.profondeur); // prototype D24 : une cascade est une chaîne
   } else {
     xp = (10 * nBilles + 5 * nPierres) * (1 + 0.25 * Math.min(8, salve.profondeur)); // chaîne plafonnée
   }
@@ -66,14 +67,14 @@ export function resoudre(ctx, initiale) {
     const activations = [];
     while (file.length) {
       const s = file.shift();
-      const explosion = s.cause !== 'groupe' && s.cause !== 'pierre';
+      const explosion = s.cause !== 'groupe' && s.cause !== 'cascade' && s.cause !== 'pierre'; // cascade (D24) : comme un tap
       const aDetruire = new Set();
       const conversions = [];
       for (const i of s.cellules) {
         const c = g.cellules[i];
         if (!c) continue;
         if (c.type === 'element') { if (explosion) activer(ctx, i, activations); continue; }
-        if (c.type === 'pierre' && s.cause === 'groupe') continue;
+        if (c.type === 'pierre' && (s.cause === 'groupe' || s.cause === 'cascade')) continue;
         if (c.type === 'pierre') {
           const sort = ctx.bus.reduire('sortPierre', 'detruite', ctx, { i, cause: s.cause });
           if (sort === 'bille') {
@@ -117,7 +118,7 @@ export function resoudre(ctx, initiale) {
         if (pierresAdj.size) file.push({ cellules: [...pierresAdj], cause: 'pierre', origine: s.origine, profondeur: s.profondeur + 1 });
       }
       const info = { cellules: evt, cause: s.cause, couleur: s.couleur, taille: evt.length, profondeur: s.profondeur, origine: s.origine };
-      ctx.bus.emettre(s.cause === 'groupe' ? 'groupeDetruit' : 'explosion', ctx, info);
+      ctx.bus.emettre(s.cause === 'groupe' || s.cause === 'cascade' ? 'groupeDetruit' : 'explosion', ctx, info);
     }
     for (const i of activations) {
       const c = g.cellules[i];

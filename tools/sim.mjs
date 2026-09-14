@@ -5,17 +5,20 @@
  *   node tools/sim.mjs --runs 50 --seed 7 --politique gourmande|aleatoire|avisee --competences vertige,domino
  *   (avisee : choisit le sens de rotation avec l'aperçu, comme un joueur qui lit le télégraphe)
  *   node tools/sim.mjs --gravite vide|continue|mixte|collante   # mode de gravité (D12), défaut : celui du jeu (vide)
+ *   node tools/sim.mjs --cascades rotation|toutes --cascadeMin 5   # prototype D24 (jamais actif par défaut)
  *   node tools/sim.mjs --verbose        # journal du premier run
  */
 import { creerRun } from '../src/moteur/run.js';
 import { tousGroupes } from '../src/moteur/grille.js';
 import { colonnes } from '../src/moteur/gravite.js';
+import { palierGroupe } from '../src/data/paliers.js';
 
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf('--' + n); return i >= 0 ? args[i + 1] : d; };
 const RUNS = +opt('runs', 200), SEED0 = +opt('seed', 1), POLITIQUE = opt('politique', 'gourmande');
 const COMPETENCES = (opt('competences', '') || '').split(',').filter(Boolean);
 const GRAVITE = opt('gravite', null);
+const CASCADES = opt('cascades', null), CASCADE_MIN = +opt('cascadeMin', 5); // prototype D24
 const VERBOSE = args.includes('--verbose');
 
 /** Plus gros groupe après la rotation `sens`, d'après l'aperçu (entrées de couleur inconnue ignorées). */
@@ -84,13 +87,16 @@ function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = 
 const stats = { runs: 0, victoires: 0, parSalle: {}, speciales: {}, niveauxMax: [], xpTotale: 0, tours: 0, salles: 0, erreurs: 0,
   taps: 0, rotations: 0, rotationsPayees: 0, rotationsUtiles: 0, deplacesRotation: 0, entreesRotation: 0, trousRotation: 0,
   // Baseline (feuille de route de Martin, étape 0) : taille des groupes, spéciales utilisées, chaîne max, premier gros moment.
-  tailleGroupes: 0, specialesExplosees: 0, chaineMaxCumul: 0, chaineMaxAbs: 0, premierGrosMoment: 0, runsAvecGrosMoment: 0, rotationsProductives: 0 };
+  tailleGroupes: 0, specialesExplosees: 0, chaineMaxCumul: 0, chaineMaxAbs: 0, premierGrosMoment: 0, runsAvecGrosMoment: 0, rotationsProductives: 0,
+  // D25 (frénésie) : sources possibles de jauge, comptées par salle · D26 : combos (≥ 2 salves explosives dans une même action)
+  tapsParPalier: [0, 0, 0, 0, 0], cascades: 0, combos: 0 };
+const CAUSES_EXPLOSION = new Set(['bombe', 'ligne', 'croix', 'couleur', 'fusee']);
 const TYPES_SPECIALES = ['bombe', 'ligne', 'croix', 'couleur'];
 const nbVides = (g) => { let n = 0; for (const c of g.cellules) if (c === null) n++; return n; };
 const salleStat = (id) => (stats.parSalle[id] ??= { jouees: 0, gagnees: 0, xp: 0, niveau: 0, coupsRestants: 0, restantes: 0, raisons: {} });
 
 for (let s = 0; s < RUNS; s++) {
-  const run = creerRun({ seed: SEED0 + s, competences: COMPETENCES, options: GRAVITE ? { gravite: GRAVITE } : {} });
+  const run = creerRun({ seed: SEED0 + s, competences: COMPETENCES, options: { ...(GRAVITE ? { gravite: GRAVITE } : {}), ...(CASCADES ? { cascades: CASCADES, cascadeMin: CASCADE_MIN } : {}) } });
   const rng = mulberry(SEED0 + s);
   let garde = 0, journal = run.evenementsInitiaux, tapsCeRun = 0, grosMoment = 0;
   try {
@@ -103,7 +109,7 @@ for (let s = 0; s < RUNS; s++) {
       // Mesure du grief D12 : que déplace une rotation du joueur ?
       const tap = ev.find((x) => x.t === 'tap');
       if (tap) {
-        stats.taps++; tapsCeRun++; stats.tailleGroupes += tap.taille;
+        stats.taps++; tapsCeRun++; stats.tailleGroupes += tap.taille; stats.tapsParPalier[palierGroupe(tap.taille)]++;
         if (!grosMoment && (tap.taille >= 6 || ev.some((x) => x.t === 'detruit' && x.profondeur >= 1))) grosMoment = tapsCeRun; // premier « gros boom » : groupe 6+ ou chaîne
       } else if (ev.some((x) => x.t === 'rotation' && !x.auto)) {
         stats.rotations++; stats.trousRotation += videsAvant;
@@ -112,6 +118,8 @@ for (let s = 0; s < RUNS; s++) {
         for (const x of ev) { if (x.t === 'chute') stats.deplacesRotation += x.deplacements.length; if (x.t === 'remplissage') stats.entreesRotation += x.cellules.length; }
       }
       if (VERBOSE && s === 0) for (const x of ev) console.log(JSON.stringify(x).slice(0, 160));
+      let explosives = 0; for (const x of ev) { if (x.t === 'detruit' && CAUSES_EXPLOSION.has(x.cause)) explosives++; if (x.t === 'detruit' && x.cause === 'cascade') stats.cascades++; }
+      if (explosives >= 2) stats.combos++;
       for (const x of ev) {
         if (x.t === 'speciale') stats.speciales[x.type] = (stats.speciales[x.type] ?? 0) + 1;
         if (x.t === 'detruit' && TYPES_SPECIALES.includes(x.cause)) stats.specialesExplosees++;
@@ -141,6 +149,8 @@ console.log(`victoires : ${stats.victoires} (${((100 * stats.victoires) / Math.m
 console.log('spéciales créées :', stats.speciales);
 const nbSpeciales = Object.values(stats.speciales).reduce((a, b) => a + b, 0);
 console.log(`métriques : ${(stats.tours / Math.max(1, stats.salles)).toFixed(1)} tours par salle — groupe tapé moyen ${(stats.tailleGroupes / Math.max(1, stats.taps)).toFixed(2)} billes — rotations utiles (groupe ≥3 juste après) ${((100 * stats.rotationsUtiles) / r).toFixed(0)} % — rotations productives (moteur, F09) ${((100 * stats.rotationsProductives) / r).toFixed(0)} % — spéciales explosées / créées ${((100 * stats.specialesExplosees) / Math.max(1, nbSpeciales)).toFixed(0)} % — chaîne max moyenne par run ${(stats.chaineMaxCumul / Math.max(1, stats.runs)).toFixed(2)} (max ${stats.chaineMaxAbs}) — premier gros moment (groupe 6+ ou chaîne) au tap ${(stats.premierGrosMoment / Math.max(1, stats.runsAvecGrosMoment)).toFixed(1)} (${((100 * stats.runsAvecGrosMoment) / Math.max(1, stats.runs)).toFixed(0)} % des runs)`);
+const ps = Math.max(1, stats.salles), tp = stats.tapsParPalier;
+console.log(`par salle (D25 frénésie / D26 combos) : taps 2 ${(tp[0] / ps).toFixed(1)} · 3-4 ${(tp[1] / ps).toFixed(1)} · 5-7 ${(tp[2] / ps).toFixed(1)} · 8-9 ${(tp[3] / ps).toFixed(1)} · 10+ ${(tp[4] / ps).toFixed(1)} — rotations productives ${(stats.rotationsProductives / ps).toFixed(2)} — cascades ${(stats.cascades / ps).toFixed(2)} — combos de spéciales ${(stats.combos / ps).toFixed(2)}${CASCADES ? ` — cascades ${CASCADES} ≥ ${CASCADE_MIN}` : ''}`);
 console.table(Object.fromEntries(Object.entries(stats.parSalle).map(([id, s]) => [id, {
   jouees: s.jouees, 'gagnées %': ((100 * s.gagnees) / s.jouees).toFixed(0), 'xp moy': (s.xp / s.jouees).toFixed(0),
   'niveau moy': (s.niveau / s.jouees).toFixed(1), 'coups rest.': (s.coupsRestants / s.jouees).toFixed(1), 'billes rest.': (s.restantes / s.jouees).toFixed(0), raisons: JSON.stringify(s.raisons) }])));

@@ -32,10 +32,45 @@ export function retomber(ctx, { rotation = false } = {}) {
     const dep = appliquerGravite(g, gr);
     if (dep.length) ctx.emettre({ t: 'chute', deplacements: dep });
     ctx.bus.emettre('apresChute', ctx, { deplacements: dep });
+    const casc = ctx.etat.options.cascades; // prototype D24 (sim seulement, désactivé par défaut)
+    if (casc === 'toutes' || (casc === 'rotation' && rotation)) cascader(ctx);
   }
   if ((rotation && mode.remplissageRotation !== false) || mode.remplissageAuTap) {
     const entrees = remplir(g, gr, () => tirerEntree(ctx));
     if (entrees.length) { ctx.emettre({ t: 'remplissage', cellules: entrees }); ctx.bus.emettre('remplissage', ctx, { cellules: entrees }); }
+  }
+}
+
+/**
+ * Prototype D24 (feuille de Martin, F01 — à trancher, mesuré au simulateur, jamais actif par défaut) :
+ * `options.cascades` = 'rotation' (après la chute d'une rotation) ou 'toutes' (après toute chute).
+ * Les groupes ≥ `options.cascadeMin` (5) explosent d'eux-mêmes comme s'ils étaient tapés : XP de tap
+ * × multiplicateur de chaîne, spéciale créée au seuil, éléments activés par adjacence ; puis tout
+ * retombe, jusqu'à CASCADES_MAX vagues. Cause `cascade`, profondeur = rang de la vague.
+ */
+const CASCADES_MAX = 4;
+function cascader(ctx) {
+  const e = ctx.etat, g = ctx.grille, min = e.options.cascadeMin ?? 5;
+  for (let vague = 1; vague <= CASCADES_MAX; vague++) {
+    const groupes = tousGroupes(g).filter((gr) => gr.length >= min);
+    if (!groupes.length) return;
+    e.stats.cascades = (e.stats.cascades ?? 0) + 1;
+    for (const gr of groupes) {
+      const i = gr[0], c = g.cellules[i];
+      if (!c) continue; // déjà soufflé par une spéciale de cette vague
+      const [x, y] = coord(g, i);
+      const type = c.speciale ? null : typeSpecialePour(ctx, gr.length);
+      resoudre(ctx, { cellules: type ? gr.filter((k) => k !== i) : gr, cause: 'cascade', origine: { x, y }, profondeur: vague, couleur: c.couleur, tapee: type ? i : undefined });
+      if (type) {
+        c.speciale = type; c.rayon = 1;
+        e.stats.speciales[type] = (e.stats.speciales[type] ?? 0) + 1;
+        ctx.emettre({ t: 'speciale', x, y, id: c.id, type });
+        ctx.bus.emettre('specialeCreee', ctx, { i, type, taille: gr.length });
+      }
+    }
+    const dep = appliquerGravite(g, e.gravite);
+    if (dep.length) ctx.emettre({ t: 'chute', deplacements: dep });
+    ctx.bus.emettre('apresChute', ctx, { deplacements: dep });
   }
 }
 

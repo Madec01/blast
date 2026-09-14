@@ -58,7 +58,8 @@ Encre `#1d1b3a` · ciel `#38b6ff`/`#8fe1ff` · champ du plateau `#3a2f8f`/`#2b22
 
 ```js
 import { creerRun, chargerRun } from './moteur/run.js';
-const run = creerRun({ seed:123, salles?:['vestibule',...], competences?:[], difficulte?:1, options?:{ couleurs?, jauge?, gravite? } });
+const run = creerRun({ seed:123, salles?:['vestibule',...], competences?:[], difficulte?:1, options?:{ couleurs?, jauge?, gravite?, cascades?:'rotation'|'toutes', cascadeMin?:5 } });
+// cascades : prototype D24 (mode Test et simulateur seulement, jamais actif par défaut) — voir docs/METRIQUES.md
 run.etat            // objet sérialisable, lecture seule pour les autres modules
 run.tap(x, y)       // → evenements[]  ([] si action refusée)
 run.tourner(sens)   // → evenements[]
@@ -93,7 +94,7 @@ Liste ordonnée ; le rendu la joue séquentiellement, l'UI et l'audio y réagiss
 | `t` | champs | sens |
 |---|---|---|
 | `tap` | `x,y,taille,couleur` | le joueur a tapé ce groupe |
-| `detruit` | `cellules:[{x,y,id,couleur,type}], cause:'groupe'\|'bombe'\|'ligne'\|'croix'\|'couleur'\|'fusee'\|'effet'\|'maree'\|'pierre', origine:{x,y}?, profondeur:0..n` | une salve de destruction ; `profondeur` = rang dans la chaîne |
+| `detruit` | `cellules:[{x,y,id,couleur,type}], cause:'groupe'\|'bombe'\|'ligne'\|'croix'\|'couleur'\|'fusee'\|'effet'\|'maree'\|'pierre'\|'cascade', origine:{x,y}?, profondeur:0..n` | une salve de destruction ; `profondeur` = rang dans la chaîne ; `cascade` (prototype D24) = groupe formé par une chute et soufflé de lui-même, traité comme un tap (XP de tap × chaîne, spéciale au seuil) |
 | `speciale` | `x,y,id,type` | la bille `id` devient spéciale `type` |
 | `conversion` | `cellules:[{x,y,id,couleur}]` | couleurs changées (propagation, domino, teinte) |
 | `element` | `x,y,id,type,activations,max,action:'activation'\|'eclate'\|'libere'\|'fusee'\|'monte'` | un élément réagit |

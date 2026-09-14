@@ -301,3 +301,30 @@ test('F09 rotationResultat : émis après la chute d’une rotation du joueur, j
   assert.ok(ev.some((v) => v.t === 'rotation' && v.auto));
   assert.ok(!ev.some((v) => v.t === 'rotationResultat'));
 });
+
+test('prototype D24 (sim seulement) : options.cascades = "rotation" fait exploser les groupes ≥ cascadeMin formés par la chute ; jamais par défaut', () => {
+  // diagonale de rouges (rangées 2..9, x = y-2) sur un remplissage alterné : la rotation +1 aligne 8 rouges à droite
+  const preparer = (options) => {
+    const run = creerRun({ seed: 1, salles: ['vestibule'], options: { jauge: 5, ...options } });
+    const e = run.etat, g = e.grille;
+    const bille = (c) => ({ id: g.prochainId++, type: 'bille', couleur: c, speciale: null, rayon: 1, element: null });
+    g.cellules.fill(null);
+    for (let y = 2; y < g.h; y++) { for (let x = 0; x < y - 2; x++) g.cellules[y * g.w + x] = bille((y - x) % 2 ? 2 : 1); g.cellules[y * g.w + (y - 2)] = bille(0); }
+    return run;
+  };
+  const sans = preparer({});
+  const evSans = sans.tourner(1);
+  assert.ok(!evSans.some((v) => v.t === 'detruit'), 'aucune cascade par défaut');
+  assert.equal(tousGroupes(sans.etat.grille).reduce((m, g) => Math.max(m, g.length), 0), 8);
+  const avec = preparer({ cascades: 'rotation', cascadeMin: 5 });
+  const evAvec = avec.tourner(1);
+  const casc = evAvec.filter((v) => v.t === 'detruit' && v.cause === 'cascade');
+  assert.ok(casc.length >= 1, 'cascade attendue');
+  assert.equal(casc[0].profondeur, 1);
+  assert.equal(casc[0].cellules.length, 7); // 8 rouges : 7 détruits + 1 devenu spéciale (croix dès 7), comme un tap
+  assert.ok(evAvec.some((v) => v.t === 'speciale' && v.type === 'croix'));
+  assert.ok(evAvec.some((v) => v.t === 'xp' && v.profondeur === 1));
+  assert.ok(evAvec.findIndex((v) => v.t === 'rotationResultat') > evAvec.findIndex((v) => v.t === 'chute'));
+  assert.equal(avec.etat.stats.cascades, 1);
+  assert.ok(!tousGroupes(avec.etat.grille).some((g) => g.length >= 5), 'plus aucun groupe ≥ 5 après les vagues');
+});

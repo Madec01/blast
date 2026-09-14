@@ -107,6 +107,16 @@ export function creerTest(conteneur, actions) {
   });
   champ('Gravité', selectGravite, descGravite);
 
+  // --- Cascades (prototype D24, feuille de Martin F01) : jamais actives dans le jeu normal, pour se faire une idée en jouant ---
+  const selectCascades = document.createElement('select');
+  for (const [val, nom] of [['', 'Aucune (jeu normal)'], ['rotation', 'Sur rotation : les groupes de 5+ formés par la chute explosent'], ['toutes', 'Après chaque chute (tap et rotation)']]) {
+    const option = document.createElement('option'); option.value = val; option.textContent = nom; selectCascades.appendChild(option);
+  }
+  const descCascades = document.createElement('span');
+  descCascades.className = 'test-aide';
+  descCascades.textContent = 'Prototype D24 mesuré au simulateur : voir docs/METRIQUES.md.';
+  champ('Cascades', selectCascades, descCascades);
+
   // --- Pied : Lancer / Retour ---
   const pied = document.createElement('div');
   pied.className = 'test-pied';
@@ -135,6 +145,7 @@ export function creerTest(conteneur, actions) {
       couleurs: selectCouleurs.value ? Number(selectCouleurs.value) : null,
       jauge: caseJaugeDefaut.checked ? null : Number(inputJauge.value),
       gravite: selectGravite.value || null,
+      cascades: selectCascades.value || null, // prototype D24
     });
   });
 

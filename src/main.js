@@ -46,7 +46,7 @@ const ui = creerUI(document.getElementById('ui'), {
   lancerTest(config) {
     audio.init(); modeTest = true;
     run = creerRun({ seed: config.seed ?? Date.now(), salles: [config.salleId], competences: config.competences ?? [], difficulte: config.difficulte ?? 1,
-      options: { couleurs: config.couleurs ?? undefined, jauge: config.jauge ?? undefined, gravite: config.gravite ?? undefined } });
+      options: { couleurs: config.couleurs ?? undefined, jauge: config.jauge ?? undefined, gravite: config.gravite ?? undefined, cascades: config.cascades ?? undefined } }); // cascades : prototype D24 (mode Test seulement)
     demarrer(run.evenementsInitiaux);
   },
   tourner(sens) {
