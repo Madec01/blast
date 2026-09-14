@@ -6,14 +6,20 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 
 ## À faire maintenant
 
-Réponses de Martin lues le 2026-09-14 sur la feuille web : https://claude.ai/code/artifact/0aae216f-64a0-44c3-949d-482473879eb2
+**Feuille de route de Martin (2026-09-14, classeur → `docs/FEUILLE_DE_ROUTE_MARTIN.md`)** : ordre Feel → Cascades → Spéciales & combos → Finale → Builds → Niveaux → Carte → Méta. Règle d'or : pas de contenu tant que les 60 secondes en salle ne sont pas satisfaisantes. Elle remplace l'ordre précédent (lot E, D21-D23 passent après).
 
-1. **Martin joue un run complet** : juice, cartes, fin de run, boss. Retour franc. Puis D19-D20 (relance, palier 3 rotation).
-2. **Lot E** : Cosmo (sprite de Martin ; recherche d'un sprite libre impossible hors ligne → vectoriel provisoire), ouverture en 3 écrans, noms de salles / titre / méchant après le choix de Martin (propositions : ORBITA ; Première Orbite, La Faille, Pluie de météores, Vent solaire, Le Pulsar ; Krator l'astéroïde).
-3. Contenu : le palier 3 n'a qu'une épique non risquée → l'apogée (niveau 10) complète avec des raretés inférieures. Ajouter 4-6 épiques de palier 3.
-4. Martin joue : ressenti du juice, des cartes, de la fin de run. Audio (samples) plus tard.
+0. **Baseline — fait** : `docs/METRIQUES.md` (sim avisée/gourmande : tours par salle, taps/rotation, groupe moyen, spéciales explosées/créées, chaîne max, premier gros moment), 17 tests, fumée.
+1. **Feel (F08, F09, micro-pause)** : amplitudes distinctes 3/5/8/10+ (le lot A a posé pré-squash, flash, poussière, mots de combo : rester sur ces pools), hitstop de 60-90 ms avant les explosions 8+, feedback « rotation productive » (le télégraphe existe : afficher le résultat obtenu). À valider par Martin en jouant.
+2. **Cascades (F01-F03) — à trancher, D24-D25** : CLAUDE.md §3.1 interdit les cascades automatiques (« tap-blast, pas match-3 »). Recommandation : cascades **sur rotation seulement** (les groupes de 5+ formés par la chute explosent, comme l'épique Avalanche) — la rotation devient le moteur de chaîne, le tap reste un tap-blast. Attention : sans remplissage, chaque cascade draine la grille (`docs/METRIQUES.md`, « une bille est une munition »). Frénésie / mode VERTIGE : proposer les chiffres avant de coder.
+3. **Spéciales & combos (F04-F06) — recettes à valider, D26** : bombe+bombe = bombe rayon 2 ; ligne+ligne = croix ; bombe+ligne = 3 lignes ; couleur+bombe = toutes les billes de la couleur deviennent des bombes ; couleur+ligne = elles deviennent des lignes ; couleur+couleur = tout le plateau. En règle de base (aujourd'hui seule *Double amorce*, compétence).
+4. **Finale (F07)** : la supernova de fin de salle existe (`finale.js`) ; il manque la conversion des coups et rotations restants en score, façon Sugar Crush.
+5. Puis Builds (F10-F11 : familles déjà dans les données, à afficher), Niveaux (F12-F13), Carte (F14-F15, **D27** : carte du monde à étoiles façon Candy Crush ou carte de run façon Slay the Spire ?), Méta (F16-F17).
 
-Fait le 2026-09-14 : **Lot A** (juice du tap, ciel étoilé qui tourne, étoile filante, astéroïde, mots de combo, BOOM), **UI nuit** + objectifs visibles, **Lot C** (fin de run avec titre de build, stats, escalier d'XP, quasi-victoire, échec nommé), **Lot D** (3 cartes dont 1 pari, raretés + pitié, relance en jauge, niveau 10, 6 évolutions, synergies, 25 nouveaux effets dont Big Bang, conditions anti-pick à vide). Réglages moteur : croix dès 7, jauge 2, élan ×1,2, fusée et étoile filante dès les premières salles. Bot avisé : 100 / 98 / 96 / 74 / 75 %.
+Toujours en attente : retour de Martin après sa partie ; titre / noms de salles / Krator / sprite Cosmo (lot E) ; audit gameplay 3 (`docs/AUDIT_GAMEPLAY_3.md`) et D21-D23.
+
+Fait le 2026-09-14 (après-midi) : **D19** (relance gratuite une fois par salle), **D20** (Débridé, Synchronisation, Apesanteur majeurs ; durée en coups), **5 épiques de palier 3** (Dernière danse, Danse des couleurs, Absorption, Jackpot, Avalanche), audit gameplay 3, HUD masqué sous la fin de run, 3 mineurs de l'audit code 2. 17 tests, fumée verte, sim avisée 38 % (39 % avant).
+
+Fait le 2026-09-14 (matin) : **Lot A** (juice du tap, ciel étoilé qui tourne, étoile filante, astéroïde, mots de combo, BOOM), **UI nuit** + objectifs visibles, **Lot C** (fin de run avec titre de build, stats, escalier d'XP, quasi-victoire, échec nommé), **Lot D** (3 cartes dont 1 pari, raretés + pitié, relance en jauge, niveau 10, 6 évolutions, synergies, 25 nouveaux effets dont Big Bang, conditions anti-pick à vide). Réglages moteur : croix dès 7, jauge 2, élan ×1,2, fusée et étoile filante dès les premières salles. Bot avisé : 100 / 98 / 96 / 74 / 75 %.
 
 ---
 
@@ -36,8 +42,15 @@ Fait le 2026-09-14 : **Lot A** (juice du tap, ciel étoilé qui tourne, étoile 
 | D17 | **Tranchée** : fin de run + quasi-victoire + échec nommé maintenant ; défi quotidien et série **plus tard** ; règle « jamais de vies ni de timers » écrite dans CLAUDE.md. | Lot C. |
 | D18 | **Tranchée** : A → C → D → B → E, avec E1 (le ciel) juste après A. | En cours. |
 
-| D19 | Audit gameplay 2 : la relance des cartes (1 point de jauge sur 2) n'est jamais rationnelle. Baisser à « gratuite une fois par salle » ? ou creuser l'écart entre cartes ? | Une relance gratuite par salle, puis 1 jauge. |
-| D20 | Audit gameplay 2 : les effets de rotation du palier 3 (Débridé, Synchronisation, Apesanteur) sont ≤ 0 en impact. Les rendre « majeurs » (durée 3 → 5 tours, effet immédiat en plus) ? | Oui, après ta partie. |
+| D19 | **Appliquée.** Relance des cartes gratuite une fois par salle, puis 1 point de jauge (`relanceGratuite` dans l'état, bouton « Retirer les cartes (gratuit) »). | Sonde : disponible dans 99 % des choix. |
+| D20 | **Appliquée.** Débridé (5 coups de rotations gratuites, jauge remplie), Synchronisation (2 bombes tout de suite + 5 coups où chaque rotation fait exploser les spéciales), Apesanteur (5 coups : rotations gratuites, ×1,5 XP, rotation subie annoncée après chaque coup). Durée comptée en **coups** (`parTap`) : une rotation n'use plus la durée. | Sonde après : Apesanteur +0,6, Synchronisation −3,4, Débridé −4,4 (bruit ±7 ; le bot n'exploite pas les rotations gratuites). Voir D21. |
+| D21 | L'agent idées juge que Débridé et Apesanteur *suppriment* la décision de rotation (gratuite, automatique) au lieu de l'enrichir (pilier 1). Les remplacer par des effets à payoff de rotation (Surtension, Supernova différée, `docs/IDEES_EPIQUES_3.md`) ? | Oui, à la prochaine passe de contenu ; garder Synchronisation. |
+| D22 | Audit gameplay 3, majeure C : un épique non-pari encore actif en fin de salle « gradue » en compétence de run affaiblie (1 par salle). Les niveaux en salle construiraient enfin quelque chose de permanent. | Oui, petit lot après le retour de Martin ; A (carte) et B (boutique) restent en phase 2. |
+| D24 | **Cascades (feuille de Martin, F01)** : contredit §3.1 « les cascades ne se déclenchent pas ». Autoriser les cascades automatiques ? Sur tap et rotation, ou sur rotation seulement ? | Sur rotation seulement : la rotation devient le moteur de chaîne (pilier 1), le tap reste un tap-blast. Chaque groupe cascadé vaut l'XP d'un tap. |
+| D25 | **Frénésie + mode VERTIGE (F02-F03)** : jauge 0-100 alimentée par groupes, cascades, rotations productives, combos ; à 100 % un mode court. Contenu du mode ? | Proposition : 3 coups où chaque tap vaut ×2 XP et crée une spéciale dès 3 billes, ciel qui accélère. Chiffres à valider au simulateur. |
+| D26 | **Recettes de combos de spéciales (F04-F06)** en règle de base, voir « À faire maintenant » 3. | Oui, dans cet ordre ; *Double amorce* devient un renfort de la recette. |
+| D27 | **Carte (F14-F15)** : la feuille parle de « carte du monde et étoiles » (Candy Crush) ; CLAUDE.md §3.3 d'une carte de run à nœuds (Slay the Spire). Les deux ? | Carte de run à nœuds pour le run, étoiles 1-3 par salle comme score de maîtrise ; pas de niveaux fixes à rejouer. |
+| D23 | Audit gameplay 3, mineures : XP non convertie → monnaie de run visible dès maintenant ; fusionner les 2 barres du HUD ; 1-2 fusions spéciale×spéciale en règle de base. | Monnaie de run oui (prépare la boutique) ; HUD non (Martin a demandé de mieux voir l'objectif) ; fusions à discuter. |
 
 Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 
@@ -89,6 +102,10 @@ Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 
 ## Bugs
 
+- [x] (mineur, capture 07-fin-run) Le HUD restait visible derrière le titre « Fin du run » ; un panneau plus haut que l'écran était coupé par le centrage — HUD masqué sous la fin de run, `margin-block: auto` sur les panneaux (2026-09-14).
+- [x] (mineur, audit code 2) `surSalle` résolvait avant l'atterrissage sur les grandes grilles ; police reconstruite à chaque texte ; écouteur clavier sans retrait — corrigés (2026-09-14).
+- [x] (équilibrage, sonde) Les premières versions de Dernière danse et Comète noire détruisaient des billes à 10 XP : −6 et −10 points — une bille est une munition dans une grille qui ne se remplit pas. Réécrites en conversion (Dernière danse unit le sol ; Absorption teinte les voisines avant le tap) (2026-09-14).
+- [ ] (mineur, audit code 2) 8 pools à tableaux typés dupliqués dans 4 fichiers du rendu : mutualisables, non fait.
 - [x] (important) Audit gameplay 2 : le boss ne filtrait rien (cible 1 800 → 2 200 : bot avisé 54 % contre 74 % à Tempête) ; « Mise en jeu » était un pari gratuit (−3 coups à la prise) ; Tempête et Pendule bloquaient 1 run sur 5 (seuil de renfort 45 %) (2026-09-14).
 - [x] (règle) Renfort : sous 40 % de billes, 2 à 5 billes par tap, au hasard. Boss remonté à 1 800 points (2026-09-11).
 - [x] (bloquant, retour de Martin) Mauvaise lecture de la règle : la grille ne doit **jamais** se remplir de l'extérieur. Mode `vide` par défaut, objectifs et seuils de niveau recalés au simulateur (2026-09-11).
@@ -107,6 +124,10 @@ Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 ---
 
 ## Idées en plus
+
+Agent idées 2026-09-14 (14 épiques de palier 3 dans `docs/IDEES_EPIQUES_3.md`) : 5 implémentées (Dernière danse, Danse des couleurs, Absorption ex-Comète noire, Jackpot, Avalanche). Restent : **Surtension** (pari : les taps sans rotation chargent la prochaine spéciale, la rotation vide la jauge), **Supernova différée**, Écho, Point de rupture, Rafale, Ceinture d'astéroïdes, Horizon des événements, Vertige final, Roulette russe, Dette cosmique.
+
+Audit gameplay 3 (`docs/AUDIT_GAMEPLAY_3.md`) : carte de nœuds (phase 2), boutique de run avec vente/retrait (phase 2), graduation des épiques (D22), monnaie de run dès maintenant (D23).
 
 Recherches du 2026-09-14 (4 dossiers + synthèse dans `docs/RECHERCHE_*.md`) : juice en 12 items chiffrés, 15 mécanismes de rétention, système de niveaux à 3 cartes + 36 effets, 5 contextes. Les décisions D14-D18 ci-dessus en découlent ; les items non retenus restent dans les dossiers.
 
@@ -128,6 +149,8 @@ Agent idées 2026-09-11 (18 idées dans `docs/IDEES.md`), son Top 5 :
 
 ## Fait
 
+- 2026-09-14 — Feuille de route de Martin transcrite (`docs/FEUILLE_DE_ROUTE_MARTIN.md`), étape 0 faite (`docs/METRIQUES.md`, métriques dans `tools/sim.mjs`).
+- 2026-09-14 — D19 (relance gratuite 1×/salle), D20 (palier 3 rotation majeur, durée en coups `parTap`), 5 épiques de palier 3, audit gameplay 3 comparatif, HUD de fin de run, mineurs de l'audit code 2. 17 tests, fumée verte (78 taps, 16 rotations, 26 choix, 0 erreur), build 141 Ko de JS.
 - 2026-09-14 — Audits code 2 et gameplay 2 appliqués (`docs/AUDIT_CODE_2.md`, `docs/AUDIT_GAMEPLAY_2.md`) : boss à 2 200, Mise en jeu payante, renfort 45 % sur Tempête/Pendule, filets anti-blocage, dette côté moteur, texture d'étoiles plafonnée.
 - 2026-09-14 — Lots A, B, C, D de la phase 1.5 livrés. 15 tests, fumée verte sur un run complet (80 taps, 35 choix, 0 erreur).
 - 2026-09-11 — Renfort (règle de Martin) : la grille se vide mais reçoit 2 à 5 billes par tap sous 40 % ; bot avisé 100 / 100 / 99 / 75 / ~90 %, gourmand 79 / 54 / 91 / 84 / ~80 %.
