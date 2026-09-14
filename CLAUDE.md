@@ -39,6 +39,10 @@ Références : Candy Crush (satisfaction, lisibilité), Angry Birds Dream Blast 
 - Code en **français** pour les commentaires et noms de données de jeu (compétences, salles), en anglais pour le code technique si plus naturel. Tout le texte joueur en français.
 - **Mode Test** accessible depuis le menu : tout débloqué, choix de la salle, choix des compétences, curseur de difficulté, seed fixable. Le mode Normal est le vrai jeu.
 
+### Règle de rétention saine (Martin, 2026-09-14)
+
+Jamais de vies qui expirent, de timers payants, de quasi-victoire utilisée comme hameçon d'achat, de série qui punit l'absence, de notification culpabilisante. On revient parce que c'est satisfaisant.
+
 ### Règles de travail avec Martin
 
 **1. Valider avant de coder.** Pour tout choix structurant (bibliothèques, format de données, architecture, boucle de rotation), proposer d'abord, attendre l'accord de Martin, puis implémenter. Livrer par phases jouables (§9) : chaque phase = un commit sur `blast` qui se lance et se joue. Commits atomiques, messages en français, pas de push de code cassé sur `main`. Ne pas anticiper les phases suivantes au-delà des structures de données prévues ici. Seed déterministe pour tout le run.

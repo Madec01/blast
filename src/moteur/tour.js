@@ -5,7 +5,7 @@ import { appliquerGravite, remplir, maree, renforcer } from './chute.js';
 import { resoudre } from './speciales.js';
 import { monteeBallons } from './elements.js';
 import { SEUILS, ORDRE_SPECIALES } from '../data/speciales.js';
-import { RECHARGE_JAUGE, MODES_GRAVITE, ROTATION_HORS_JAUGE, RENFORT } from '../data/salles.js';
+import { RECHARGE_JAUGE, MODES_GRAVITE, ROTATION_HORS_JAUGE, RENFORT, BONUS_ELAN } from '../data/salles.js';
 import { SEUILS_NIVEAU, NIVEAU_MAX, proposerEffets, expirerEffets } from './progression.js';
 
 /** File des prochaines entrées : couleurs pré-tirées (visibles avec Prévoyance et dans l'aperçu de rotation). */
@@ -71,6 +71,7 @@ export function jouerRotation(ctx, sens, options = {}) {
   if (enCoups) { e.coups -= enCoups; emettreCoups(ctx); ctx.emettre({ t: 'message', texte: 'Jauge vide : la rotation coûte un coup' }); }
   else if (cout) { e.jauge -= cout; emettreCoups(ctx); }
   monteeBallons(ctx);
+  if (!options.auto) e.elan = true; // le prochain tap profite de l'élan
   ctx.bus.emettre('apresRotation', ctx, { sens, auto: !!options.auto });
   return true;
 }
@@ -91,7 +92,7 @@ export function jouerTap(ctx, x, y) {
   const c = g.cellules[i];
   ctx.bus.emettre('avantTap', ctx, { i, x, y, couleur: c.couleur });
   const gr = groupe(g, i), taille = gr.length;
-  ctx.emettre({ t: 'tap', x, y, taille, couleur: c.couleur });
+  ctx.emettre({ t: 'tap', x, y, taille, couleur: c.couleur, elan: !!e.elan });
   let type = c.speciale ? null : typeSpecialePour(ctx, taille);
   if (type) type = ctx.bus.reduire('typeSpeciale', type, ctx, { taille });
   resoudre(ctx, { cellules: type ? gr.filter((k) => k !== i) : gr, cause: 'groupe', origine: { x, y }, profondeur: 0, couleur: c.couleur, tapee: type ? i : undefined });
@@ -100,6 +101,7 @@ export function jouerTap(ctx, x, y) {
     ctx.emettre({ t: 'speciale', x, y, id: c.id, type });
     ctx.bus.emettre('specialeCreee', ctx, { i, type, taille });
   }
+  if (e.elan) { e.elan = false; ctx.emettre({ t: 'message', texte: 'Élan : +20 % d’XP' }); }
   if (taille >= RECHARGE_JAUGE && e.jauge < e.jaugeMax) { e.jauge++; ctx.emettre({ t: 'message', texte: 'Gros groupe : +1 rotation' }); }
   e.coups--;
   emettreCoups(ctx);

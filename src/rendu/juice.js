@@ -13,61 +13,76 @@ const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 // rebond élastique avec dépassement (overshoot), classique « back out »
 const easeBackOut = (t, s = 1.9) => 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2);
 
-const MOTS_COMBO = [[10, 'VERTIGE !'], [8, 'Énorme !'], [6, 'Super !'], [4, 'Joli !']];
+// Mots de combo « Carrousel cosmique » (contexte validé) : thème spatial plutôt que générique.
+const MOTS_COMBO = [[10, 'BIG BANG !'], [8, 'Supernova !'], [6, 'Stellaire !'], [4, 'Étincelle !']];
 function motCombo(taille) {
   for (const [seuil, mot] of MOTS_COMBO) if (taille >= seuil) return mot;
   return null;
 }
 const POLICE = '"Arial Rounded MT Bold", "Trebuchet MS", "Nunito", "Segoe UI", sans-serif';
+const RETARDS_FANTOMES = [0.09, 0.06, 0.03]; // a5 : 3 fantômes en retard, du plus vieux au plus récent
+const ALPHAS_FANTOMES = [0.1, 0.2, 0.4];
 
 export function creerJuice() {
-  // --- textes flottants : type 0 = +XP (monte 1 case, 700 ms), type 1 = combo (rebond, 900 ms)
+  // --- textes flottants : type 0 = +XP (monte 1 case, 700 ms), type 1 = combo/BOOM (rebond, 900 ms)
   const tx = new Float32Array(MAX_TEXTES), ty = new Float32Array(MAX_TEXTES);
   const tt = new Float32Array(MAX_TEXTES), td = new Float32Array(MAX_TEXTES);
   const ttype = new Uint8Array(MAX_TEXTES);
+  const tech = new Float32Array(MAX_TEXTES); // taille de police, en multiple de case (§7)
   const tmot = new Array(MAX_TEXTES).fill('');
   let nTextes = 0;
 
-  function occuper(i, x, y, type, mot, duree) { tx[i] = x; ty[i] = y; tt[i] = 0; td[i] = duree; ttype[i] = type; tmot[i] = mot; }
+  function occuper(i, x, y, type, mot, duree, echelle) { tx[i] = x; ty[i] = y; tt[i] = 0; td[i] = duree; ttype[i] = type; tmot[i] = mot; tech[i] = echelle; }
   // à saturation (≥16 flottants à l'écran) on recycle le plus ancien plutôt que d'en perdre un neuf
-  function emettreXP(x, y, gain) { occuper(nTextes < MAX_TEXTES ? nTextes++ : 0, x, y, 0, '+' + (gain ?? ''), 0.7); }
+  function emettreXP(x, y, gain) { occuper(nTextes < MAX_TEXTES ? nTextes++ : 0, x, y, 0, '+' + (gain ?? ''), 0.7, 0.45); }
   function emettreCombo(x, y, taille) {
     const mot = motCombo(taille); if (!mot) return;
-    occuper(nTextes < MAX_TEXTES ? nTextes++ : 0, x, y, 1, mot, 0.9);
+    occuper(nTextes < MAX_TEXTES ? nTextes++ : 0, x, y, 1, mot, 0.9, 1.2);
   }
+  // texte « BOOM ! » à l'origine d'une bombe qui explose (même style que le combo, plus petit — §7)
+  function emettreBoom(x, y) { occuper(nTextes < MAX_TEXTES ? nTextes++ : 0, x, y, 1, 'BOOM !', 0.9, 0.9); }
   function majTextes(dt) {
     for (let i = 0; i < nTextes; i++) {
       tt[i] += dt;
       if (tt[i] >= td[i]) {
         const last = nTextes - 1;
-        tx[i] = tx[last]; ty[i] = ty[last]; tt[i] = tt[last]; td[i] = td[last]; ttype[i] = ttype[last]; tmot[i] = tmot[last];
+        tx[i] = tx[last]; ty[i] = ty[last]; tt[i] = tt[last]; td[i] = td[last]; ttype[i] = ttype[last]; tech[i] = tech[last]; tmot[i] = tmot[last];
         nTextes--; i--;
       }
     }
   }
+  // dessine une occurrence du texte i à une progression p donnée (0..1), avec un multiplicateur
+  // d'alpha — sert à la fois au texte plein (alphaMult=1) et à ses fantômes en retard (a5).
+  function dessinerUnTexte(ctx, cellPix, i, p, alphaMult) {
+    if (p <= 0) return;
+    ctx.save();
+    let alphaBase;
+    if (ttype[i] === 0) {
+      // +XP : monte d'une case le long de l'écran, s'efface en fin de course
+      ctx.translate(tx[i], ty[i] - easeOutCubic(p) * cellPix);
+      alphaBase = 1 - clamp01((p - 0.55) / 0.45);
+    } else {
+      // mot de combo/BOOM : rebond élastique (overshoot) + légère rotation, sur la case tapée
+      const echelle = p < 0.45 ? Math.max(0, easeBackOut(p / 0.45)) : 1 + Math.sin((p - 0.45) * Math.PI) * 0.03;
+      ctx.translate(tx[i], ty[i]);
+      ctx.rotate(Math.sin(p * Math.PI * 2.4) * (1 - p) * (6 * Math.PI / 180));
+      ctx.scale(echelle, echelle);
+      alphaBase = 1 - clamp01((p - 0.72) / 0.28);
+    }
+    ctx.font = `900 ${Math.round(cellPix * tech[i])}px ${POLICE}`;
+    ctx.globalAlpha = Math.max(0, alphaBase) * alphaMult;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, cellPix * 0.08);
+    ctx.strokeStyle = ENCRE; ctx.strokeText(tmot[i], 0, 0);
+    ctx.fillStyle = '#ffffff'; ctx.fillText(tmot[i], 0, 0);
+    ctx.restore();
+  }
   function dessinerTextes(ctx, cellPix) {
     for (let i = 0; i < nTextes; i++) {
       const p = clamp01(tt[i] / td[i]);
-      ctx.save();
-      if (ttype[i] === 0) {
-        // +XP : monte d'une case le long de l'écran, s'efface en fin de course
-        ctx.translate(tx[i], ty[i] - easeOutCubic(p) * cellPix);
-        ctx.globalAlpha = 1 - clamp01((p - 0.55) / 0.45);
-        ctx.font = `900 ${Math.round(cellPix * 0.45)}px ${POLICE}`;
-      } else {
-        // mot de combo : rebond élastique (overshoot) + légère rotation, sur la case tapée
-        const echelle = p < 0.45 ? Math.max(0, easeBackOut(p / 0.45)) : 1 + Math.sin((p - 0.45) * Math.PI) * 0.03;
-        ctx.translate(tx[i], ty[i]);
-        ctx.rotate(Math.sin(p * Math.PI * 2.4) * (1 - p) * (6 * Math.PI / 180));
-        ctx.scale(echelle, echelle);
-        ctx.globalAlpha = 1 - clamp01((p - 0.72) / 0.28);
-        ctx.font = `900 ${Math.round(cellPix * 1.2)}px ${POLICE}`;
-      }
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, cellPix * 0.08);
-      ctx.strokeStyle = ENCRE; ctx.strokeText(tmot[i], 0, 0);
-      ctx.fillStyle = '#ffffff'; ctx.fillText(tmot[i], 0, 0);
-      ctx.restore();
+      // a5 : 3 fantômes en retard (dessinés d'abord, donc en dessous), puis le texte plein au-dessus
+      for (let k = 0; k < 3; k++) dessinerUnTexte(ctx, cellPix, i, p - RETARDS_FANTOMES[k], ALPHAS_FANTOMES[k]);
+      dessinerUnTexte(ctx, cellPix, i, p, 1);
     }
   }
 
@@ -113,7 +128,7 @@ export function creerJuice() {
   }
 
   return {
-    emettreXP, emettreCombo, majTextes, dessinerTextes,
+    emettreXP, emettreCombo, emettreBoom, majTextes, dessinerTextes,
     emettreOnde, majOndes, dessinerOndes,
     creerSquash,
     get enCours() { return nTextes > 0 || nOndes > 0; },

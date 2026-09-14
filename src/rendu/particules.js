@@ -1,6 +1,7 @@
 // Pool de particules à taille fixe (≤ 800), zéro allocation par frame (§2 « juice »).
-// Une seule famille visuelle « cartoon » : confettis rectangulaires multicolores qui
-// tournent avec la gravité, et étoiles à 4 branches. Toujours en 'source-over'.
+// Trois familles visuelles « cartoon » : confettis rectangulaires multicolores qui
+// tournent avec la gravité, étoiles à 4 branches, et poussière d'atterrissage (a3, ovales
+// clairs translucides). Toujours en 'source-over'.
 
 const MAX = 800;
 const PALETTE = ['#ff3b5c', '#3ad24f', '#2f8cff', '#ffcc1f', '#b04cff', '#22d3ee', '#ff5fa2', '#ff9f1c', '#ffffff'];
@@ -15,7 +16,7 @@ export function creerParticules() {
   const vie = new Float32Array(MAX), vieMax = new Float32Array(MAX);
   const taille = new Float32Array(MAX);
   const r = new Uint8Array(MAX), g = new Uint8Array(MAX), b = new Uint8Array(MAX);
-  const forme = new Uint8Array(MAX); // 0 = confetti rectangle, 1 = étoile 4 branches
+  const forme = new Uint8Array(MAX); // 0 = confetti rectangle, 1 = étoile 4 branches, 2 = poussière ovale
   let n = 0;
 
   function creerParticule(px, py, cr, cg, cb, f, opts) {
@@ -34,6 +35,9 @@ export function creerParticules() {
 
   const OPTS_CONFETTI = { angleBase: -Math.PI / 2, etalement: Math.PI * 1.7, vitesseMin: 70, vitesseMax: 260, vrotMax: 12, vieMin: 0.4, vieMax: 0.8, tailleMin: 3, tailleMax: 7 };
   const OPTS_ETOILE = { angleBase: -Math.PI / 2, etalement: Math.PI * 1.5, vitesseMin: 50, vitesseMax: 180, vrotMax: 6, vieMin: 0.35, vieMax: 0.65, tailleMin: 3, tailleMax: 6 };
+  // a3 : poussière d'atterrissage — petit poof lent, vie courte (§CONTRATS étape 4)
+  const OPTS_POUSSIERE = { angleBase: 0, etalement: Math.PI * 2, vitesseMin: 18, vitesseMax: 55, vrotMax: 2, vieMin: 0.25, vieMax: 0.35, tailleMin: 4, tailleMax: 7 };
+  const POUSSIERE_RGB = [238, 230, 210]; // beige clair translucide
 
   // confettis multicolores + étoiles à 4 branches — juice de destruction, proportionnel et
   // plafonné par l'appelant (rendu.js) via `nombre`. hexAccent = couleur de la bille détruite.
@@ -53,6 +57,12 @@ export function creerParticules() {
       const [cr, cg, cb] = hex2rgb(hex);
       creerParticule(px, py, cr, cg, cb, 0, OPTS_CONFETTI);
     }
+  }
+  // a3 : 4-6 ovales de poussière à l'atterrissage d'une bille, ancrent l'impact au sol
+  function emettrePoussiere(px, py) {
+    const nombre = 4 + ((Math.random() * 3) | 0); // 4..6
+    const [cr, cg, cb] = POUSSIERE_RGB;
+    for (let k = 0; k < nombre; k++) creerParticule(px, py, cr, cg, cb, 2, OPTS_POUSSIERE);
   }
 
   // intégration physique — dt en secondes. Suppression par swap-remove, zéro allocation.
@@ -90,16 +100,19 @@ export function creerParticules() {
     ctx.save(); ctx.globalCompositeOperation = 'source-over';
     for (let i = 0; i < n; i++) {
       const alpha = Math.max(0, Math.min(1, vie[i] / vieMax[i])), s = taille[i];
-      ctx.save(); ctx.translate(x[i], y[i]); ctx.rotate(rot[i]); ctx.globalAlpha = alpha;
+      ctx.save(); ctx.translate(x[i], y[i]); ctx.rotate(rot[i]);
+      ctx.globalAlpha = forme[i] === 2 ? alpha * 0.55 : alpha; // poussière : translucide (§CONTRATS étape 4)
       ctx.fillStyle = `rgb(${r[i]},${g[i]},${b[i]})`;
-      if (forme[i] === 1) cheminEtoile(ctx, s); else { ctx.beginPath(); ctx.rect(-s * 0.6, -s * 0.35, s * 1.2, s * 0.7); }
+      if (forme[i] === 1) cheminEtoile(ctx, s);
+      else if (forme[i] === 2) { ctx.beginPath(); ctx.ellipse(0, 0, s * 0.9, s * 0.42, 0, 0, Math.PI * 2); }
+      else { ctx.beginPath(); ctx.rect(-s * 0.6, -s * 0.35, s * 1.2, s * 0.7); }
       ctx.fill(); ctx.restore();
     }
     ctx.restore();
   }
 
   return {
-    emettreDestruction, emettreConfettis,
+    emettreDestruction, emettreConfettis, emettrePoussiere,
     maj, dessiner,
     get enCours() { return n > 0; },
     vider() { n = 0; },

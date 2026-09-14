@@ -1,5 +1,15 @@
 // Écrans d'attente construits depuis etat.enAttente (§3/§7 CONTRATS) :
 // montée de niveau, choix de compétence, fin de salle, fin de run.
+
+// Raison de fin de salle → texte français lisible.
+const LIBELLE_RAISON = {
+  coups: 'Plus de coups',
+  bloque: 'Plateau bloqué : plus aucun groupe',
+  vide: 'Plateau vide',
+  rotations: 'Plus de rotations',
+  objectif: 'Objectif atteint',
+};
+
 export function creerCartes(conteneur, actions) {
   conteneur.classList.add('couche-attente');
   conteneur.innerHTML = '';
@@ -88,9 +98,10 @@ export function creerCartes(conteneur, actions) {
         });
         boutonPied('Passer', () => actions.choisir(null));
       } else if (enAttente.type === 'finSalle') {
-        titre.textContent = enAttente.victoire ? 'Salle terminée' : 'Échec';
+        titre.textContent = enAttente.victoire ? 'Étape franchie' : 'Échec';
         sousTitre.hidden = false;
-        const raison = enAttente.raison ? `${enAttente.raison} — ` : '';
+        const libelleRaison = enAttente.raison ? (LIBELLE_RAISON[enAttente.raison] ?? enAttente.raison) : '';
+        const raison = libelleRaison ? `${libelleRaison} — ` : '';
         sousTitre.textContent = `${raison}XP ${enAttente.xpSalle ?? 0}`;
         boutonPied('Continuer', () => actions.choisir(null), true);
       } else if (enAttente.type === 'finRun') {

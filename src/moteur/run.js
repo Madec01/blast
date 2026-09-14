@@ -188,7 +188,7 @@ export function creerRun({ seed = Date.now(), salles = null, competences = [], d
     coups: 0, coupsMax: 0, jauge: 0, jaugeMax: 0, tour: 0,
     xpSalle: 0, niveau: 1, xpTotale: 0, couleurs: 5, modeGravite: MODE_GRAVITE_DEFAUT,
     objectif: null, competences: competences.slice(), effetsActifs: [], effetsVus: [],
-    prochainesEntrees: [], annonce: null, enAttente: null, memo: {},
+    prochainesEntrees: [], annonce: null, enAttente: null, memo: {}, elan: false,
   };
   const ctx = creerCtx(etat, rng);
   installerCompetences(ctx);

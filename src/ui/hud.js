@@ -12,12 +12,17 @@ function texteObjectif(objectif) {
   switch (objectif.type) {
     case 'score':   return `Score ${progres} / ${cible}`;
     case 'couleur': return `${progres} / ${cible}`;
-    case 'ballons': return `Ballons ${progres} / ${cible}`;
-    case 'pierres': return `Pierres ${progres} / ${cible}`;
+    case 'ballons': return `Étoiles filantes ${progres} / ${cible}`;
+    case 'pierres': return `Astéroïdes ${progres} / ${cible}`;
     case 'billes':  return `Billes ${progres} / ${cible}`;
     default:        return `${progres} / ${cible}`;
   }
 }
+
+// Types d'objectif ayant une icône dessinée en CSS (score, ballons, pierres) ;
+// 'couleur' et 'billes' affichent plutôt une petite bille (.bille-mini).
+const ICONE_PAR_TYPE = { score: 'score', ballons: 'ballons', pierres: 'pierres' };
+const AVEC_BILLE = new Set(['couleur', 'billes']);
 
 // sens de rotation → symbole affiché dans l'annonce.
 const SYMBOLE_ROTATION = { '-1': '⟲', '1': '⟳', '2': '↻' };
@@ -49,13 +54,39 @@ export function creerHud(elHud) {
   barreXp.appendChild(remplissageXp);
   xpEl.append(niveauEl, barreXp);
 
+  // Objectif : gros badge (icône par type + texte) + barre de progression
+  // dessous (retour Martin : « il faut mieux voir les objectifs »).
   const objectifEl = document.createElement('div');
   objectifEl.className = 'hud-objectif';
+
+  const objectifBadge = document.createElement('div');
+  objectifBadge.className = 'objectif-badge';
+
+  const objectifIcone = document.createElement('span');
+  objectifIcone.className = 'objectif-icone';
+  objectifIcone.hidden = true;
+
   const pastilleObjectif = document.createElement('span');
-  pastilleObjectif.className = 'bille-mini';
+  pastilleObjectif.className = 'objectif-icone bille-mini';
   pastilleObjectif.hidden = true;
+
   const texteObjectifEl = document.createElement('span');
-  objectifEl.append(pastilleObjectif, texteObjectifEl);
+  texteObjectifEl.className = 'objectif-texte';
+
+  const objectifCoche = document.createElement('span');
+  objectifCoche.className = 'objectif-coche';
+  objectifCoche.textContent = '✓';
+  objectifCoche.hidden = true;
+
+  objectifBadge.append(objectifIcone, pastilleObjectif, texteObjectifEl, objectifCoche);
+
+  const objectifBarre = document.createElement('div');
+  objectifBarre.className = 'objectif-barre';
+  const objectifRemplissage = document.createElement('div');
+  objectifRemplissage.className = 'objectif-remplissage';
+  objectifBarre.appendChild(objectifRemplissage);
+
+  objectifEl.append(objectifBadge, objectifBarre);
 
   const annonceEl = document.createElement('div');
   annonceEl.className = 'hud-annonce';
@@ -74,11 +105,16 @@ export function creerHud(elHud) {
   const effetsEl = document.createElement('div');
   effetsEl.className = 'hud-effets';
 
-  elHud.append(ligneHaut, jaugeEl, xpEl, objectifEl, annonceEl, entreesEl, effetsEl);
+  // objectifEl juste après ligneHaut : premier élément de la 2e ligne du HUD (les
+  // deux ont flex-basis:100% en CSS, donc chacun occupe sa propre ligne).
+  elHud.append(ligneHaut, objectifEl, jaugeEl, xpEl, annonceEl, entreesEl, effetsEl);
 
   // Le nombre de pastilles de jauge ne change presque jamais : on ne
   // reconstruit la rangée que si jaugeMax a changé.
   let jaugeMaxPrecedent = -1;
+  // Pour détecter la progression de l'objectif et déclencher le « pop ».
+  let progresObjectifPrecedent = null;
+  let minuteurPopObjectif = null;
   function majJauge(jauge, jaugeMax) {
     if (jaugeMax !== jaugeMaxPrecedent) {
       jaugeEl.innerHTML = '';
@@ -110,12 +146,41 @@ export function creerHud(elHud) {
       remplissageXp.style.width = `${Math.min(100, Math.max(0, fraction * 100))}%`;
 
       const objectif = etat.objectif;
-      texteObjectifEl.textContent = texteObjectif(objectif);
-      if (objectif?.type === 'couleur' && objectif.couleur != null) {
-        pastilleObjectif.hidden = false;
-        pastilleObjectif.style.setProperty('--c', COULEURS[objectif.couleur]?.hex ?? '#999');
+      objectifEl.hidden = !objectif;
+      if (objectif) {
+        texteObjectifEl.textContent = texteObjectif(objectif);
+
+        const icone = ICONE_PAR_TYPE[objectif.type];
+        objectifIcone.hidden = !icone;
+        objectifIcone.className = icone ? `objectif-icone icone-${icone}` : 'objectif-icone';
+
+        pastilleObjectif.hidden = !AVEC_BILLE.has(objectif.type);
+        if (objectif.type === 'couleur' && objectif.couleur != null) {
+          pastilleObjectif.style.setProperty('--c', COULEURS[objectif.couleur]?.hex ?? '#999');
+        } else if (objectif.type === 'billes') {
+          pastilleObjectif.style.removeProperty('--c'); // gris par défaut (.bille-mini)
+        }
+
+        const progres = objectif.progres ?? 0;
+        const cible = objectif.cible ?? 0;
+        const fraction = cible > 0 ? Math.min(1, Math.max(0, progres / cible)) : 0;
+        const atteint = cible > 0 && progres >= cible;
+        objectifRemplissage.style.width = `${fraction * 100}%`;
+        objectifRemplissage.classList.toggle('presque', fraction >= 0.8);
+        objectifBadge.classList.toggle('atteint', atteint);
+        objectifCoche.hidden = !atteint;
+
+        // Petit « pop » d'échelle sur le badge quand la progression avance.
+        if (progresObjectifPrecedent !== null && progres > progresObjectifPrecedent) {
+          objectifBadge.classList.remove('pop');
+          void objectifBadge.offsetWidth; // reflow : relance l'animation même si elle était déjà en cours
+          objectifBadge.classList.add('pop');
+          clearTimeout(minuteurPopObjectif);
+          minuteurPopObjectif = setTimeout(() => objectifBadge.classList.remove('pop'), 250);
+        }
+        progresObjectifPrecedent = progres;
       } else {
-        pastilleObjectif.hidden = true;
+        progresObjectifPrecedent = null;
       }
 
       if (etat.annonce) {

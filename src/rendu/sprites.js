@@ -87,20 +87,31 @@ export function creerSprites() {
     return canvas;
   }
 
-  function batirBallon(hex, contour) {
+  // Contexte « Carrousel cosmique » : l'élément ballon devient une étoile filante (id/comportement
+  // inchangés — CONTRATS §1, il monte toujours d'une case contre la gravité à chaque rotation ;
+  // rendu.js le contre-tourne comme fusee/ligne pour que la traînée reste orientée écran-haut).
+  function batirEtoileFilante(hex, contour) {
     const { canvas, ctx } = creerCanvas(cellPix, cellPix);
-    const cx = cellPix / 2, cy = cellPix * 0.42, rv = cellPix * 0.44 * 1.14, rh = cellPix * 0.44 * 0.92;
+    const cx = cellPix * 0.5, cy = cellPix * 0.6, r = cellPix * 0.27;
+    // traînée courte, effilée vers le haut du sprite (canonique — contre-rotée à l'usage)
     ctx.save();
-    ctx.strokeStyle = ENCRE; ctx.lineWidth = Math.max(1, cellPix * 0.025);
-    ctx.beginPath(); ctx.moveTo(cx, cy + rv); ctx.quadraticCurveTo(cx + cellPix * 0.07, cellPix * 0.82, cx, cellPix * 0.97); ctx.stroke();
-    ctx.restore();
-    // corps ovale : même traitement que la bille, étiré verticalement (nœud+ficelle par-dessus)
-    ctx.save(); ctx.translate(cx, cy); ctx.scale(0.92, 1.14); dessinerBille(ctx, 0, 0, cellPix, hex, contour); ctx.restore();
-    ctx.save();
-    ctx.beginPath(); ctx.moveTo(cx - rh * 0.18, cy + rv * 0.96); ctx.lineTo(cx + rh * 0.18, cy + rv * 0.96); ctx.lineTo(cx, cy + rv * 1.14); ctx.closePath();
-    ctx.fillStyle = assombrir(hex, 0.15); ctx.fill();
-    ctx.lineWidth = Math.max(1, cellPix * 0.02); ctx.strokeStyle = contour || ENCRE; ctx.stroke();
-    ctx.restore();
+    ctx.beginPath(); ctx.moveTo(cx - r * 0.24, cy - r * 0.15);
+    ctx.quadraticCurveTo(cx - r * 0.06, cy - r * 2.5, cx, cy - r * 3.2);
+    ctx.quadraticCurveTo(cx + r * 0.06, cy - r * 2.5, cx + r * 0.24, cy - r * 0.15); ctx.closePath();
+    const gt = ctx.createLinearGradient(cx, cy, cx, cy - r * 3.2);
+    gt.addColorStop(0, 'rgba(255,244,200,0.85)'); gt.addColorStop(1, 'rgba(255,244,200,0)');
+    ctx.fillStyle = gt; ctx.fill(); ctx.restore();
+    // ombre portée douce
+    ctx.save(); ctx.beginPath(); ctx.ellipse(cx + r * 0.14, cy + r * 0.3, r * 0.7, r * 0.3, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(8,4,26,0.28)'; ctx.filter = 'blur(1.5px)'; ctx.fill(); ctx.filter = 'none'; ctx.restore();
+    // corps : étoile cartoon à 5 branches, aplat dégradé (teinte de la couleur logique), contour encre
+    ctx.save(); cheminEtoile(ctx, cx, cy, r, 5, 0.46);
+    const g = ctx.createRadialGradient(cx - r * 0.28, cy - r * 0.32, r * 0.1, cx, cy, r * 1.05);
+    g.addColorStop(0, eclaircir(hex, 0.35)); g.addColorStop(0.6, hex); g.addColorStop(1, assombrir(hex, 0.2));
+    ctx.fillStyle = g; ctx.fill();
+    ctx.lineWidth = Math.max(1.5, cellPix * 0.06); ctx.strokeStyle = contour || assombrir(hex, 0.5); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.arc(cx - r * 0.22, cy - r * 0.24, r * 0.16, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill(); ctx.restore();
     return canvas;
   }
 
@@ -193,15 +204,16 @@ export function creerSprites() {
     return canvas;
   }
 
+  // Contexte « Carrousel cosmique » : la pierre devient un morceau d'astéroïde (id/comportement
+  // inchangés) — même polygone jitté gris-bleu remplacé par un gris-brun rocheux + 2-3 cratères.
   function batirPierre() {
-    // rocher cartoon gris-bleu, facetté — polygone déterministe (stable entre régénérations)
+    // rocher cartoon gris-brun, facetté — polygone déterministe (stable entre régénérations)
     const { canvas, ctx } = creerCanvas(cellPix, cellPix);
     const cx = cellPix / 2, cy = cellPix / 2, r = cellPix * 0.42;
     const jitter = [1, 0.84, 0.96, 0.78, 1, 0.86, 0.9, 0.8];
     ctx.save();
     ctx.beginPath(); ctx.ellipse(cx + r * 0.18, cy + r * 0.28, r * 0.8, r * 0.36, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(8,4,26,0.28)'; ctx.filter = 'blur(1.5px)'; ctx.fill(); ctx.filter = 'none';
-    ctx.restore();
+    ctx.fillStyle = 'rgba(8,4,26,0.28)'; ctx.filter = 'blur(1.5px)'; ctx.fill(); ctx.filter = 'none'; ctx.restore();
     ctx.save();
     ctx.beginPath();
     jitter.forEach((j, i) => {
@@ -210,15 +222,20 @@ export function creerSprites() {
       if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
     });
     ctx.closePath();
-    const g = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-    g.addColorStop(0, '#a7b2c6'); g.addColorStop(0.5, '#6c7893'); g.addColorStop(1, '#414a60');
+    const g = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r); // gris-brun astéroïde
+    g.addColorStop(0, '#b79c7a'); g.addColorStop(0.5, '#8a7259'); g.addColorStop(1, '#4a3c2c');
     ctx.fillStyle = g; ctx.fill();
-    ctx.lineWidth = Math.max(1.5, cellPix * 0.055); ctx.strokeStyle = ENCRE; ctx.stroke();
-    ctx.restore();
+    ctx.lineWidth = Math.max(1.5, cellPix * 0.055); ctx.strokeStyle = ENCRE; ctx.stroke(); ctx.restore();
+    // cratères : creux ombré + liseré clair (2-3, positions déterministes)
+    const crateres = [{ x: cx - r * 0.3, y: cy - r * 0.16, rr: r * 0.22 }, { x: cx + r * 0.26, y: cy + r * 0.1, rr: r * 0.17 }, { x: cx - r * 0.02, y: cy + r * 0.36, rr: r * 0.13 }];
+    for (const c of crateres) {
+      ctx.save(); ctx.beginPath(); ctx.arc(c.x, c.y, c.rr, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(30,20,10,0.4)'; ctx.fill();
+      ctx.lineWidth = Math.max(1, cellPix * 0.02); ctx.strokeStyle = 'rgba(255,235,200,0.35)'; ctx.stroke(); ctx.restore();
+    }
     ctx.save();
     ctx.beginPath(); ctx.moveTo(cx - r * 0.3, cy - r * 0.5); ctx.lineTo(cx + r * 0.1, cy - r * 0.1);
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = Math.max(1, r * 0.08); ctx.lineCap = 'round'; ctx.stroke();
-    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = Math.max(1, r * 0.08); ctx.lineCap = 'round'; ctx.stroke(); ctx.restore();
     return canvas;
   }
 
@@ -273,7 +290,7 @@ export function creerSprites() {
     if (taille === cellPix) return;
     cellPix = taille;
     billes.clear(); ballons.clear();
-    for (const c of COULEURS) { billes.set(c.id, batirBille(c.hex, c.contour)); ballons.set(c.id, batirBallon(c.hex, c.contour)); }
+    for (const c of COULEURS) { billes.set(c.id, batirBille(c.hex, c.contour)); ballons.set(c.id, batirEtoileFilante(c.hex, c.contour)); }
     bombe = batirBombe();
     flecheLigne = batirFlecheLigne();
     etoileCroix = batirEtoileCroix();

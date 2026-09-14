@@ -2,17 +2,17 @@
 export const SALLES = [
   { id: 'vestibule', nom: 'Le Vestibule', type: 'normale', acteMin: 1,
     desc: 'Une salle calme pour prendre le plateau en main. Vide-la.',
-    grille: { w: 8, h: 10 }, couleurs: 5, coups: 25, jauge: 3,
+    grille: { w: 8, h: 10 }, couleurs: 5, coups: 25, jauge: 2,
     objectif: { type: 'billes', cible: 60 },
-    elements: [{ type: 'bulle', n: 2 }], regles: {} },
+    elements: [{ type: 'bulle', n: 2 }, { type: 'fusee', n: 1 }], regles: {} },
   { id: 'puits', nom: 'Le Puits', type: 'normale', acteMin: 1,
     desc: 'Étroit et profond : chaque rotation change tout. Vide-le.',
-    grille: { w: 5, h: 14 }, couleurs: 5, coups: 26, jauge: 3,
+    grille: { w: 5, h: 14 }, couleurs: 5, coups: 26, jauge: 2,
     objectif: { type: 'billes', cible: 55 },
-    elements: [{ type: 'pierre', n: 6 }, { type: 'bulle', n: 2 }], regles: {} },
+    elements: [{ type: 'pierre', n: 6 }, { type: 'bulle', n: 2 }, { type: 'ballon', n: 1 }], regles: {} },
   { id: 'maree', nom: 'Marée haute', type: 'normale', acteMin: 1,
     desc: 'Tous les 2 tours, une ligne entre par le bas et pousse tout. Elle charrie des pierres.',
-    grille: { w: 8, h: 10 }, couleurs: 5, coups: 24, jauge: 3,
+    grille: { w: 8, h: 10 }, couleurs: 5, coups: 24, jauge: 2,
     objectif: { type: 'pierres', cible: 15 },
     elements: [{ type: 'pierre', n: 3 }], regles: { maree: { periode: 2, pierres: 2 } } },
   { id: 'tempete', nom: 'Tempête', type: 'normale', acteMin: 1,
@@ -22,13 +22,15 @@ export const SALLES = [
     elements: [{ type: 'ballon', n: 2 }, { type: 'fusee', n: 2 }], regles: { rotationAuto: 'tempete', ballons: { min: 2 } } },
   { id: 'pendule', nom: 'Le Pendule', type: 'boss', acteMin: 1,
     desc: 'Un quart de tour à chaque tour, en balancier. Tiens jusqu’au score.',
-    grille: { w: 8, h: 10 }, couleurs: 5, coups: 30, jauge: 3,
+    grille: { w: 8, h: 10 }, couleurs: 5, coups: 30, jauge: 2,
     objectif: { type: 'score', cible: 1800 },
     elements: [{ type: 'ballon', n: 2 }, { type: 'bulle', n: 2 }, { type: 'fusee', n: 1 }, { type: 'pierre', n: 4 }],
     regles: { rotationAuto: 'pendule', ballons: { min: 1 } } },
 ];
 export const ORDRE_PHASE1 = ['vestibule', 'puits', 'maree', 'tempete', 'pendule'];
 export const RECHARGE_JAUGE = 6; // taille de groupe qui rend +1 rotation
+/** Élan (D9, Martin 2026-09-14) : le tap qui suit une rotation du joueur vaut ×1,2 d'XP. */
+export const BONUS_ELAN = 1.2;
 /**
  * Renfort (règle de Martin, 2026-09-11) : dès que le nombre de billes passe sous `seuil` (fraction des cases
  * de la grille), chaque tap fait entrer entre `min` et `max` billes au hasard. Surcharge par salle : `regles.renfort`

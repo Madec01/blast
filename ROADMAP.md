@@ -6,13 +6,16 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 
 ## À faire maintenant
 
-**Feuille de route web à annoter par Martin** (statut + commentaire par point, bouton Enregistrer lu par Claude) : https://claude.ai/code/artifact/0aae216f-64a0-44c3-949d-482473879eb2 — rien n'est codé avant ses réponses.
+Réponses de Martin lues le 2026-09-14 sur la feuille web (75 points) : https://claude.ai/code/artifact/0aae216f-64a0-44c3-949d-482473879eb2
 
-1. Martin rejoue (`npm run dev`, http://localhost:5174) avec la **gravité collante** (défaut) : les trous restent, tout retombe et se remplit à la rotation. Comparer avec « Mixte » et « Continue » via le champ *Gravité* du mode Test. Retour franc sur : la rotation sert-elle maintenant ? le tap sans chute est-il satisfaisant ? le télégraphe (appui maintenu ou survol d'une touche de rotation) est-il lisible ?
-2. Trancher D13 (rotation payée en coup à jauge vide, appliquée provisoirement), puis D7 à D11.
-3. Selon le retour : rééquilibrer les salles pour la collante (bot avisé : Vestibule 81 %, Puits 52 %, proches de l'ancienne règle ; rien retouché) et revoir la jauge (116 rotations payées en coups sur 200 runs : la jauge n'est pas le facteur limitant).
-4. Polish : menu (plateau décoratif animé), écran de fin de run avec stats (spéciales créées, plus grosse chaîne, XP par salle).
-5. Profiler la boucle rAF continue (nuages) sur mobile.
+1. **Lot A** juice du tap (a1-a6) + **E1** ciel étoilé qui tourne avec le plateau + sprites étoile filante / astéroïde + mots de combo (Étincelle / Stellaire / Supernova / BIG BANG) + « BOOM ! » — agents en cours.
+2. **UI nuit** + objectifs beaucoup plus visibles (retour Martin) + libellés du contexte — agent en cours.
+3. **Lot C** : écran de fin de run avec titre de build, quasi-victoire, échec nommé. (Défi quotidien et série : plus tard.)
+4. **Lot D** : 3 cartes dont 1 à risque, raretés + pitié, reroll en jauge, niveau 10, évolutions, synergies, 24 effets validés (Prévision : non ; Rotation marquée dès 5) + la carte « Big Bang » de Martin (remélange tout le plateau).
+5. **Lot B** : activations des spéciales, ralenti de chaîne, fin de salle « supernova », combo, vent de rotation.
+6. **Lot E** : Cosmo (sprite dessiné par Martin ; chercher aussi un sprite libre), compteur d'étoiles libérées, noms de salles et titre à reproposer, ouverture en 3 écrans, boss recontextualisés (« Horloge stellaire » refusée).
+
+Fait aujourd'hui côté moteur (validé par Martin) : croix dès 7 (D10), jauge 3 → 2 et élan ×1,2 d'XP sur le tap qui suit une rotation (D9), fusée dès la salle 1 et étoile filante dès la salle 2 (D11), règle de rétention saine dans CLAUDE.md (c6). Bot avisé après réglages : 100 / 100 / 100 / 82 / 80 %.
 
 ---
 
@@ -23,17 +26,17 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 | D12 | **Tranchée par Martin.** Gravité *vide* : les billes tombent dans les trous à chaque coup, mais **rien n'entre jamais de l'extérieur** — la grille se vide, la rotation regroupe ce qui reste. Marée haute reste la seule source de billes (règle de salle). Modes *continue*, *mixte*, *collante* conservés dans le mode Test. | Appliquée. Objectifs recalés (Vestibule et Puits : vider N billes ; Pendule : score 1 200), seuils de niveau divisés par ~1,7. |
 | D13 | **Appliqué provisoirement.** À jauge vide, la rotation coûte un coup (pastille « −1 coup » sur les touches) au lieu d'être refusée. | Garder : sans ça, la collante bloque le joueur sans groupe. |
 | D7 | Le trou sous un ballon (il flotte et fait sol) reste vide jusqu'à la prochaine rotation. Garder ce comportement ou faire tomber le ballon comme les autres ? | Garder. En gravité collante (D12), tous les trous attendent la rotation : le point devient mineur. |
-| D8 | Audio en synthèse Web Audio (aucun fichier). Si ça sonne « 8-bit » à l'oreille de Martin, passer aux samples CC0 (Kenney) en phase 2 ? | Écouter d'abord. |
+| D8 | Audio : Martin sait déjà que la synthèse sonnera 8-bit → samples CC0 **plus tard** (réseau bloqué pour les télécharger depuis l'environnement : Martin les déposera dans `src/assets/audio/`). | Plus tard. |
 
 | D9 | Audit gameplay : jauge de rotation 3 → 2 et bonus XP ×1,2 sur le tap qui suit une rotation, pour que tourner devienne une décision (le bot tourne 1 fois pour 25 taps). | Oui aux deux, après ton ressenti en jouant. |
 | D10 | Audit gameplay : seuil croix 8 → 7 (croix = 3,5 % des spéciales créées). | Attendre : à revoir avec les compétences de conversion de la phase 2. |
 | D11 | Audit gameplay : mettre fusées et ballons dès le Vestibule et le Puits pour que la rotation serve dès la première salle. | Oui, une fusée dans le Vestibule, un ballon dans le Puits. |
 
-| D14 | **Tranchée par Martin (2026-09-14)** : contexte **Carrousel cosmique** (planétarium ; le ciel étoilé tourne avec le plateau). Buanderie écartée. Détail à valider point par point dans la feuille de route web. | Appliquer après validation des points de la section 0 de la feuille web. |
-| D15 | Niveaux : 3 cartes dont 1 à risque, raretés par palier, reroll payé en jauge, `NIVEAU_MAX` 10, 25 nouveaux effets ? | Oui. `docs/RECHERCHE_NIVEAUX.md`. |
-| D16 | Assets : sprites Kenney CC0 embarqués (~150 Ko) pour halo/fumée/traînées ; aucune bibliothèque d'animation (GSAP écarté) ? | Oui / oui. `docs/RECHERCHE_VFX.md`. |
-| D17 | Boucle : défi quotidien à seed fixe (historique local), streak avec jour de grâce, écran de fin de run avec titre de build ; jamais de vies ni de timers ? | Oui, à graver dans CLAUDE.md. `docs/RECHERCHE_BOUCLE.md`. |
-| D18 | Ordre des lots de la phase 1.5 : A juice du tap → C fermer la boucle → D niveaux → B spéciales et Sugar Crush → E contexte ? | Oui. `docs/RECHERCHE_SYNTHESE.md` §6. |
+| D14 | **Tranchée** : Carrousel cosmique. Précisions de Martin : méchant = un **astéroïde** (pas un trou noir) ; pierres = morceaux d'astéroïde ; ballons = étoiles filantes ; billes bonbon gardées ; Cosmo dessiné par Martin ; **titre à reproposer** (plus évocateur, international) ; **noms de salles à reproposer** ; combos « Stellaire ! » et « Supernova ! » gardés. | Propositions de titre et de noms dans la réponse du 2026-09-14 ; appliquer après son choix. |
+| D15 | **Tranchée** : oui à tout (3 cartes dont 1 à risque, raretés, reroll en jauge, niveau 10, évolutions, synergies). Prévision : non. Rotation marquée : dès 5. + carte « Big Bang » (remélange tout). | Lot D. |
+| D16 | **Tranchée** : oui, mais kenney.nl est inaccessible depuis l'environnement → sprites de halo/fumée pré-rendus par code (dégradés radiaux), aucune bibliothèque. | Lot A. |
+| D17 | **Tranchée** : fin de run + quasi-victoire + échec nommé maintenant ; défi quotidien et série **plus tard** ; règle « jamais de vies ni de timers » écrite dans CLAUDE.md. | Lot C. |
+| D18 | **Tranchée** : A → C → D → B → E, avec E1 (le ciel) juste après A. | En cours. |
 
 Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 

@@ -2,6 +2,7 @@
 import { voisins, coord, dans } from './grille.js';
 import { ligneAxe, lignePerp } from './gravite.js';
 import { declencherElement } from './elements.js';
+import { BONUS_ELAN } from '../data/salles.js';
 
 export const TYPES_SPECIALES = ['bombe', 'ligne', 'croix', 'couleur'];
 
@@ -44,6 +45,7 @@ function xpSalve(ctx, salve, nBilles, nPierres) {
     const n = nBilles + (salve.tapee !== undefined ? 1 : 0); // la bille devenue spéciale compte
     const te = ctx.bus.reduire('tailleGroupe', n, ctx, salve);
     xp = 10 * n * (1 + 0.15 * Math.max(0, te - 2));
+    if (ctx.etat.elan) xp *= BONUS_ELAN; // élan après une rotation (D9)
   } else {
     xp = (10 * nBilles + 5 * nPierres) * (1 + 0.25 * Math.min(8, salve.profondeur)); // chaîne plafonnée
   }
