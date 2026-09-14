@@ -27,6 +27,12 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 | D10 | Audit gameplay : seuil croix 8 → 7 (croix = 3,5 % des spéciales créées). | Attendre : à revoir avec les compétences de conversion de la phase 2. |
 | D11 | Audit gameplay : mettre fusées et ballons dès le Vestibule et le Puits pour que la rotation serve dès la première salle. | Oui, une fusée dans le Vestibule, un ballon dans le Puits. |
 
+| D14 | Contexte du jeu (recherche 2026-09-14) : Buanderie (tambour de machine à laver, décor par acte, actes = programmes de lavage), Horloger, ou autre ? | Buanderie si le décor par acte est accepté. Détail : `docs/RECHERCHE_CONTEXTE.md`, réserve dans `docs/RECHERCHE_SYNTHESE.md` §5. |
+| D15 | Niveaux : 3 cartes dont 1 à risque, raretés par palier, reroll payé en jauge, `NIVEAU_MAX` 10, 25 nouveaux effets ? | Oui. `docs/RECHERCHE_NIVEAUX.md`. |
+| D16 | Assets : sprites Kenney CC0 embarqués (~150 Ko) pour halo/fumée/traînées ; aucune bibliothèque d'animation (GSAP écarté) ? | Oui / oui. `docs/RECHERCHE_VFX.md`. |
+| D17 | Boucle : défi quotidien à seed fixe (historique local), streak avec jour de grâce, écran de fin de run avec titre de build ; jamais de vies ni de timers ? | Oui, à graver dans CLAUDE.md. `docs/RECHERCHE_BOUCLE.md`. |
+| D18 | Ordre des lots de la phase 1.5 : A juice du tap → C fermer la boucle → D niveaux → B spéciales et Sugar Crush → E contexte ? | Oui. `docs/RECHERCHE_SYNTHESE.md` §6. |
+
 Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 
 ---
@@ -94,6 +100,8 @@ Décisions D0-D6 tranchées le 2026-09-11 (voir CLAUDE.md §12).
 ---
 
 ## Idées en plus
+
+Recherches du 2026-09-14 (4 dossiers + synthèse dans `docs/RECHERCHE_*.md`) : juice en 12 items chiffrés, 15 mécanismes de rétention, système de niveaux à 3 cartes + 36 effets, 5 contextes. Les décisions D14-D18 ci-dessus en découlent ; les items non retenus restent dans les dossiers.
 
 Agent idées 2026-09-11 (18 idées dans `docs/IDEES.md`), son Top 5 :
 - **Cadran** (règle de salle) — la jauge devient 4 crans, un par orientation ; une orientation utilisée se verrouille jusqu'à ce que les 3 autres aient servi. Force à jouer les quatre gravités.
