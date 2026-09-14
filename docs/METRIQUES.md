@@ -14,11 +14,13 @@
 | Spéciales explosées / créées | 60 % | 57 % | monter (une spéciale stockée est perdue) |
 | Chaîne max moyenne par run (max) | 3,4 (6) | 2,8 (6) | monter avec les cascades |
 | Premier gros moment (groupe 6+ ou chaîne) | tap 3,6 (100 % des runs) | tap 3,7 (98 %) | rester ≤ 5 |
-| XP moyenne par run | 7 396 | 4 333 | — |
+| XP moyenne par run | 7 396 → **10 074 avec la finale F07** (dont 2 678 de finale) | 4 333 → 5 728 (dont 1 395) | — (la finale ne touche que l'XP) |
 
 Mesurées le 2026-09-14 après D19, D20 et les 5 épiques de palier 3. Le ressenti (durée réelle d'une salle, juice) se mesure en jouant : Martin.
 
 Étape 1 Feel (F08, F09, hitstop — 2026-09-14 après-midi) : **toutes les lignes ci-dessus inchangées** (feel pur, aucune règle touchée) ; seule la ligne « rotations productives » est nouvelle.
+
+Finale F07 (2026-09-14 nuit) : **toutes les lignes inchangées sauf l'XP** — la finale tire ses hasards dans un rng à part, la grille de la salle suivante et les cartes ne changent pas ; ses explosions sont exclues de « spéciales explosées / créées », « combos » et « chaîne max » (drapeau `finale` sur les événements). XP de finale par salle **gagnée** (bot avisé) : Vestibule 630 · Puits 580 · Marée haute 547 · Tempête 662 · Pendule 1 320 — soit ≈ 27 % de l'XP d'un run (coups restants : 12,8 / 11,7 / 6,7 / 10,2 / 10,7 ; un coup converti ≈ 35-50 XP contre ≈ 95 XP pour un coup joué). Colonne « xp finale » de `tools/sim.mjs`.
 
 ## Sources de jauge par salle (D25 frénésie, D26 combos) — bot avisé, 200 runs, jeu normal
 

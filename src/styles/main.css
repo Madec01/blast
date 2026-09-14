@@ -871,6 +871,21 @@ body::after {
   paint-order: stroke fill;
   margin: 0 0 10px;
 }
+/* --- Finale de salle (F07) : ce que les coups, rotations et spéciales restants ont rapporté --- */
+.fin-finale {
+  display: inline-block;
+  margin: 0 auto 12px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 3px solid var(--encre);
+  background: linear-gradient(180deg, var(--jaune-clair), var(--jaune));
+  box-shadow: 0 3px 0 var(--jaune-fonce);
+  color: var(--encre);
+  font-weight: 900;
+  font-size: 1rem;
+}
+.fin-finale b { font-size: 1.2em; }
+.fin-finale small { display: block; font-size: .8rem; font-weight: 700; opacity: .85; }
 .objectif-badge.encourage {
   display: inline-flex;
   margin: 0 auto 14px;

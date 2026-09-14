@@ -49,11 +49,12 @@ function xpSalve(ctx, salve, nBilles, nPierres) {
     if (salve.cause === 'cascade') xp *= 1 + 0.25 * Math.min(8, salve.profondeur); // prototype D24 : une cascade est une chaîne
   } else {
     xp = (10 * nBilles + 5 * nPierres) * (1 + 0.25 * Math.min(8, salve.profondeur)); // chaîne plafonnée
+    if (salve.bonus) xp += salve.bonus; // F07 : un coup restant converti vaut plus qu'une bille
   }
   xp = Math.round(ctx.bus.reduire('xpGain', xp, ctx, salve));
   if (xp <= 0) return;
   ctx.etat.xpSalle += xp; ctx.etat.xpTotale += xp;
-  ctx.emettre({ t: 'xp', gain: xp, xpSalle: ctx.etat.xpSalle, niveau: ctx.etat.niveau, profondeur: salve.profondeur });
+  ctx.emettre({ t: 'xp', gain: xp, xpSalle: ctx.etat.xpSalle, niveau: ctx.etat.niveau, profondeur: salve.profondeur, ...(salve.finale ? { finale: true } : {}) });
 }
 
 /**
@@ -99,12 +100,12 @@ export function resoudre(ctx, initiale) {
         else { nBilles++; if (objectif.type === 'billes' || (objectif.type === 'couleur' && c.couleur === objectif.couleur)) objectif.progres++; }
         if (c.speciale && !declenchees.has(c.id)) {
           declenchees.add(c.id);
-          file.push({ cellules: [...zoneSpeciale(ctx, i, c)], cause: c.speciale, origine: { x, y }, profondeur: s.profondeur + 1 });
+          file.push({ cellules: [...zoneSpeciale(ctx, i, c)], cause: c.speciale, origine: { x, y }, profondeur: s.profondeur + 1, ...(s.finale ? { finale: true } : {}) });
         }
       }
       for (const i of aDetruire) g.cellules[i] = null;
       ctx.etat.stats.billesDetruites += nBilles; if (s.profondeur > ctx.etat.stats.chaineMax) ctx.etat.stats.chaineMax = s.profondeur;
-      ctx.emettre({ t: 'detruit', cellules: evt, cause: s.cause, origine: s.origine, profondeur: s.profondeur });
+      ctx.emettre({ t: 'detruit', cellules: evt, cause: s.cause, origine: s.origine, profondeur: s.profondeur, ...(s.finale ? { finale: true } : {}) }); // finale (F07) : hors métriques du joueur
       xpSalve(ctx, s, nBilles, nPierres);
       // Choix assumé : une pierre détruite par adjacence ne propage rien (ni pierres voisines, ni éléments),
       // sinon un amas de pierres disparaîtrait d'un coup.
@@ -115,7 +116,7 @@ export function resoudre(ctx, initiale) {
           if (cv.type === 'element') activer(ctx, v, activations);
           else if (cv.type === 'pierre') pierresAdj.add(v);
         }
-        if (pierresAdj.size) file.push({ cellules: [...pierresAdj], cause: 'pierre', origine: s.origine, profondeur: s.profondeur + 1 });
+        if (pierresAdj.size) file.push({ cellules: [...pierresAdj], cause: 'pierre', origine: s.origine, profondeur: s.profondeur + 1, ...(s.finale ? { finale: true } : {}) });
       }
       const info = { cellules: evt, cause: s.cause, couleur: s.couleur, taille: evt.length, profondeur: s.profondeur, origine: s.origine };
       ctx.bus.emettre(s.cause === 'groupe' || s.cause === 'cascade' ? 'groupeDetruit' : 'explosion', ctx, info);

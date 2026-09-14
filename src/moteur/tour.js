@@ -7,6 +7,7 @@ import { monteeBallons } from './elements.js';
 import { SEUILS, ORDRE_SPECIALES } from '../data/speciales.js';
 import { RECHARGE_JAUGE, MODES_GRAVITE, ROTATION_HORS_JAUGE, RENFORT, BONUS_ELAN } from '../data/salles.js';
 import { SEUILS_NIVEAU, NIVEAU_MAX, proposerEffets, attenteNiveau, expirerEffets } from './progression.js';
+import { jouerFinale } from './finale.js';
 
 /** File des prochaines entrées : couleurs pré-tirées (visibles avec Prévoyance et dans l'aperçu de rotation). */
 export function remplirFile(ctx) {
@@ -247,9 +248,12 @@ export function verifierNiveau(ctx) {
 
 export function finirSalle(ctx, victoire, raison) {
   const e = ctx.etat, o = e.objectif;
-  e.stats.salles.push({ id: e.salle.id, nom: e.salle.nom, xp: e.xpSalle, niveau: e.niveau, victoire, raison });
+  // F07 : à la victoire, coups, jauge et spéciales restants deviennent des destructions et de l'XP (finale.js) ;
+  // consommation virtuelle, `coups` et `jauge` ci-dessous restent ceux de la fin de partie.
+  const finale = victoire ? jouerFinale(ctx) : null;
+  e.stats.salles.push({ id: e.salle.id, nom: e.salle.nom, xp: e.xpSalle, niveau: e.niveau, victoire, raison, xpFinale: finale ? finale.xp : 0 });
   // Quasi-victoire : l'écran d'échec peut dire « à N billes de l'objectif ».
-  e.enAttente = { type: 'finSalle', victoire, raison, xpSalle: e.xpSalle, niveau: e.niveau, coups: e.coups, objectif: { type: o.type, progres: Math.min(o.progres, o.cible), cible: o.cible, manque: Math.max(0, o.cible - o.progres) } };
+  e.enAttente = { type: 'finSalle', victoire, raison, xpSalle: e.xpSalle, niveau: e.niveau, coups: e.coups, finale, objectif: { type: o.type, progres: Math.min(o.progres, o.cible), cible: o.cible, manque: Math.max(0, o.cible - o.progres) } };
   ctx.emettre({ t: 'finSalle', victoire, raison });
   ctx.bus.emettre('finSalle', ctx, { victoire, raison });
 }

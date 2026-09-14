@@ -13,6 +13,7 @@ npm run build      # dist/ à servir en statique (aucun appel réseau à l'exéc
 ```
 
 - Tap / clic sur un groupe ≥ 2 billes. Une spéciale seule se tape aussi. Les trous restent.
+- Objectif atteint : la **finale** convertit ce qu'il te reste — chaque spéciale explose, chaque coup fait sauter une bille (+XP), chaque point de jauge tourne le plateau — avant la supernova.
 - ⟲ ⟳ ↻ (ou Q / D / S, flèches) : rotation 90° gauche, 90° droite, 180°. Tout retombe et se remplit à la rotation.
   Chaque rotation consomme la jauge ; un groupe de 6+ en rend une ; à jauge vide, elle coûte un coup.
   Appui maintenu (ou survol) sur une touche : aperçu de la chute avant de tourner.

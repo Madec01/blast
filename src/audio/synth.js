@@ -277,6 +277,10 @@ export function construireDetruit(ctx, { taille = 1, cause = 'pierre', profondeu
       bruitFiltreEnveloppe(ctx, c, { tDebut, type: 'bandpass', freqDebut: 2200 * brillance, freqFin: 200, duree: 0.9, niveau: 0.4, Q: 1, attaque: 0.02, release: 0.3 });
       break;
     }
+    case 'finale': { // F07 : un coup converti = un tintement clair, plus haut à chaque profondeur de chaîne
+      tintementVerre(ctx, c, { tDebut, frequence: (700 + Math.random() * 300) * ratioProfondeur * variationHauteur(), duree: 0.18, niveau: 0.45 });
+      break;
+    }
     case 'maree': {
       bruitFiltreEnveloppe(ctx, c, { tDebut, type: 'lowpass', freqDebut: 220 * ratioProfondeur, freqFin: 140, duree: 0.9, niveau: 0.45, Q: 0.5, attaque: 0.15, release: 0.4 });
       oscillateurGlissant(ctx, c, { tDebut, freqDebut: 65 * ratioProfondeur, freqFin: 45 * ratioProfondeur, duree: 0.8, niveau: 0.35, type: 'sine' });

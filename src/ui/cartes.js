@@ -74,6 +74,11 @@ export function creerCartes(conteneur, actions) {
   quasiVictoireEl.className = 'quasi-victoire';
   quasiVictoireEl.hidden = true;
 
+  // F07 : bilan de la finale (coups, rotations, spéciales restants convertis en XP) sur l'écran de victoire.
+  const finaleEl = document.createElement('p');
+  finaleEl.className = 'fin-finale';
+  finaleEl.hidden = true;
+
   const badgeEncourageEl = document.createElement('div');
   badgeEncourageEl.className = 'objectif-badge encourage';
   badgeEncourageEl.hidden = true;
@@ -104,7 +109,7 @@ export function creerCartes(conteneur, actions) {
   const pied = document.createElement('div');
   pied.className = 'attente-pied';
 
-  panneau.append(titre, sousTitre, quasiVictoireEl, badgeEncourageEl, grille, statsGrille, escalierXp, competencesFin, pied);
+  panneau.append(titre, sousTitre, quasiVictoireEl, finaleEl, badgeEncourageEl, grille, statsGrille, escalierXp, competencesFin, pied);
   conteneur.appendChild(panneau);
 
   function vider() {
@@ -113,6 +118,8 @@ export function creerCartes(conteneur, actions) {
     sousTitre.textContent = '';
     quasiVictoireEl.hidden = true;
     quasiVictoireEl.textContent = '';
+    finaleEl.hidden = true;
+    finaleEl.textContent = '';
     badgeEncourageEl.hidden = true;
     grille.hidden = true;
     grille.innerHTML = '';
@@ -266,6 +273,22 @@ export function creerCartes(conteneur, actions) {
         const libelleRaison = enAttente.raison ? (LIBELLE_RAISON[enAttente.raison] ?? enAttente.raison) : '';
         const raison = libelleRaison ? `${libelleRaison} — ` : '';
         sousTitre.textContent = `${raison}XP ${enAttente.xpSalle ?? 0}`;
+
+        // F07 : ce que la finale a rapporté (rien à l'échec, rien si tout était déjà dépensé).
+        const finale = enAttente.finale;
+        if (enAttente.victoire && finale && finale.xp > 0) {
+          const s = (n) => (n > 1 ? 's' : '');
+          const parts = [];
+          if (finale.coups) parts.push(`${finale.coups} coup${s(finale.coups)}`);
+          if (finale.rotations) parts.push(`${finale.rotations} rotation${s(finale.rotations)}`);
+          if (finale.speciales) parts.push(`${finale.speciales} spéciale${s(finale.speciales)}`);
+          const gain = document.createElement('b');
+          gain.textContent = `+${formatNombre(finale.xp)} XP`;
+          const detail = document.createElement('small');
+          detail.textContent = parts.join(' · ');
+          finaleEl.hidden = false;
+          finaleEl.append('Finale ', gain, detail);
+        }
 
         // Quasi-victoire : jamais rien à acheter, juste un encouragement.
         const objectif = enAttente.objectif;

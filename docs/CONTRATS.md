@@ -81,10 +81,11 @@ run.serialiser()    // → string JSON ;  chargerRun(json) → run
   annonce:null|{sens:-1|1|2},          // rotation automatique annoncée pour la fin du tour (Tempête, Pendule)
   enAttente:null|{type:'niveau',niveau,propositions:[{id,nom,desc,rarete,risque,synergie,evolution,palier}],relance:{cout,gratuite,possible}}
             |{type:'competence',propositions:[{id,nom,desc,rarete}]}
-            |{type:'finSalle',victoire,raison,xpSalle,niveau,coups,objectif:{type,progres,cible,manque}}
+            |{type:'finSalle',victoire,raison,xpSalle,niveau,coups,finale:null|{coups,rotations,speciales,billes,xp},objectif:{type,progres,cible,manque}}
+            //   finale (F07) : bilan de la finale d'une salle gagnée — coups/jauge convertis (jamais consommés : `coups` reste celui de la fin de partie), spéciales explosées, billes détruites, XP rapportée
             |{type:'finRun',victoire,xpTotale,monnaieMeta,salleIndex,totalSalles,competences,stats} }
-  // stats (cumul du run) : { debut, fin, taps, rotations, rotationsProductives (F09), chaineMax, plusGrosGroupe, billesDetruites, etoilesLiberees,
-  //   speciales:{bombe,ligne,croix,couleur}, effets:[ids], salles:[{id,nom,xp,niveau,victoire,raison}] }
+  // stats (cumul du run) : { debut, fin, taps, rotations, rotationsProductives (F09), chaineMax, plusGrosGroupe, billesDetruites, etoilesLiberees, xpFinale (F07),
+  //   speciales:{bombe,ligne,croix,couleur}, effets:[ids], salles:[{id,nom,xp,xpFinale,niveau,victoire,raison}] } — chaineMax ignore les chaînes de la finale
 ```
 
 ## 4. Journal d'événements (retour de tap / tourner / choisir)
@@ -94,22 +95,23 @@ Liste ordonnée ; le rendu la joue séquentiellement, l'UI et l'audio y réagiss
 | `t` | champs | sens |
 |---|---|---|
 | `tap` | `x,y,taille,couleur` | le joueur a tapé ce groupe |
-| `detruit` | `cellules:[{x,y,id,couleur,type}], cause:'groupe'\|'bombe'\|'ligne'\|'croix'\|'couleur'\|'fusee'\|'effet'\|'maree'\|'pierre'\|'cascade', origine:{x,y}?, profondeur:0..n` | une salve de destruction ; `profondeur` = rang dans la chaîne ; `cascade` (prototype D24) = groupe formé par une chute et soufflé de lui-même, traité comme un tap (XP de tap × chaîne, spéciale au seuil) |
+| `detruit` | `cellules:[{x,y,id,couleur,type}], cause:'groupe'\|'bombe'\|'ligne'\|'croix'\|'couleur'\|'fusee'\|'effet'\|'maree'\|'pierre'\|'cascade'\|'finale', origine:{x,y}?, profondeur:0..n, finale?:true` | une salve de destruction ; `profondeur` = rang dans la chaîne ; `cascade` (prototype D24) = groupe formé par une chute et soufflé de lui-même, traité comme un tap (XP de tap × chaîne, spéciale au seuil) ; `finale` (F07) = une cellule soufflée par la finale (spéciale restante ou coup converti), et `finale:true` sur toute salve qu'elle enchaîne — hors métriques du joueur (combos, spéciales utilisées, chaîne max) |
 | `speciale` | `x,y,id,type` | la bille `id` devient spéciale `type` |
 | `conversion` | `cellules:[{x,y,id,couleur}]` | couleurs changées (propagation, domino, teinte) |
 | `element` | `x,y,id,type,activations,max,action:'activation'\|'eclate'\|'libere'\|'fusee'\|'monte'` | un élément réagit |
-| `rotation` | `de,vers,sens,auto,enCoups` | le plateau tourne (auto = imposé par la salle ; enCoups = coups payés à jauge vide, D13) |
+| `rotation` | `de,vers,sens,auto,enCoups,finale?` | le plateau tourne (auto = imposé par la salle ; enCoups = coups payés à jauge vide, D13 ; finale = un point de jauge converti par la finale, F07 : gratuite, sans hook ni `rotationResultat`) |
 | `rotationResultat` | `productive,avant,apres,groupes,groupesAvant,cellules:[{x,y,id}]` | F09 : après la `chute` d'une rotation du **joueur** (jamais auto) — `avant`/`apres` = plus gros groupe tapable avant/après, `groupes` = groupes ≥ 3 ; `productive` si `apres ≥ 3` et (plus gros qu'avant ou un groupe ≥ 3 de plus) ; `cellules` = le meilleur groupe si productive, sinon `[]` |
 | `chute` | `deplacements:[{id,de:{x,y},vers:{x,y}}]` | résultat de la gravité ; ordre quelconque, tout est simultané |
 | `remplissage` | `cellules:[{id,x,y,couleur,type,depuis:{x,y}}], renfort?:true` | nouvelles billes ; `depuis` = case virtuelle hors plateau d'où elles entrent ; `renfort` = billes tombées au hasard sous le seuil (règle Renfort) |
 | `maree` | `deplacements:[…], entrees:[…], sorties:[{id,x,y}]` | une ligne pousse tout contre la gravité |
-| `xp` | `gain,xpSalle,niveau,multiplicateur` | XP gagnée |
+| `xp` | `gain,xpSalle,niveau,profondeur,finale?` | XP gagnée (`finale` : rapportée par la finale, F07) |
 | `niveau` | `niveau,propositions` | montée de niveau ; `etat.enAttente` est posé |
 | `effet` | `id,nom` | un effet de niveau a été appliqué |
 | `competence` | `id,nom` | une compétence a été prise |
 | `objectif` | `progres,cible,atteint` | progression de l'objectif |
 | `coups` | `coups,jauge` | ressources mises à jour |
 | `salle` | `index,nom` | nouvelle salle : l'orchestrateur appelle `synchroniser(etat)` avant `jouer()` ; le rendu joue une entrée en cascade |
+| `finale` | `coups,jauge,speciales` | F07 : début de la finale d'une salle gagnée — ce qui va être converti (coups et jauge restants, spéciales présentes). Suivi des `detruit` / `rotation` / `chute` / `xp` de la finale, puis de `finSalle`. Absent s'il n'y a rien à convertir |
 | `finSalle` | `victoire,raison` | la salle est terminée |
 | `finRun` | `victoire` | le run est terminé |
 | `message` | `texte,duree?` | texte flottant |
@@ -138,6 +140,7 @@ rendu.detruire()
 - **Feel par paliers (F08)** : `src/data/paliers.js` — paliers 3 / 5 / 8 / 10+ (`palierGroupe(taille)` → 0..4) et table `FEEL` lue par le rendu et l'audio : durée/amplitude de l'anticipation, confettis par bille + rafale au centre, flash/halo, onde (dès 5), secousse, squash du plateau (dès 8), taille du +XP. **Hitstop** : 60 ms dès 8, 90 ms dès 10 — toutes les animations gelées (dt nul), l'image tenue en plein pré-squash, puis l'explosion ; au plus un par appel de `jouer()` (la chaîne garde son ralenti).
 - **Rotation productive (F09)** : sur `rotationResultat` productive, le meilleur groupe pulse bille par bille, « Bon angle ! » (ou « ALIGNEMENT ! » dès 8) au barycentre, « N billes » au-dessus, son `bonAngle`. Rien si la rotation n'a rien produit.
 - **Naissance de spéciale (étape 3, feuille de Martin)** : un `detruit` de cause `groupe` suivi d'un `speciale` fait converger les billes du groupe vers la case de naissance en 160 ms (elles rétrécissent, moitié moins de confettis) et le +XP suit la spéciale ; tout `speciale`, quelle que soit l'origine (groupe, effet), joue flash + onde + éclat de sa couleur et la bille sort en grand (pulse ×0,5, 340 ms). Sans `speciale` derrière, un `detruit` de groupe éclate sur place comme avant.
+- **Finale de salle (F07)** : `finale` → « FINALE ! » au centre (échelle 1,5), le détail « N coups · N rotations · N spéciales » au-dessus, grande onde, squash du plateau, secousse, son `bonAngle` (650 ms) ; chaque `detruit` de cause `finale` = pop rapide (confettis, petit impact, onde courte, +XP de taille 5-7, son `detruit` cause `finale`, 70 ms) ; les spéciales enchaînées gardent leur activation dédiée, les rotations leur vent et leur chute ; aucun mot de combo « BIG BANG ! » pendant la finale ; puis la supernova de `finSalle` (les billes restantes) comme avant.
 - Icônes : `ligne` et `fusee` pointent le long de la gravité **à l'écran** (donc contre-rotation par rapport au plateau).
 
 ## 6. Audio (src/audio/audio.js) — Web Audio, synthèse en couches
@@ -176,4 +179,5 @@ Le panneau Test reçoit les listes depuis `src/data/*.js` (salles, compétences)
 Événements : `debutSalle finSalle debutTour finTour avantTap groupeDetruit explosion specialeCreee avantRotation apresRotation rotationEvaluee avantChute apresChute remplissage coupsEpuises`.
 `rotationEvaluee` (F09) : `{ productive, avant, apres }` après la chute d'une rotation du joueur — base de la frénésie (D25).
 Valeurs réductibles : `seuils xpGain coupsInitiaux jaugeInitiale propositionsNiveau`.
+`xpGain` reçoit la salve (`cause`, `profondeur`, `finale?`, `bonus?`) ; la finale (F07) passe par lui comme toute explosion, mais ses rotations n'émettent aucun hook (`avantRotation` / `apresRotation` / `rotationEvaluee`).
 Compétences et effets de niveau ne sont **jamais** codés en dur dans grille/chute/speciales.

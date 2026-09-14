@@ -328,3 +328,58 @@ test('prototype D24 (sim seulement) : options.cascades = "rotation" fait explose
   assert.equal(avec.etat.stats.cascades, 1);
   assert.ok(!tousGroupes(avec.etat.grille).some((g) => g.length >= 5), 'plus aucun groupe ≥ 5 après les vagues');
 });
+
+test('F07 finale : à la victoire, spéciales, coups et jauge restants deviennent des destructions et de l’XP (consommation virtuelle) ; rien à l’échec', () => {
+  const run = creerRun({ seed: 9, salles: ['vestibule'] });
+  const e = run.etat, g = e.grille;
+  const gr = tousGroupes(g)[0], [gx, gy] = [gr[0] % g.w, (gr[0] / g.w) | 0];
+  // une bombe loin du groupe tapé (jamais chaînée par un tap : seule la finale la fera exploser)
+  let loin = -1, dist = -1;
+  for (let i = 0; i < g.cellules.length; i++) {
+    const c = g.cellules[i]; if (!c || c.type !== 'bille' || gr.includes(i)) continue;
+    const d = Math.abs(i % g.w - gx) + Math.abs(((i / g.w) | 0) - gy);
+    if (d > dist) { dist = d; loin = i; }
+  }
+  g.cellules[loin].speciale = 'bombe'; g.cellules[loin].rayon = 1;
+  e.objectif.progres = e.objectif.cible - 1; e.coups = 7; e.jauge = 2; // le tap en consomme un : 6 restent pour la finale
+  const ev = run.tap(gx, gy);
+  const fin = ev.find((v) => v.t === 'finSalle');
+  assert.ok(fin && fin.victoire, 'victoire attendue');
+  const iFinale = ev.findIndex((v) => v.t === 'finale');
+  assert.ok(iFinale > ev.findIndex((v) => v.t === 'tap') && iFinale < ev.indexOf(fin), '`finale` entre le tap et `finSalle`');
+  assert.deepEqual({ coups: ev[iFinale].coups, jauge: ev[iFinale].jauge, speciales: ev[iFinale].speciales }, { coups: 6, jauge: 2, speciales: 1 });
+  const pops = ev.filter((v) => v.t === 'detruit' && v.cause === 'finale');
+  assert.equal(pops.length, 1 + 6, 'une salve pour la bombe, une par coup restant');
+  assert.ok(ev.some((v) => v.t === 'detruit' && v.cause === 'bombe'), 'la bombe a explosé');
+  assert.equal(ev.filter((v) => v.t === 'rotation' && v.finale).length, 2, 'un point de jauge = une rotation');
+  assert.ok(ev.filter((v) => v.t === 'xp' && v.finale).length >= 7);
+  assert.equal(e.coups, 6, 'les coups ne sont pas consommés'); assert.equal(e.jauge, 2, 'la jauge n’est pas consommée');
+  assert.equal(e.enAttente?.type, 'finSalle');
+  const f = e.enAttente.finale;
+  assert.deepEqual({ coups: f.coups, rotations: f.rotations, speciales: f.speciales }, { coups: 6, rotations: 2, speciales: 1 });
+  assert.ok(f.xp >= 6 * 35 + 10, 'au moins 35 XP par coup converti (bille + bonus), reçu ' + f.xp);
+  assert.ok(f.billes >= 7);
+  assert.equal(e.stats.xpFinale, f.xp);
+  assert.equal(e.stats.chaineMax, 0, 'la chaîne de la finale ne compte pas pour le joueur');
+  assert.equal(e.objectif.progres, e.objectif.cible, 'l’objectif reste à sa cible, pas au-delà');
+  assert.equal(e.stats.salles[0].xpFinale, f.xp);
+  // échec : plus de coups sans objectif → aucune finale
+  const run2 = creerRun({ seed: 9, salles: ['vestibule'] });
+  run2.etat.coups = 1;
+  const ev2 = premierTap(run2);
+  assert.ok(ev2.some((v) => v.t === 'finSalle' && !v.victoire));
+  assert.ok(!ev2.some((v) => v.t === 'finale' || (v.t === 'detruit' && v.cause === 'finale')));
+  assert.equal(run2.etat.enAttente.finale, null);
+});
+
+test('F07 finale : sans rien à convertir (0 coup, 0 jauge, 0 spéciale), aucun événement `finale` ; rechargement conserve xpFinale', () => {
+  const run = creerRun({ seed: 12, salles: ['vestibule'] });
+  const e = run.etat;
+  e.objectif.progres = e.objectif.cible - 1; e.coups = 1; e.jauge = 0;
+  const ev = premierTap(run);
+  assert.ok(ev.some((v) => v.t === 'finSalle' && v.victoire));
+  assert.ok(!ev.some((v) => v.t === 'finale'));
+  assert.equal(e.enAttente.finale.xp, 0);
+  const c = chargerRun(run.serialiser());
+  assert.equal(c.etat.stats.xpFinale, 0);
+});

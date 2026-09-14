@@ -18,6 +18,7 @@ const DUREE_ROTATION = 0.38, DUREE_CHUTE = 0.35, GRAVITE_CASES = 78, RESTITUTION
 const CAUSES_EXPLOSION = new Set(['bombe', 'ligne', 'croix', 'couleur', 'fusee']); // anneau d'onde de choc (§2)
 // a1 (anticipation : durée, squash et recul lus dans FEEL[palier], F08) · a3 (overshoot d'atterrissage 0,10→0,14) · a4 (pulsation spéciales, 1,2 s)
 const AMPLI_ATTERRISSAGE = 0.14;
+const FINALE_PAS_MS = 70; // F07 : cadence des coups convertis pendant la finale (30 coups ≈ 2 s)
 const clamp01 = (t) => Math.max(0, Math.min(1, t)), lerp = (a, b, t) => a + (b - a) * t;
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2), easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 const attend = (ms) => new Promise((res) => setTimeout(res, ms)); // gravité en coordonnées plateau, table fixe (§1)
@@ -252,7 +253,41 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     demarrerBoucle();
   }
   const GESTIONNAIRES_FX = { bombe: 'jouerBombe', ligne: 'jouerLigne', couleur: 'jouerCouleur', fusee: 'jouerFusee' }; // items 1-4 ; les autres causes sont déléguées, génériques, à jouerGenerique
+  // F07 : la finale de salle — « FINALE ! » au centre, le détail des ressources converties au-dessus, le
+  // plateau encaisse ; puis chaque coup converti est un pop rapide (surDetruitFinale), les spéciales
+  // gardent leur activation dédiée et les rotations leur vent.
+  async function surFinale(evt) {
+    const cx = canvas.width / 2 + shakeX, cy = canvas.height / 2 + shakeY, s = (n) => (n > 1 ? 's' : '');
+    const parts = [];
+    if (evt.coups) parts.push(`${evt.coups} coup${s(evt.coups)}`);
+    if (evt.jauge) parts.push(`${evt.jauge} rotation${s(evt.jauge)}`);
+    if (evt.speciales) parts.push(`${evt.speciales} spéciale${s(evt.speciales)}`);
+    juice.emettreMot(cx, cy, 'FINALE !', 1.5);
+    if (parts.length) juice.emettreInfo(cx, cy - cellPixBase * 1.15, parts.join(' · '), 0.5);
+    juice.emettreOnde(cx, cy, Math.min(canvas.width, canvas.height) * 0.45, 1.4);
+    squashPlateau.declencher(0.06); declencherShake(0.5);
+    if (courantAudio) courantAudio.jouer('bonAngle', { taille: 10 });
+    demarrerBoucle(); await attend(650);
+  }
+  async function surDetruitFinale(evt) {
+    let sx = 0, sy = 0, n = 0, couleur = null;
+    for (const c of evt.cellules || []) {
+      const bv = billes.get(c.id), e = bv ? localVersEcran(bv.x, bv.y) : localVersEcran(c.x, c.y);
+      particules.emettreDestruction(e.x, e.y, couleurHex(c.couleur != null ? c.couleur : 3), 10);
+      sx += e.x; sy += e.y; n++; if (couleur == null && c.couleur != null) couleur = c.couleur;
+      billes.delete(c.id);
+    }
+    if (n) {
+      dernierDetruit = { x: sx / n, y: sy / n }; dernierPalier = 2; // le +XP qui suit a la taille d'un 5-7
+      impact.emettreImpact(dernierDetruit.x, dernierDetruit.y, couleur, 0.8);
+      juice.emettreOnde(dernierDetruit.x, dernierDetruit.y, cellPixBase * 0.9, 1);
+    }
+    declencherShake(0.12);
+    if (courantAudio) courantAudio.jouer('detruit', { taille: Math.max(3, n), cause: 'finale', profondeur: evt.profondeur || 0 });
+    demarrerBoucle(); await attend(FINALE_PAS_MS);
+  }
   async function surDetruit(evt, combo = false, naissance = null) {
+    if (evt.cause === 'finale') { await surDetruitFinale(evt); return; } // F07 : un coup converti, pop rapide
     dernierPalier = palierGroupe((evt.cellules || []).length);
     if (evt.cause !== 'groupe') await gelerHitstop(FEEL[dernierPalier].hitstop); // F08 : explosion 8+ (le tap a déjà eu la sienne dans surTap)
     if ((evt.profondeur || 0) >= 2) specialesFx.declencherChaine(evt, env); // item 5 : chaîne, quelle que soit la cause
@@ -397,9 +432,9 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (telegraphe.actif) previsualiserRotation(null);
     demarrerBoucle();
     const liste = evenements || [];
-    let salvesExplosives = 0; // item 6 : combo — dès la 2e salve explosive de ce même appel de jouer()
+    let salvesExplosives = 0, enFinale = false; // item 6 : combo — dès la 2e salve explosive de ce même appel de jouer() ; jamais pendant la finale (F07)
     hitstopFait = false; hitstopRestant = 0; // F08 : au plus un hitstop par coup joué
-    const estCombo = (evt) => !!(evt.cause && CAUSES_EXPLOSION.has(evt.cause) && ++salvesExplosives >= 2);
+    const estCombo = (evt) => !enFinale && !!(evt.cause && CAUSES_EXPLOSION.has(evt.cause) && ++salvesExplosives >= 2);
     for (let i = 0; i < liste.length; i++) {
       const evt = liste[i], suivant = liste[i + 1];
       switch (evt.t) {
@@ -419,6 +454,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
         case 'salle': await surSalle(evt); break;
         case 'apparition': await surApparition(evt); break;
         case 'xp': surXp(evt); break;
+        case 'finale': enFinale = true; await surFinale(evt); break; // F07 : avant les destructions de la finale
         case 'finSalle': demarrerBoucle(); await (evt.victoire ? finale.jouerVictoire(env) : finale.jouerEchec(env)); break; // item 7 : résout en fin de séquence
         default: break; // événement ignoré par le rendu (UI/audio/moteur uniquement)
       }

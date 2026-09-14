@@ -89,11 +89,12 @@ const stats = { runs: 0, victoires: 0, parSalle: {}, speciales: {}, niveauxMax: 
   // Baseline (feuille de route de Martin, étape 0) : taille des groupes, spéciales utilisées, chaîne max, premier gros moment.
   tailleGroupes: 0, specialesExplosees: 0, chaineMaxCumul: 0, chaineMaxAbs: 0, premierGrosMoment: 0, runsAvecGrosMoment: 0, rotationsProductives: 0,
   // D25 (frénésie) : sources possibles de jauge, comptées par salle · D26 : combos (≥ 2 salves explosives dans une même action)
-  tapsParPalier: [0, 0, 0, 0, 0], cascades: 0, combos: 0 };
+  tapsParPalier: [0, 0, 0, 0, 0], cascades: 0, combos: 0,
+  xpFinale: 0 }; // F07 : XP rapportée par les finales de salle (incluse dans xpTotale)
 const CAUSES_EXPLOSION = new Set(['bombe', 'ligne', 'croix', 'couleur', 'fusee']);
 const TYPES_SPECIALES = ['bombe', 'ligne', 'croix', 'couleur'];
 const nbVides = (g) => { let n = 0; for (const c of g.cellules) if (c === null) n++; return n; };
-const salleStat = (id) => (stats.parSalle[id] ??= { jouees: 0, gagnees: 0, xp: 0, niveau: 0, coupsRestants: 0, restantes: 0, raisons: {} });
+const salleStat = (id) => (stats.parSalle[id] ??= { jouees: 0, gagnees: 0, xp: 0, xpFinale: 0, niveau: 0, coupsRestants: 0, restantes: 0, raisons: {} });
 
 for (let s = 0; s < RUNS; s++) {
   const run = creerRun({ seed: SEED0 + s, competences: COMPETENCES, options: { ...(GRAVITE ? { gravite: GRAVITE } : {}), ...(CASCADES ? { cascades: CASCADES, cascadeMin: CASCADE_MIN } : {}) } });
@@ -118,15 +119,16 @@ for (let s = 0; s < RUNS; s++) {
         for (const x of ev) { if (x.t === 'chute') stats.deplacesRotation += x.deplacements.length; if (x.t === 'remplissage') stats.entreesRotation += x.cellules.length; }
       }
       if (VERBOSE && s === 0) for (const x of ev) console.log(JSON.stringify(x).slice(0, 160));
-      let explosives = 0; for (const x of ev) { if (x.t === 'detruit' && CAUSES_EXPLOSION.has(x.cause)) explosives++; if (x.t === 'detruit' && x.cause === 'cascade') stats.cascades++; }
+      let explosives = 0; for (const x of ev) { if (x.t === 'detruit' && !x.finale && CAUSES_EXPLOSION.has(x.cause)) explosives++; if (x.t === 'detruit' && x.cause === 'cascade') stats.cascades++; } // F07 : la finale ne compte ni combo ni spéciale « utilisée »
       if (explosives >= 2) stats.combos++;
       for (const x of ev) {
         if (x.t === 'speciale') stats.speciales[x.type] = (stats.speciales[x.type] ?? 0) + 1;
-        if (x.t === 'detruit' && TYPES_SPECIALES.includes(x.cause)) stats.specialesExplosees++;
+        if (x.t === 'detruit' && !x.finale && TYPES_SPECIALES.includes(x.cause)) stats.specialesExplosees++;
         if (x.t === 'finSalle') {
           const st = salleStat(e.salle.id);
           st.jouees++; if (x.victoire) st.gagnees++; st.xp += e.xpSalle; st.niveau += e.niveau; st.coupsRestants += e.coups; st.restantes += e.grille.cellules.filter((c) => c && c.type === 'bille').length;
           st.raisons[x.raison] = (st.raisons[x.raison] ?? 0) + 1;
+          st.xpFinale += e.enAttente?.finale?.xp ?? 0; // F07 : coups et jauge ne sont pas consommés, `coupsRestants` reste lisible
           stats.tours += e.tour; stats.salles++;
         }
       }
@@ -138,6 +140,7 @@ for (let s = 0; s < RUNS; s++) {
     stats.xpTotale += run.etat.xpTotale;
     const cm = run.etat.stats?.chaineMax ?? 0; stats.chaineMaxCumul += cm; if (cm > stats.chaineMaxAbs) stats.chaineMaxAbs = cm;
     stats.rotationsProductives += run.etat.stats?.rotationsProductives ?? 0; // F09 : compteur du moteur (groupe ≥3 plus gros qu'avant, ou un de plus)
+    stats.xpFinale += run.etat.stats?.xpFinale ?? 0; // F07
     if (grosMoment) { stats.premierGrosMoment += grosMoment; stats.runsAvecGrosMoment++; }
   } catch (err) { stats.erreurs++; console.error('seed', SEED0 + s, err.message); if (VERBOSE) console.error(err.stack); }
 }
@@ -145,7 +148,7 @@ for (let s = 0; s < RUNS; s++) {
 console.log(`\n${stats.runs} runs, politique ${POLITIQUE}, gravité ${GRAVITE ?? 'défaut'}, compétences [${COMPETENCES.join(', ')}]`);
 const r = Math.max(1, stats.rotations);
 console.log(`rotations : ${stats.rotations} pour ${stats.taps} taps (1 pour ${(stats.taps / r).toFixed(1)}), payées en coups ${stats.rotationsPayees} — par rotation : ${(stats.trousRotation / r).toFixed(1)} trous, ${(stats.deplacesRotation / r).toFixed(1)} billes déplacées, ${(stats.entreesRotation / r).toFixed(1)} entrées`);
-console.log(`victoires : ${stats.victoires} (${((100 * stats.victoires) / Math.max(1, stats.runs)).toFixed(0)} %) — XP moyenne par run ${(stats.xpTotale / Math.max(1, stats.runs)).toFixed(0)} — erreurs ${stats.erreurs}`);
+console.log(`victoires : ${stats.victoires} (${((100 * stats.victoires) / Math.max(1, stats.runs)).toFixed(0)} %) — XP moyenne par run ${(stats.xpTotale / Math.max(1, stats.runs)).toFixed(0)} (dont finale F07 ${(stats.xpFinale / Math.max(1, stats.runs)).toFixed(0)}) — erreurs ${stats.erreurs}`);
 console.log('spéciales créées :', stats.speciales);
 const nbSpeciales = Object.values(stats.speciales).reduce((a, b) => a + b, 0);
 console.log(`métriques : ${(stats.tours / Math.max(1, stats.salles)).toFixed(1)} tours par salle — groupe tapé moyen ${(stats.tailleGroupes / Math.max(1, stats.taps)).toFixed(2)} billes — rotations utiles (groupe ≥3 juste après) ${((100 * stats.rotationsUtiles) / r).toFixed(0)} % — rotations productives (moteur, F09) ${((100 * stats.rotationsProductives) / r).toFixed(0)} % — spéciales explosées / créées ${((100 * stats.specialesExplosees) / Math.max(1, nbSpeciales)).toFixed(0)} % — chaîne max moyenne par run ${(stats.chaineMaxCumul / Math.max(1, stats.runs)).toFixed(2)} (max ${stats.chaineMaxAbs}) — premier gros moment (groupe 6+ ou chaîne) au tap ${(stats.premierGrosMoment / Math.max(1, stats.runsAvecGrosMoment)).toFixed(1)} (${((100 * stats.runsAvecGrosMoment) / Math.max(1, stats.runs)).toFixed(0)} % des runs)`);
@@ -153,4 +156,4 @@ const ps = Math.max(1, stats.salles), tp = stats.tapsParPalier;
 console.log(`par salle (D25 frénésie / D26 combos) : taps 2 ${(tp[0] / ps).toFixed(1)} · 3-4 ${(tp[1] / ps).toFixed(1)} · 5-7 ${(tp[2] / ps).toFixed(1)} · 8-9 ${(tp[3] / ps).toFixed(1)} · 10+ ${(tp[4] / ps).toFixed(1)} — rotations productives ${(stats.rotationsProductives / ps).toFixed(2)} — cascades ${(stats.cascades / ps).toFixed(2)} — combos de spéciales ${(stats.combos / ps).toFixed(2)}${CASCADES ? ` — cascades ${CASCADES} ≥ ${CASCADE_MIN}` : ''}`);
 console.table(Object.fromEntries(Object.entries(stats.parSalle).map(([id, s]) => [id, {
   jouees: s.jouees, 'gagnées %': ((100 * s.gagnees) / s.jouees).toFixed(0), 'xp moy': (s.xp / s.jouees).toFixed(0),
-  'niveau moy': (s.niveau / s.jouees).toFixed(1), 'coups rest.': (s.coupsRestants / s.jouees).toFixed(1), 'billes rest.': (s.restantes / s.jouees).toFixed(0), raisons: JSON.stringify(s.raisons) }])));
+  'xp finale': (s.xpFinale / Math.max(1, s.gagnees)).toFixed(0), 'niveau moy': (s.niveau / s.jouees).toFixed(1), 'coups rest.': (s.coupsRestants / s.jouees).toFixed(1), 'billes rest.': (s.restantes / s.jouees).toFixed(0), raisons: JSON.stringify(s.raisons) }])));
