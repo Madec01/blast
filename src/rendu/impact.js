@@ -39,12 +39,13 @@ export function creerImpact() {
 
   const ix = new Float32Array(MAX), iy = new Float32Array(MAX), it = new Float32Array(MAX);
   const icouleur = new Int8Array(MAX); // -1 = neutre
+  const iampli = new Float32Array(MAX); // item 6 (combo) : multiplicateur de taille du flash/halo
   let n = 0;
 
-  // au barycentre écran du groupe détruit ; couleurIndex = couleur dominante ou null
-  function emettreImpact(x, y, couleurIndex) {
+  // au barycentre écran du groupe détruit ; couleurIndex = couleur dominante ou null ; ampli = combo
+  function emettreImpact(x, y, couleurIndex, ampli = 1) {
     const i = n < MAX ? n++ : 0; // à saturation, recycle le plus ancien slot (rare, pool large)
-    ix[i] = x; iy[i] = y; it[i] = 0; icouleur[i] = couleurIndex == null ? -1 : couleurIndex;
+    ix[i] = x; iy[i] = y; it[i] = 0; icouleur[i] = couleurIndex == null ? -1 : couleurIndex; iampli[i] = ampli;
   }
 
   function maj(dt) {
@@ -52,7 +53,7 @@ export function creerImpact() {
       it[i] += dt;
       if (it[i] >= DUREE_HALO) {
         const last = n - 1;
-        ix[i] = ix[last]; iy[i] = iy[last]; it[i] = it[last]; icouleur[i] = icouleur[last];
+        ix[i] = ix[last]; iy[i] = iy[last]; it[i] = it[last]; icouleur[i] = icouleur[last]; iampli[i] = iampli[last];
         n--; i--;
       }
     }
@@ -61,19 +62,20 @@ export function creerImpact() {
   function dessiner(ctx, cellPix) {
     for (let i = 0; i < n; i++) {
       const t = it[i];
+      const ampli = iampli[i] || 1;
       if (t < DUREE_FLASH) { // flash radial blanc, additif, uniquement pendant ces 90 ms (§ étape 3)
         const p = t / DUREE_FLASH;
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.globalAlpha = 0.6 * (1 - p);
         ctx.fillStyle = '#ffffff';
-        ctx.beginPath(); ctx.arc(ix[i], iy[i], cellPix * (0.5 + 0.4 * p), 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(ix[i], iy[i], cellPix * (0.5 + 0.4 * p) * ampli, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       }
       if (t < DUREE_HALO) { // halo doux teinté, sous les confettis, en 'source-over' normal
         const p = t / DUREE_HALO;
         const spr = icouleur[i] < 0 ? haloNeutre : halos[icouleur[i]];
-        const d = cellPix * (1.5 + (2.5 - 1.5) * p);
+        const d = cellPix * (1.5 + (2.5 - 1.5) * p) * ampli;
         ctx.save();
         ctx.globalAlpha = 1 - p;
         ctx.drawImage(spr, ix[i] - d / 2, iy[i] - d / 2, d, d);

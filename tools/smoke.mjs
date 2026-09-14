@@ -86,12 +86,10 @@ async function main() {
     if (i % 5 === 4 && etat.jauge > 0) { await page.locator('#btn-rotation-droite').click(); rotations++; continue; }
     if (!etat.meilleur) { await page.locator('#btn-rotation-gauche').click(); rotations++; continue; }
     // Un vrai tap par le pointeur : la case est projetée comme le rendu le fait (centrage, marge 6 %, rotation).
+    // Position exacte fournie par le rendu (même transformation que le pointeur).
     const boite = await page.locator('#plateau').boundingBox();
-    const [we, he] = etat.gravite % 2 === 0 ? [etat.w, etat.h] : [etat.h, etat.w];
-    const taille = Math.min((boite.width * 0.94) / we, (boite.height * 0.94) / he);
-    const cx = boite.x + boite.width / 2, cy = boite.y + boite.height / 2;
-    const lx = (etat.meilleur.x + 0.5 - etat.w / 2) * taille, ly = (etat.meilleur.y + 0.5 - etat.h / 2) * taille;
-    const a = (etat.gravite * Math.PI) / 2, sx = cx + lx * Math.cos(a) - ly * Math.sin(a), sy = cy + lx * Math.sin(a) + ly * Math.cos(a);
+    const pos = await page.evaluate(([x, y]) => window.vertige.rendu.positionCase(x, y), [etat.meilleur.x, etat.meilleur.y]);
+    const sx = boite.x + pos.x, sy = boite.y + pos.y;
     const coupsAvant = etat.coups;
     await page.mouse.click(sx, sy);
     await page.waitForTimeout(80);

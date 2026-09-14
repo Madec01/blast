@@ -41,6 +41,8 @@ export function creerJuice() {
   }
   // texte « BOOM ! » à l'origine d'une bombe qui explose (même style que le combo, plus petit — §7)
   function emettreBoom(x, y) { occuper(nTextes < MAX_TEXTES ? nTextes++ : 0, x, y, 1, 'BOOM !', 0.9, 0.9); }
+  // texte libre, même style rebond (chaîne « RÉACTION EN CHAÎNE », combo de spéciales forcé « BIG BANG ! »)
+  function emettreMot(x, y, mot, echelle = 1) { occuper(nTextes < MAX_TEXTES ? nTextes++ : 0, x, y, 1, mot, 0.9, echelle); }
   function majTextes(dt) {
     for (let i = 0; i < nTextes; i++) {
       tt[i] += dt;
@@ -128,7 +130,7 @@ export function creerJuice() {
   }
 
   return {
-    emettreXP, emettreCombo, emettreBoom, majTextes, dessinerTextes,
+    emettreXP, emettreCombo, emettreBoom, emettreMot, majTextes, dessinerTextes,
     emettreOnde, majOndes, dessinerOndes,
     creerSquash,
     get enCours() { return nTextes > 0 || nOndes > 0; },

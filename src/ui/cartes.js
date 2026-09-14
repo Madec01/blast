@@ -311,7 +311,10 @@ export function creerCartes(conteneur, actions) {
           salles.forEach((s, i) => {
             const ligne = document.createElement('div');
             ligne.className = 'escalier-ligne cascade';
-            ligne.style.setProperty('--i', i + 6);
+            // Cascade propre à cette section (jamais chaînée après les 6 tuiles) et plafonnée :
+            // avec beaucoup de salles, aucune barre ne doit rester à opacity:0 (délai encore à
+            // courir) plus longtemps que nécessaire — la salle échouée doit rester visible.
+            ligne.style.setProperty('--i', Math.min(i, 8));
 
             const tete = document.createElement('div');
             tete.className = 'escalier-tete';
@@ -350,7 +353,8 @@ export function creerCartes(conteneur, actions) {
             const info = COMPETENCES.find((c) => c.id === id);
             const pilule = document.createElement('span');
             pilule.className = 'pilule-competence cascade';
-            pilule.style.setProperty('--i', i + 6 + salles.length);
+            // Idem : cascade propre à cette section, plafonnée (ne dépend ni des tuiles ni de l'escalier).
+            pilule.style.setProperty('--i', Math.min(i, 8));
             if (info?.rarete) {
               const pastille = document.createElement('span');
               pastille.className = `pastille-rarete pastille-${info.rarete}`;

@@ -16,8 +16,20 @@ export function creerParticules() {
   const vie = new Float32Array(MAX), vieMax = new Float32Array(MAX);
   const taille = new Float32Array(MAX);
   const r = new Uint8Array(MAX), g = new Uint8Array(MAX), b = new Uint8Array(MAX);
-  const forme = new Uint8Array(MAX); // 0 = confetti rectangle, 1 = étoile 4 branches, 2 = poussière ovale
+  const forme = new Uint8Array(MAX); // 0 = confetti rectangle, 1 = étoile 4 branches, 2 = poussière ovale, 3 = fumée (sprite)
   let n = 0;
+  // fumée (bombe, item 1) : sprite dégradé radial gris-blanc pré-rendu une fois — jamais de
+  // dégradé recalculé par frame (§5). drawImage seul dans dessiner().
+  const { canvas: spriteFumee, ctx: ctxFumee } = (() => {
+    const c = document.createElement('canvas'); c.width = 48; c.height = 48;
+    return { canvas: c, ctx: c.getContext('2d') };
+  })();
+  (function batirFumee() {
+    const cx = 24, cy = 24, r = 24;
+    const g = ctxFumee.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, 'rgba(235,235,240,0.85)'); g.addColorStop(0.5, 'rgba(200,200,210,0.5)'); g.addColorStop(1, 'rgba(200,200,210,0)');
+    ctxFumee.fillStyle = g; ctxFumee.beginPath(); ctxFumee.arc(cx, cy, r, 0, Math.PI * 2); ctxFumee.fill();
+  })();
 
   function creerParticule(px, py, cr, cg, cb, f, opts) {
     if (n >= MAX) return; // pool plein : on ignore silencieusement (plafonné par contrat)
@@ -38,6 +50,11 @@ export function creerParticules() {
   // a3 : poussière d'atterrissage — petit poof lent, vie courte (§CONTRATS étape 4)
   const OPTS_POUSSIERE = { angleBase: 0, etalement: Math.PI * 2, vitesseMin: 18, vitesseMax: 55, vrotMax: 2, vieMin: 0.25, vieMax: 0.35, tailleMin: 4, tailleMax: 7 };
   const POUSSIERE_RGB = [238, 230, 210]; // beige clair translucide
+  // item 1 (bombe) : fumée montante, sprite dégradé — vie 500 ms, monte et s'élargit (dessiner())
+  const OPTS_FUMEE = { angleBase: -Math.PI / 2, etalement: Math.PI * 0.5, vitesseMin: 20, vitesseMax: 45, vrotMax: 1, vieMin: 0.45, vieMax: 0.55, tailleMin: 10, tailleMax: 16 };
+  // item 4 (fusée) : traînée de feu orange/jaune, courte vie, semée le long du trajet
+  const OPTS_FEU = { angleBase: 0, etalement: Math.PI * 2, vitesseMin: 15, vitesseMax: 55, vrotMax: 8, vieMin: 0.18, vieMax: 0.3, tailleMin: 3, tailleMax: 6 };
+  const FEU_TEINTES = ['#ff9f1c', '#ffcc1f'];
 
   // confettis multicolores + étoiles à 4 branches — juice de destruction, proportionnel et
   // plafonné par l'appelant (rendu.js) via `nombre`. hexAccent = couleur de la bille détruite.
@@ -64,12 +81,24 @@ export function creerParticules() {
     const [cr, cg, cb] = POUSSIERE_RGB;
     for (let k = 0; k < nombre; k++) creerParticule(px, py, cr, cg, cb, 2, OPTS_POUSSIERE);
   }
+  // item 1 (bombe) : 6-8 particules de fumée grise, montent et s'élargissent (dessiner(), forme 3)
+  function emettreFumee(px, py, nombre = 7) {
+    for (let k = 0; k < nombre; k++) creerParticule(px, py, 220, 220, 224, 3, OPTS_FUMEE);
+  }
+  // item 4 (fusée) : quelques embers orange/jaune semés à la position courante du sprite qui glisse
+  function emettreFeu(px, py, nombre = 2) {
+    for (let k = 0; k < nombre; k++) {
+      const [cr, cg, cb] = hex2rgb(FEU_TEINTES[(Math.random() * FEU_TEINTES.length) | 0]);
+      creerParticule(px, py, cr, cg, cb, 0, OPTS_FEU);
+    }
+  }
 
   // intégration physique — dt en secondes. Suppression par swap-remove, zéro allocation.
   function maj(dt) {
     const GRAVITE = 480, AMORTI = 0.995;
     for (let i = 0; i < n; i++) {
-      vy[i] += GRAVITE * dt;
+      if (forme[i] === 3) { vy[i] -= 30 * dt; vx[i] *= 0.98; vy[i] *= 0.98; } // fumée : pas de gravité, monte et ralentit
+      else vy[i] += GRAVITE * dt;
       vx[i] += Math.cos(rot[i] * 2.3) * 30 * dt; vx[i] *= AMORTI; // léger flottement, façon confetti
       x[i] += vx[i] * dt; y[i] += vy[i] * dt; rot[i] += vrot[i] * dt;
       vie[i] -= dt;
@@ -100,6 +129,11 @@ export function creerParticules() {
     ctx.save(); ctx.globalCompositeOperation = 'source-over';
     for (let i = 0; i < n; i++) {
       const alpha = Math.max(0, Math.min(1, vie[i] / vieMax[i])), s = taille[i];
+      if (forme[i] === 3) { // fumée (item 1) : sprite pré-rendu, s'élargit en vieillissant — pas de dégradé par frame
+        const age = 1 - alpha, d = s * (1.4 + age * 2.2);
+        ctx.save(); ctx.globalAlpha = alpha * 0.7; ctx.drawImage(spriteFumee, x[i] - d / 2, y[i] - d / 2, d, d); ctx.restore();
+        continue;
+      }
       ctx.save(); ctx.translate(x[i], y[i]); ctx.rotate(rot[i]);
       ctx.globalAlpha = forme[i] === 2 ? alpha * 0.55 : alpha; // poussière : translucide (§CONTRATS étape 4)
       ctx.fillStyle = `rgb(${r[i]},${g[i]},${b[i]})`;
@@ -112,7 +146,7 @@ export function creerParticules() {
   }
 
   return {
-    emettreDestruction, emettreConfettis, emettrePoussiere,
+    emettreDestruction, emettreConfettis, emettrePoussiere, emettreFumee, emettreFeu,
     maj, dessiner,
     get enCours() { return n > 0; },
     vider() { n = 0; },

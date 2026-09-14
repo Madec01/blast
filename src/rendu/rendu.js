@@ -7,6 +7,8 @@ import { creerJuice } from './juice.js';
 import { creerImpact } from './impact.js';
 import { creerTelegraphe } from './telegraphe.js';
 import { creerDessinCellule } from './dessin.js';
+import { creerSpecialesFx } from './speciales-fx.js';
+import { creerFinale } from './finale.js';
 import { COULEURS } from '../data/couleurs.js';
 const HEX = COULEURS.map((c) => c.hex);
 const couleurHex = (i) => HEX[i] ?? '#8a857b';
@@ -24,11 +26,13 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   const ctx = canvas.getContext('2d');
   const sprites = creerSprites(), particules = creerParticules(), decor = creerDecor();
   const juice = creerJuice(), impact = creerImpact(), telegraphe = creerTelegraphe();
+  const specialesFx = creerSpecialesFx(), finale = creerFinale(); // Lot B (RECHERCHE_VFX §4)
   const dessin = creerDessinCellule(ctx, sprites);
   // wrappers : lisent tempsTotal/cellPixBase/angleActuel courants à chaque appel (mêmes signatures qu'avant l'extraction)
   const dessinerCellule = (bv) => dessin.dessinerCellule(bv, tempsTotal, cellPixBase, angleActuel);
   const dessinerSurlignage = (lx, ly) => dessin.dessinerSurlignage(lx, ly, cellPixBase);
   const squashPlateau = juice.creerSquash(0.25, 0.04); // échelle x 1,04 / y 0,96, 250 ms (§2)
+  const squashRebond = juice.creerSquash(0.15, 0.016); // item 8 : second rebond (contre-rebond ×0,4), à la suite du premier
   // --- état de la grille / plateau, et de la transform écran (centre+secousse, rotation, échelle)
   let w = 8, h = 10, forme = null, graviteCourante = 0, etatCourant = null;
   const billes = new Map(); // id -> billeVis
@@ -137,14 +141,18 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (shakeMag > 0.05) { shakeMag *= Math.exp(-dt * 8); shakeX = (Math.random() * 2 - 1) * shakeMag; shakeY = (Math.random() * 2 - 1) * shakeMag; }
     else { shakeMag = 0; shakeX = 0; shakeY = 0; }
   }
+  // Lot B : environnement passé à speciales-fx.js/finale.js — lit l'état courant via ces closures (jamais figé), comme localVersEcran.
+  const env = {
+    billes, particules, impact, juice, sprites, couleurHex, ecran: localVersEcran, glisser: demarrerGlisse, shake: declencherShake,
+    cellPix: () => cellPixBase, w: () => w, h: () => h, G: () => vecteurG(graviteCourante), cw: () => canvas.width, ch: () => canvas.height, audio: () => courantAudio,
+  };
   function dessinerFrame() {
-    const plateau = sprites.plateau();
-    // E1/E2 : ciel étoilé tourné avec le plateau ; taille rendue du plateau transmise pour placer
-    // la planète dans la marge réellement visible (pas cachée sous le cadre).
+    const plateau = sprites.plateau(); // E1/E2 : ciel étoilé tourné avec le plateau ; taille transmise pour placer la planète hors du cadre
     decor.dessiner(ctx, canvas.width, canvas.height, angleActuel, plateau ? plateau.width * echelleActuelle : 0, plateau ? plateau.height * echelleActuelle : 0);
+    finale.dessinerFond(ctx, canvas.width, canvas.height); // item 7 : fond qui s'éclaircit, sous le plateau
     ctx.save();
-    ctx.translate(canvas.width / 2 + shakeX, canvas.height / 2 + shakeY);
-    ctx.rotate(angleActuel); ctx.scale(echelleActuelle * squashPlateau.sx, echelleActuelle * squashPlateau.sy);
+    ctx.translate(canvas.width / 2 + shakeX, canvas.height / 2 + shakeY); ctx.rotate(angleActuel);
+    specialesFx.appliquerZoom(ctx, echelleActuelle * squashPlateau.sx * squashRebond.sx, echelleActuelle * squashPlateau.sy * squashRebond.sy); // item 5 : chaîne
     if (plateau) ctx.drawImage(plateau, -plateau.width / 2, -plateau.height / 2);
     for (const [, bv] of billes) {
       const lx = (bv.x - w / 2 + 0.5) * cellPixBase, ly = (bv.y - h / 2 + 0.5) * cellPixBase;
@@ -159,17 +167,19 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     ctx.restore();
     juice.dessinerOndes(ctx, cellPixBase); juice.dessinerTextes(ctx, cellPixBase);
     impact.dessiner(ctx, cellPixBase); // a2 : flash + halo, sous les confettis
+    specialesFx.dessiner(ctx, cellPixBase); // Lot B : rayons/traînée/fusée/vent
     particules.dessiner(ctx);
+    finale.dessinerOverlay(ctx, canvas.width, canvas.height); // item 7 : voile gris (échec) + flash final (victoire)
   }
   // Boucle en continu tant que visible (§2, décor), coupée sur document.hidden puis reprise par
   // 'visibilitychange'. `enAnimation` (§5) reflète l'activité de premier plan, pas cette boucle.
   function rienNAnime() {
-    if (angleTween || telegraphe.actif || particules.enCours || juice.enCours || impact.enCours || squashPlateau.actif || shakeMag > 0.05 || surligneesSet.size > 0) return false;
+    if (angleTween || telegraphe.actif || particules.enCours || juice.enCours || impact.enCours || squashPlateau.actif || squashRebond.actif || shakeMag > 0.05 || surligneesSet.size > 0 || specialesFx.enCours || finale.enCours) return false;
     for (const [, bv] of billes) if (bv.chute || bv.glisse || bv.pulse || bv.fondu || bv.pop || bv.squash || bv.anticip) return false;
     return true;
   }
   function majAnimations(dt) {
-    tempsTotal += dt; decor.maj(dt); squashPlateau.maj(dt); juice.majTextes(dt); juice.majOndes(dt); impact.maj(dt);
+    tempsTotal += dt; decor.maj(dt); squashPlateau.maj(dt); squashRebond.maj(dt); juice.majTextes(dt); juice.majOndes(dt); impact.maj(dt);
     if (angleTween) {
       angleTween.t += dt;
       const p = clamp01(angleTween.t / angleTween.duree), e = easeInOut(p);
@@ -196,8 +206,9 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   }
   function tick(ts) {
     if (dernierT == null) dernierT = ts;
-    const dt = Math.min(0.05, (ts - dernierT) / 1000); dernierT = ts;
-    majAnimations(dt); dessinerFrame();
+    const rawDt = Math.min(0.05, (ts - dernierT) / 1000); dernierT = ts;
+    specialesFx.maj(rawDt); finale.maj(rawDt); // item 5 : temps réel, sinon le ralenti de chaîne s'auto-prolongerait
+    majAnimations(rawDt * specialesFx.dtScale); dessinerFrame(); // le reste du jeu suit dtScale (×0,5 pendant 150 ms)
     if (typeof document !== 'undefined' && document.hidden) { rafId = null; return; } // repris par 'visibilitychange'
     rafId = requestAnimationFrame(tick);
   }
@@ -225,29 +236,13 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (dernierDetruit) juice.emettreXP(dernierDetruit.x, dernierDetruit.y, evt.gain);
     demarrerBoucle();
   }
-  async function surDetruit(evt) {
-    const cellules = evt.cellules || [], taille = cellules.length || 1;
-    let sx = 0, sy = 0, n = 0;
-    for (const c of cellules) {
-      const bv = billes.get(c.id), pos = bv ? { x: bv.x, y: bv.y } : { x: c.x, y: c.y }, ecran = localVersEcran(pos.x, pos.y);
-      sx += ecran.x; sy += ecran.y; n++;
-      particules.emettreDestruction(ecran.x, ecran.y, couleurHex(c.couleur), Math.min(12, 4 + Math.round(16 / taille)));
-      if (bv) billes.delete(c.id);
-    }
-    if (n > 0) {
-      dernierDetruit = { x: sx / n, y: sy / n };
-      if (CAUSES_EXPLOSION.has(evt.cause)) juice.emettreOnde(dernierDetruit.x, dernierDetruit.y, cellPixBase * (0.8 + Math.min(1.4, taille * 0.07)));
-      // a2 : flash + halo teinté (couleur dominante du groupe) au barycentre, sous les confettis
-      const dominante = cellules.find((c) => c.couleur != null);
-      impact.emettreImpact(dernierDetruit.x, dernierDetruit.y, dominante ? dominante.couleur : null);
-    }
-    if (evt.cause === 'bombe') { // « BOOM ! » à l'origine de l'explosion (§7)
-      const org = evt.origine || (cellules[0] ? { x: cellules[0].x, y: cellules[0].y } : null);
-      if (org) { const eo = localVersEcran(org.x, org.y); juice.emettreBoom(eo.x, eo.y); }
-    }
-    declencherShake(Math.min(1, taille / 10));
-    if (courantAudio) courantAudio.jouer('detruit', { taille, cause: evt.cause, profondeur: evt.profondeur || 0 });
-    demarrerBoucle(); await attend(90);
+  const GESTIONNAIRES_FX = { bombe: 'jouerBombe', ligne: 'jouerLigne', couleur: 'jouerCouleur', fusee: 'jouerFusee' }; // items 1-4 ; les autres causes sont déléguées, génériques, à jouerGenerique
+  async function surDetruit(evt, combo = false) {
+    if ((evt.profondeur || 0) >= 2) specialesFx.declencherChaine(evt, env); // item 5 : chaîne, quelle que soit la cause
+    demarrerBoucle();
+    const nomFx = GESTIONNAIRES_FX[evt.cause];
+    if (nomFx) { await specialesFx[nomFx](evt, env, combo); return; } // items 1-4 : activation dédiée
+    dernierDetruit = (await specialesFx.jouerGenerique(evt, env, combo)) || dernierDetruit;
   }
   async function surSpeciale(evt) {
     const bv = billes.get(evt.id); if (bv) { bv.speciale = evt.type; bv.pulse = { t: 0, duree: 0.22 }; }
@@ -288,8 +283,10 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     const delta = evt.sens === 2 ? Math.PI : evt.sens * (Math.PI / 2);
     angleTween = { angleDebut: angleActuel, angleFin: angleActuel + delta, echelleDebut: calcEchelle(avant), echelleFin: calcEchelle(graviteCourante), t: 0, duree: DUREE_ROTATION };
     if (courantAudio) courantAudio.jouer('rotation', { sens: evt.sens });
+    specialesFx.declencherVent(evt.sens, DUREE_ROTATION, canvas.width / 2 + shakeX, canvas.height / 2 + shakeY, Math.min(canvas.width, canvas.height) * 0.42); // item 8 : vent
     demarrerBoucle(); await attend(DUREE_ROTATION * 700); // la chute qui suit démarre pendant la fin (ease-out) de la rotation
     setTimeout(() => squashPlateau.declencher(), DUREE_ROTATION * 300); // squash élastique du plateau en fin de rotation (§2)
+    setTimeout(() => squashRebond.declencher(), DUREE_ROTATION * 300 + 250); // item 8 : second rebond, juste après le premier
   }
   function lancerChute(evt) {
     for (const d of evt.deplacements || []) { const bv = billes.get(d.id); if (bv) demarrerChute(bv, d.de, d.vers); }
@@ -333,7 +330,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     w = etat.grille.w; h = etat.grille.h; forme = etat.grille.forme || null; graviteCourante = etat.gravite || 0;
     const s = etat.salle; decor.definirActe(s && s.total ? s.index / s.total : 0); // E1 : ciel/nébuleuses selon l'acte — tolérant si absent
     angleTween = null; telegraphe.definir(null); particules.vider(); juice.vider(); impact.vider(); dernierDetruit = null;
-    shakeMag = 0; shakeX = 0; shakeY = 0; surligneesSet.clear(); billes.clear();
+    specialesFx.vider(); finale.vider(); shakeMag = 0; shakeX = 0; shakeY = 0; surligneesSet.clear(); billes.clear();
     recalculerEchelles();
     angleActuel = graviteCourante * (Math.PI / 2); echelleActuelle = calcEchelle(graviteCourante);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -350,11 +347,13 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (telegraphe.actif) previsualiserRotation(null);
     demarrerBoucle();
     const liste = evenements || [];
+    let salvesExplosives = 0; // item 6 : combo — dès la 2e salve explosive de ce même appel de jouer()
+    const estCombo = (evt) => !!(evt.cause && CAUSES_EXPLOSION.has(evt.cause) && ++salvesExplosives >= 2);
     for (let i = 0; i < liste.length; i++) {
       const evt = liste[i], suivant = liste[i + 1];
       switch (evt.t) {
         case 'tap': await surTap(evt, suivant && suivant.t === 'detruit' ? suivant : null); break; // a1 : attend l'anticipation (80 ms) avant le detruit qui suit
-        case 'detruit': await surDetruit(evt); break;
+        case 'detruit': await surDetruit(evt, estCombo(evt)); break;
         case 'speciale': await surSpeciale(evt); break;
         case 'conversion': await surConversion(evt); break;
         case 'element': await surElement(evt); break;
@@ -368,6 +367,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
         case 'salle': await surSalle(evt); break;
         case 'apparition': await surApparition(evt); break;
         case 'xp': surXp(evt); break;
+        case 'finSalle': demarrerBoucle(); await (evt.victoire ? finale.jouerVictoire(env) : finale.jouerEchec(env)); break; // item 7 : résout en fin de séquence
         default: break; // événement ignoré par le rendu (UI/audio/moteur uniquement)
       }
     }
@@ -389,11 +389,13 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (typeof document !== 'undefined' && document.removeEventListener) document.removeEventListener('visibilitychange', surVisibilite);
     if (rafId != null) cancelAnimationFrame(rafId); rafId = null;
     canvas.removeEventListener('pointerdown', surPointerDown); canvas.removeEventListener('pointermove', surPointerMove); canvas.removeEventListener('pointerleave', surPointerLeave);
-    particules.vider(); juice.vider(); impact.vider(); billes.clear();
+    particules.vider(); juice.vider(); impact.vider(); specialesFx.vider(); finale.vider(); billes.clear();
   }
   return {
     synchroniser, jouer, surligner, previsualiserRotation, redimensionner, detruire, pause, reprendre,
     get enAnimation() { return !rienNAnime(); },
+    /** Centre d'une case en pixels CSS du canvas (tests, télégraphe externe). */
+    positionCase(cx, cy) { const p = localVersEcran(cx, cy), dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1; return { x: p.x / dpr, y: p.y / dpr }; },
     get apercuActif() { return telegraphe.actif; },
   };
 }

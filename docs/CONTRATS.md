@@ -122,6 +122,7 @@ await rendu.jouer(evenements, { audio })   // anime la séquence ; appelle audio
 rendu.enAnimation                 // booléen
 rendu.surligner([{x,y}])          // halo sur un groupe (survol souris) ; [] pour effacer
 rendu.previsualiserRotation(apercu|null)   // télégraphe : apercu = run.apercuRotation(sens) ; null efface. rendu.apercuActif : booléen
+rendu.positionCase(x, y)          // centre d'une case en px CSS du canvas
 rendu.redimensionner()
 rendu.pause() / rendu.reprendre()  // coupe / relance la boucle d'animation (retour au menu)
 rendu.detruire()
