@@ -182,6 +182,7 @@ export function verifierNiveau(ctx) {
     e.niveau++;
     majSeuilsXp(e);
     const propositions = proposerEffets(ctx, e.niveau);
+    if (!propositions.length) { ctx.emettre({ t: 'message', texte: 'Niveau ' + e.niveau + ' : plus rien à proposer' }); return; } // filet : jamais de run figé
     e.enAttente = attenteNiveau(ctx, e.niveau, propositions);
     ctx.emettre({ t: 'niveau', niveau: e.niveau, propositions });
   }

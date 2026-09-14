@@ -65,7 +65,9 @@ function entrerSalle(ctx, index) {
   const mode = e.options.gravite ?? def.regles?.gravite ?? MODE_GRAVITE_DEFAUT;
   e.modeGravite = MODES_GRAVITE[mode] ? mode : MODE_GRAVITE_DEFAUT;
   e.gravite = 0; e.tour = 0; e.xpSalle = 0; e.niveau = 1; majSeuilsXp(e);
+  e.memo.sansFilet = false; // « Mise en jeu » ne dure qu'une salle
   e.coupsMax = ctx.bus.reduire('coupsInitiaux', Math.max(5, Math.round(def.coups / e.difficulte)), ctx, { salle: def });
+  if (e.memo.dette) { e.coupsMax = Math.max(1, e.coupsMax - e.memo.dette); e.memo.dette = 0; } // « Dette » : payée ici, même après rechargement
   e.coups = e.coupsMax;
   e.jaugeMax = ctx.bus.reduire('jaugeInitiale', e.options.jauge ?? def.jauge ?? 3, ctx, { salle: def });
   e.jauge = e.jaugeMax;

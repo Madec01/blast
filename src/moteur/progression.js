@@ -99,6 +99,7 @@ export function relancer(ctx) {
   const exclues = att.propositions.map((p) => p.id);
   e.effetsVus.push(...exclues); // les cartes retirées ne reviennent pas dans la salle
   const propositions = proposerEffets(ctx, att.niveau, { exclure: exclues });
+  if (!propositions.length) { e.enAttente = null; ctx.emettre({ t: 'message', texte: 'Plus aucune carte : niveau passé' }); return true; }
   e.enAttente = attenteNiveau(ctx, att.niveau, propositions);
   ctx.emettre({ t: 'niveau', niveau: att.niveau, propositions, relance: true });
   return true;

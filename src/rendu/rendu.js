@@ -289,7 +289,11 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     setTimeout(() => squashRebond.declencher(), DUREE_ROTATION * 300 + 250); // item 8 : second rebond, juste après le premier
   }
   function lancerChute(evt) {
-    for (const d of evt.deplacements || []) { const bv = billes.get(d.id); if (bv) demarrerChute(bv, d.de, d.vers); }
+    for (const d of evt.deplacements || []) {
+      const bv = billes.get(d.id); if (!bv) continue;
+      if (d.de.x !== d.vers.x && d.de.y !== d.vers.y) demarrerGlisse(bv, d.de, d.vers, 0.35, false); // diagonale (Big Bang) : tween 2D
+      else demarrerChute(bv, d.de, d.vers);
+    }
     demarrerBoucle();
   }
   async function surChute(evt) { // squash élastique du plateau à l'atterrissage des billes (§2)

@@ -170,10 +170,12 @@ export function creerDecor() {
   let texEtoiles = null, texBrillantes = null, texCote = 0;
   function regenererTextureEtoiles(cw, ch) {
     const cote = Math.max(2, Math.round(Math.hypot(cw, ch) * 1.03)); // ≥ diagonale du canvas (étape 4)
+    const coteTex = Math.min(cote, 2048); // plafond mémoire (≈ 16 Mo par texture) : dessinée à l'échelle si le canvas est plus grand
     if (cote === texCote) return;
     texCote = cote;
-    texEtoiles = batirTextureEtoiles(cote, dpr, starFX, starFY, starClasse, starTeinte, starBrillante, starCroix, false);
-    texBrillantes = batirTextureEtoiles(cote, dpr, starFX, starFY, starClasse, starTeinte, starBrillante, starCroix, true);
+    const dprTex = dpr * (coteTex / cote);
+    texEtoiles = batirTextureEtoiles(coteTex, dprTex, starFX, starFY, starClasse, starTeinte, starBrillante, starCroix, false);
+    texBrillantes = batirTextureEtoiles(coteTex, dprTex, starFX, starFY, starClasse, starTeinte, starBrillante, starCroix, true);
   }
 
   // couleur du ciel + nombre de nébuleuses actives selon le tiers d'acte (etat.salle.index/total)
@@ -234,10 +236,10 @@ export function creerDecor() {
     // étoiles brillantes est superposée à une alpha qui oscille (pas de recalcul par étoile).
     ctx.save();
     ctx.translate(cw / 2, ch / 2); ctx.rotate(angleJeu * 0.85);
-    if (texEtoiles) ctx.drawImage(texEtoiles, -texEtoiles.width / 2, -texEtoiles.height / 2);
+    if (texEtoiles) ctx.drawImage(texEtoiles, -texCote / 2, -texCote / 2, texCote, texCote);
     if (texBrillantes) {
       ctx.globalAlpha = Math.max(0, 0.4 + 0.5 * Math.sin(temps * 0.7));
-      ctx.drawImage(texBrillantes, -texBrillantes.width / 2, -texBrillantes.height / 2);
+      ctx.drawImage(texBrillantes, -texCote / 2, -texCote / 2, texCote, texCote);
       ctx.globalAlpha = 1;
     }
     ctx.restore();

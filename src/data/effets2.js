@@ -154,7 +154,7 @@ export const EFFETS_NOUVEAUX = [
         if (!pretes.length) return;
         const indices = [];
         for (const id of pretes) { const i = c.grille.cellules.findIndex((cel) => cel && cel.id === id); if (i >= 0) indices.push(i); }
-        if (indices.length) { c.detruire(indices, 'bombe'); c.retomber(); }
+        if (indices.length) { c.detruire(indices, 'effet'); c.retomber(); } // la bombe détruite explose en chaîne sur sa zone (rayon +1)
       }, src('bombe_instable'));
     } },
 
@@ -351,13 +351,7 @@ export const EFFETS_NOUVEAUX = [
     appliquer(ctx) {
       ctx.etat.coups += 5;
       ctx.emettre({ t: 'coups', coups: ctx.etat.coups, jauge: ctx.etat.jauge });
-      ctx.memo.dette = (ctx.memo.dette ?? 0) + 3;
-      ctx.bus.on('coupsInitiaux', (v, c) => {
-        if (!c.memo.dette) return v;
-        const d = c.memo.dette; c.memo.dette = 0;
-        c.retirerEffet('dette_de_coups');
-        return Math.max(1, v - d);
-      }, src('dette_de_coups'));
+      ctx.memo.dette = (ctx.memo.dette ?? 0) + 3; // consommée par entrerSalle (moteur/run.js), donc sérialisée avec l'état
     } },
 
   { id: 'zone_permanente', palier: 3, rarete: 'commun', famille: 'speciales', nom: 'Foyer',
