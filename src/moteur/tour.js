@@ -68,6 +68,7 @@ export function jouerRotation(ctx, sens, options = {}) {
   const de = e.gravite;
   e.gravite = tournerGravite(e.gravite, sens);
   ctx.emettre({ t: 'rotation', de, vers: e.gravite, sens, auto: !!options.auto, enCoups });
+  if (!options.auto && !options.gratuit) e.stats.rotations++;
   if (enCoups) { e.coups -= enCoups; emettreCoups(ctx); ctx.emettre({ t: 'message', texte: 'Jauge vide : la rotation coûte un coup' }); }
   else if (cout) { e.jauge -= cout; emettreCoups(ctx); }
   monteeBallons(ctx);
@@ -92,12 +93,14 @@ export function jouerTap(ctx, x, y) {
   const c = g.cellules[i];
   ctx.bus.emettre('avantTap', ctx, { i, x, y, couleur: c.couleur });
   const gr = groupe(g, i), taille = gr.length;
+  e.stats.taps++; if (taille > e.stats.plusGrosGroupe) e.stats.plusGrosGroupe = taille;
   ctx.emettre({ t: 'tap', x, y, taille, couleur: c.couleur, elan: !!e.elan });
   let type = c.speciale ? null : typeSpecialePour(ctx, taille);
   if (type) type = ctx.bus.reduire('typeSpeciale', type, ctx, { taille });
   resoudre(ctx, { cellules: type ? gr.filter((k) => k !== i) : gr, cause: 'groupe', origine: { x, y }, profondeur: 0, couleur: c.couleur, tapee: type ? i : undefined });
   if (type) {
     c.speciale = type; c.rayon = 1;
+    e.stats.speciales[type] = (e.stats.speciales[type] ?? 0) + 1;
     ctx.emettre({ t: 'speciale', x, y, id: c.id, type });
     ctx.bus.emettre('specialeCreee', ctx, { i, type, taille });
   }
@@ -185,8 +188,10 @@ export function verifierNiveau(ctx) {
 }
 
 export function finirSalle(ctx, victoire, raison) {
-  const e = ctx.etat;
-  e.enAttente = { type: 'finSalle', victoire, raison, xpSalle: e.xpSalle };
+  const e = ctx.etat, o = e.objectif;
+  e.stats.salles.push({ id: e.salle.id, nom: e.salle.nom, xp: e.xpSalle, niveau: e.niveau, victoire, raison });
+  // Quasi-victoire : l'écran d'échec peut dire « à N billes de l'objectif ».
+  e.enAttente = { type: 'finSalle', victoire, raison, xpSalle: e.xpSalle, niveau: e.niveau, coups: e.coups, objectif: { type: o.type, progres: Math.min(o.progres, o.cible), cible: o.cible, manque: Math.max(0, o.cible - o.progres) } };
   ctx.emettre({ t: 'finSalle', victoire, raison });
   ctx.bus.emettre('finSalle', ctx, { victoire, raison });
 }

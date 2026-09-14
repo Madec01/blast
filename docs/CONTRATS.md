@@ -79,8 +79,10 @@ run.serialiser()    // → string JSON ;  chargerRun(json) → run
   annonce:null|{sens:-1|1|2},          // rotation automatique annoncée pour la fin du tour (Tempête, Pendule)
   enAttente:null|{type:'niveau',niveau,propositions:[{id,nom,desc}]}
             |{type:'competence',propositions:[{id,nom,desc,rarete}]}
-            |{type:'finSalle',victoire,raison,xpSalle}
-            |{type:'finRun',victoire,xpTotale,monnaieMeta} }
+            |{type:'finSalle',victoire,raison,xpSalle,niveau,coups,objectif:{type,progres,cible,manque}}
+            |{type:'finRun',victoire,xpTotale,monnaieMeta,salleIndex,totalSalles,competences,stats} }
+  // stats (cumul du run) : { debut, fin, taps, rotations, chaineMax, plusGrosGroupe, billesDetruites, etoilesLiberees,
+  //   speciales:{bombe,ligne,croix,couleur}, effets:[ids], salles:[{id,nom,xp,niveau,victoire,raison}] }
 ```
 
 ## 4. Journal d'événements (retour de tap / tourner / choisir)

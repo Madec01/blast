@@ -22,6 +22,7 @@ export function declencherElement(ctx, i, c, file) {
     case 'ballon':
       g.cellules[i] = null;
       if (ctx.etat.objectif.type === 'ballons') ctx.etat.objectif.progres++;
+      ctx.etat.stats.etoilesLiberees++;
       evenement(ctx, i, c, 'eclate');
       break;
     case 'fusee': {
@@ -66,6 +67,7 @@ export function monteeBallons(ctx) {
   for (const m of deplacerBallons(g, ctx.etat.gravite)) {
     if (m.vers === null) {
       if (ctx.etat.objectif.type === 'ballons') ctx.etat.objectif.progres++;
+      ctx.etat.stats.etoilesLiberees++;
       evenement(ctx, m.de, m.c, 'eclate');
       continue;
     }

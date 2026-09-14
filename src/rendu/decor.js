@@ -7,16 +7,23 @@
 // (pas de dégradé) modulés en alpha, comme les anciennes scintilles — coût constant, aucune
 // allocation par frame. rendu.js garde la boucle rAF active tant que le canvas est visible.
 //
-// Retour test de fumée (2026-09-14) : premier jet trop discret — étoiles minuscules/transparentes,
+// Retour test de fumée #1 (2026-09-14) : premier jet trop discret — étoiles minuscules/transparentes,
 // nébuleuses/planète non lisibles. Correctifs : tailles en px CSS ×devicePixelRatio, alpha et
 // couleurs franches pour les étoiles ; nébuleuses/planète dimensionnées en fraction de la LARGEUR
-// du canvas (pas de la diagonale du champ céleste) et positionnées aux coins/hors plateau ; rayon
-// du champ étoilé porté à la diagonale complète du canvas pour ne jamais laisser de coin vide
-// pendant la rotation (tourner autour du centre ne change pas la distance au centre).
+// du canvas et positionnées aux coins/hors plateau ; rayon du champ étoilé porté à la diagonale
+// complète du canvas pour ne jamais laisser de coin vide pendant la rotation.
+//
+// Retour test de fumée #2 : toujours trop clairsemé (5-10 étoiles visibles) et planète invisible
+// (cachée sous le plateau, qui remplit ~94 % du canvas). Correctifs : 1200 étoiles PRÉ-RENDUES
+// une fois dans une texture carrée (côté = diagonale ×1,03), dessinée en un seul drawImage tourné
+// par frame — coût constant quel que soit le nombre d'étoiles ; le scintillement est simulé par
+// une seconde texture (sous-ensemble d'étoiles « brillantes ») dont seule l'alpha oscille (pas de
+// recalcul par étoile par frame). La planète est positionnée dans la marge RÉELLEMENT visible
+// (au-dessus du plateau, ou latérale) déduite de la taille du plateau rendu, passée par rendu.js.
 
 import { ENCRE } from '../data/couleurs.js';
 
-const N_ETOILES = 200;
+const N_ETOILES = 1200;
 // Couleur du ciel et nombre de nébuleuses selon le tiers d'acte (étape 1) : etat.salle.index/total.
 const TIERS_CIEL = [
   { haut: '#1a1650', bas: '#2b2270', nNebuleuses: 2 }, // tiers 1 : bleu nuit
@@ -34,11 +41,11 @@ const NEBULEUSES = [
 ];
 const COULEURS_NEBULEUSES = ['#b04cff', '#ff5fa2', '#22d3ee'];
 const ALPHA_NEBULEUSES = [0.42, 0.46, 0.5]; // alpha au centre, dans 0,35-0,5
-// Planète : ~18 % de la largeur du canvas, haut-droite, hors plateau (même logique de coin).
-const PLANETE_POS = { fx: 0.34, fy: -0.32 };
+// Planète : ~18 % de la largeur du canvas, contour encre, orange/pêche, anneau clair. Sa position
+// est calculée au dessin depuis la marge réellement visible autour du plateau rendu (étape 2).
 const PLANETE_FRAC_LARGEUR = 0.18;
-// Étoiles : 3 tailles en px CSS (×devicePixelRatio au dessin), 3 teintes (75 % chaude, 15 %
-// bleutée, 10 % dorée), alpha 0,7-1,0 en scintillement lent.
+// Étoiles : 3 tailles en px CSS (×devicePixelRatio, cuites dans la texture), 3 teintes (75 %
+// chaude, 15 % bleutée, 10 % dorée). 1/7 des étoiles sont « brillantes » (texture de scintillement).
 const TAILLES_ETOILES_CSS = [1.5, 2.5, 4];
 const COULEURS_ETOILES = ['#fff3c4', '#bfe6ff', '#ffcc1f'];
 
@@ -100,6 +107,26 @@ function batirPlanete() {
   return canvas;
 }
 
+// texture carrée pré-rendue une fois (étape 1) : toutes les étoiles (ou seulement les
+// « brillantes ») pour un côté donné, positions lues depuis les tableaux déterministes ci-dessous.
+// `brillantesSeulement` omet la croix de diffraction (déjà dans la texture de base).
+function batirTextureEtoiles(cote, dpr, nx, ny, classe, teinte, brillante, brillantesSeulement) {
+  const { canvas, ctx } = creerCanvas(cote, cote);
+  const c0 = cote / 2, rayonChamp = cote / 2;
+  for (let i = 0; i < N_ETOILES; i++) {
+    if (brillantesSeulement && !brillante[i]) continue;
+    const px = c0 + nx[i] * rayonChamp, py = c0 + ny[i] * rayonChamp, r = TAILLES_ETOILES_CSS[classe[i]] * dpr;
+    ctx.globalAlpha = brillantesSeulement ? 1 : 0.82; ctx.fillStyle = COULEURS_ETOILES[teinte[i]];
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+    if (!brillantesSeulement && classe[i] === 2) { // croix de diffraction sur les grandes étoiles
+      ctx.globalAlpha = 0.5; ctx.strokeStyle = COULEURS_ETOILES[teinte[i]]; ctx.lineWidth = Math.max(0.6, r * 0.22);
+      const L = r * 3.2;
+      ctx.beginPath(); ctx.moveTo(px - L, py); ctx.lineTo(px + L, py); ctx.moveTo(px, py - L); ctx.lineTo(px, py + L); ctx.stroke();
+    }
+  }
+  return canvas;
+}
+
 export function creerDecor() {
   let temps = 0, dpr = 1;
   let cielHaut = TIERS_CIEL[0].haut, cielBas = TIERS_CIEL[0].bas, nNebuleusesActives = TIERS_CIEL[0].nNebuleuses;
@@ -108,20 +135,30 @@ export function creerDecor() {
   const nebuleuseSprites = COULEURS_NEBULEUSES.map((hex, i) => batirNebuleuse(hex, ALPHA_NEBULEUSES[i]));
   const planeteSprite = batirPlanete();
 
-  // ~200 étoiles, réparties dans un disque via une suite déterministe (angle d'or) : stable d'un
-  // rechargement à l'autre, aucune dépendance à Math.random, zéro allocation par frame.
+  // 1200 étoiles, réparties dans un disque via une suite déterministe (angle d'or) : stable d'un
+  // rechargement à l'autre, aucune dépendance à Math.random. Positions/classes fixées une fois ;
+  // seule la texture qui en découle (ci-dessous) dépend de la taille du canvas.
   const starNX = new Float32Array(N_ETOILES), starNY = new Float32Array(N_ETOILES);
-  const starClasse = new Uint8Array(N_ETOILES);  // 0 petite (70 %), 1 moyenne (20 %), 2 grande (10 %, + croix)
-  const starTeinte = new Uint8Array(N_ETOILES);  // 0 chaude (75 %), 1 bleutée (15 %), 2 dorée (10 %)
-  const starVitesse = new Float32Array(N_ETOILES), starPhase = new Float32Array(N_ETOILES);
+  const starClasse = new Uint8Array(N_ETOILES);   // 0 petite (70 %), 1 moyenne (20 %), 2 grande (10 %, + croix)
+  const starTeinte = new Uint8Array(N_ETOILES);   // 0 chaude (75 %), 1 bleutée (15 %), 2 dorée (10 %)
+  const starBrillante = new Uint8Array(N_ETOILES); // ~1/7 : dans la texture de scintillement
   for (let i = 0; i < N_ETOILES; i++) {
     const a = (i * 2.399963) % (Math.PI * 2);      // angle (nombre d'or) : répartition homogène
     const rr = Math.sqrt((i * 0.6180339887) % 1);  // rayon en sqrt : densité uniforme sur le disque
     starNX[i] = Math.cos(a) * rr; starNY[i] = Math.sin(a) * rr;
     const c10 = i % 10; starClasse[i] = c10 < 7 ? 0 : c10 < 9 ? 1 : 2;
     const c20 = i % 20; starTeinte[i] = c20 < 3 ? 1 : c20 < 5 ? 2 : 0;
-    starVitesse[i] = 0.35 + ((i * 0.137) % 1) * 0.45; // scintillement lent, léger déphasage
-    starPhase[i] = (i * 1.913) % (Math.PI * 2);
+    starBrillante[i] = i % 7 === 0 ? 1 : 0;
+  }
+  // texture carrée pré-rendue (étape 1) : une seule pour toutes les étoiles + une pour les
+  // brillantes, reconstruites uniquement quand le canvas change de taille (jamais par frame).
+  let texEtoiles = null, texBrillantes = null, texCote = 0;
+  function regenererTextureEtoiles(cw, ch) {
+    const cote = Math.max(2, Math.round(Math.hypot(cw, ch) * 1.03)); // ≥ diagonale du canvas (étape 4)
+    if (cote === texCote) return;
+    texCote = cote;
+    texEtoiles = batirTextureEtoiles(cote, dpr, starNX, starNY, starClasse, starTeinte, starBrillante, false);
+    texBrillantes = batirTextureEtoiles(cote, dpr, starNX, starNY, starClasse, starTeinte, starBrillante, true);
   }
 
   // couleur du ciel + nombre de nébuleuses actives selon le tiers d'acte (etat.salle.index/total)
@@ -131,11 +168,24 @@ export function creerDecor() {
     cielHaut = TIERS_CIEL[idx].haut; cielBas = TIERS_CIEL[idx].bas; nNebuleusesActives = TIERS_CIEL[idx].nNebuleuses;
   }
 
-  function regenerer() { dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1; }
+  function regenerer(cellPix, cw, ch) {
+    dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    if (cw && ch) regenererTextureEtoiles(cw, ch);
+  }
 
   function maj(dt) { temps += dt; }
 
-  function dessiner(ctx, cw, ch, angleJeu) {
+  // Place la planète dans la marge RÉELLEMENT visible autour du plateau rendu (étape 2) :
+  // bande au-dessus s'il y a la place, sinon marge latérale, sinon repli au coin du canvas.
+  function positionPlanete(cw, ch, pd, plateauW, plateauH) {
+    const demiL = (plateauW || 0) / 2, demiH = (plateauH || 0) / 2;
+    const margeHaut = ch / 2 - demiH, margeCote = cw / 2 - demiL;
+    if (margeHaut > pd * 0.7) return { x: cw * 0.16, y: -(demiH + margeHaut * 0.5) };
+    if (margeCote > pd * 0.7) return { x: demiL + margeCote * 0.5, y: -ch * 0.18 };
+    return { x: cw / 2 - pd * 0.6, y: -(ch / 2 - pd * 0.6) }; // repli : coin haut-droit du canvas
+  }
+
+  function dessiner(ctx, cw, ch, angleJeu, plateauW, plateauH) {
     // ciel en dégradé, teinte selon l'acte, sur tout le canvas
     const g = ctx.createLinearGradient(0, 0, 0, ch);
     g.addColorStop(0, cielHaut); g.addColorStop(1, cielBas);
@@ -152,11 +202,10 @@ export function creerDecor() {
     }
     ctx.restore();
 
-    // nébuleuses : parallaxe à 0,7× l'angle du plateau, taille/position en fraction du canvas
-    // (pas de la diagonale du champ étoilé) — grandes, lisibles, aux coins.
+    // nébuleuses : parallaxe à 0,7× l'angle du plateau, taille/position en fraction du canvas —
+    // grandes, lisibles, aux coins (hors plateau).
     ctx.save();
     ctx.translate(cw / 2, ch / 2); ctx.rotate(angleJeu * 0.7);
-    ctx.globalAlpha = 1;
     for (let i = 0; i < nNebuleusesActives; i++) {
       const nb = NEBULEUSES[i], spr = nebuleuseSprites[nb.variante], d = cw * nb.tailleFrac;
       ctx.save(); ctx.translate(nb.fx * cw, nb.fy * ch); ctx.rotate(nb.rot);
@@ -165,30 +214,25 @@ export function creerDecor() {
     }
     ctx.restore();
 
-    // étoiles + planète lointaine : parallaxe à 0,85× l'angle du plateau. Rayon du champ étoilé
-    // = la diagonale du canvas (marge 3 %) : une rotation autour du centre ne change pas la
-    // distance au centre, donc un disque de ce rayon reste toujours plein-cadre, à tout angle.
-    const champRayon = Math.hypot(cw, ch) * 1.03;
+    // étoiles : parallaxe à 0,85× l'angle du plateau — texture unique tournée, coût constant
+    // quel que soit le nombre d'étoiles (2 drawImage/frame). Scintillement : la texture des
+    // étoiles brillantes est superposée à une alpha qui oscille (pas de recalcul par étoile).
     ctx.save();
     ctx.translate(cw / 2, ch / 2); ctx.rotate(angleJeu * 0.85);
-    for (let i = 0; i < N_ETOILES; i++) {
-      const px = starNX[i] * champRayon, py = starNY[i] * champRayon;
-      const alpha = 0.85 + 0.15 * Math.sin(temps * starVitesse[i] + starPhase[i]); // 0,70 - 1,0
-      const r = TAILLES_ETOILES_CSS[starClasse[i]] * dpr;
-      ctx.globalAlpha = alpha; ctx.fillStyle = COULEURS_ETOILES[starTeinte[i]];
-      ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
-      if (starClasse[i] === 2) { // croix de diffraction sur les grandes étoiles (4 traits fins)
-        ctx.globalAlpha = alpha * 0.55; ctx.strokeStyle = COULEURS_ETOILES[starTeinte[i]];
-        ctx.lineWidth = Math.max(0.6, r * 0.22);
-        const L = r * 3.2;
-        ctx.beginPath(); ctx.moveTo(px - L, py); ctx.lineTo(px + L, py); ctx.moveTo(px, py - L); ctx.lineTo(px, py + L); ctx.stroke();
-      }
+    if (texEtoiles) ctx.drawImage(texEtoiles, -texEtoiles.width / 2, -texEtoiles.height / 2);
+    if (texBrillantes) {
+      ctx.globalAlpha = Math.max(0, 0.4 + 0.5 * Math.sin(temps * 0.7));
+      ctx.drawImage(texBrillantes, -texBrillantes.width / 2, -texBrillantes.height / 2);
+      ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
-    const pd = cw * PLANETE_FRAC_LARGEUR;
-    ctx.save(); ctx.translate(PLANETE_POS.fx * cw, PLANETE_POS.fy * ch);
-    ctx.drawImage(planeteSprite, -pd / 2, -pd / 2, pd, pd);
     ctx.restore();
+
+    // planète lointaine : dans la marge visible autour du plateau (pas dans la couche parallaxe
+    // des étoiles — elle doit rester lisible au repos, quitte à sortir du champ en rotation).
+    const pd = cw * PLANETE_FRAC_LARGEUR, pos = positionPlanete(cw, ch, pd, plateauW, plateauH);
+    ctx.save();
+    ctx.translate(cw / 2 + pos.x, ch / 2 + pos.y);
+    ctx.drawImage(planeteSprite, -pd / 2, -pd / 2, pd, pd);
     ctx.restore();
   }
 

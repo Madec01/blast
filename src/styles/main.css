@@ -743,6 +743,125 @@ body::after {
 .pastille-commun { background: var(--bleu); }
 
 /* =========================================================================
+   Fin de salle (quasi-victoire) et fin de run (bilan)
+   ========================================================================= */
+
+/* --- Quasi-victoire (échec de salle) : jamais rien à acheter, juste un encouragement --- */
+.quasi-victoire {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #fff;
+  -webkit-text-stroke: 1px var(--encre);
+  paint-order: stroke fill;
+  margin: 0 0 10px;
+}
+.objectif-badge.encourage {
+  display: inline-flex;
+  margin: 0 auto 14px;
+  background: linear-gradient(180deg, var(--jaune-clair), var(--jaune));
+  box-shadow: 0 3px 0 var(--jaune-fonce);
+}
+.objectif-badge.encourage .objectif-texte {
+  color: var(--encre);
+  -webkit-text-stroke: 0;
+}
+
+/* --- Cascade d'apparition partagée (tuiles, barres d'escalier, pilules) --- */
+@keyframes cascade-entree {
+  0% { opacity: 0; transform: translateY(10px) scale(.94); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.cascade {
+  animation: cascade-entree .4s cubic-bezier(.34, 1.56, .64, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+/* --- Grille de 6 tuiles chiffrées (bilan de fin de run) --- */
+.grille-stats-fin {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 4px 0 16px;
+}
+@media (min-width: 460px) {
+  .grille-stats-fin { grid-template-columns: repeat(3, 1fr); }
+}
+.tuile-stat {
+  background: var(--panneau);
+  border: 3px solid var(--encre);
+  border-radius: var(--rayon-petit);
+  box-shadow: 0 5px 0 var(--encre-25);
+  padding: 10px 8px;
+  text-align: center;
+}
+.tuile-stat-valeur {
+  display: block;
+  font-family: var(--police-titre);
+  font-weight: 900;
+  font-size: 1.25rem;
+  color: var(--encre);
+  font-variant-numeric: tabular-nums;
+}
+.tuile-stat-label { display: block; font-size: .66rem; font-weight: 700; opacity: .75; margin-top: 2px; }
+.tuile-stat-detail { display: block; font-size: .6rem; opacity: .65; margin-top: 4px; line-height: 1.3; }
+
+/* --- Petit titre de section (Escalier d'XP, Compétences prises) --- */
+.section-fin-titre {
+  font-family: var(--police-titre);
+  font-weight: 900;
+  font-size: .92rem;
+  color: #fff;
+  -webkit-text-stroke: 1px var(--encre);
+  paint-order: stroke fill;
+  margin: 0 0 8px;
+  text-align: left;
+}
+
+/* --- Escalier d'XP : une barre horizontale par salle jouée --- */
+.escalier-xp { margin: 4px 0 16px; text-align: left; }
+.escalier-ligne { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+.escalier-ligne:last-child { margin-bottom: 0; }
+.escalier-tete {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  font-size: .78rem; font-weight: 700;
+  color: #fff;
+  -webkit-text-stroke: .5px var(--encre);
+  paint-order: stroke fill;
+}
+.escalier-nom { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.escalier-meta { flex: none; opacity: .9; font-variant-numeric: tabular-nums; }
+.escalier-barre {
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .4);
+  border: 2px solid var(--nuit-contour);
+  overflow: hidden;
+}
+.escalier-remplissage {
+  height: 100%;
+  min-width: 8%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--vert-clair), var(--vert));
+  transition: width .3s ease;
+}
+.escalier-remplissage.echec { background: linear-gradient(90deg, var(--rose-clair), var(--rose)); }
+
+/* --- Compétences prises, en pilules --- */
+.competences-fin { margin: 4px 0 16px; text-align: left; }
+.liste-pilules { display: flex; flex-wrap: wrap; gap: 8px; }
+.pilule-competence {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--panneau);
+  border: 2px solid var(--encre);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--encre);
+}
+.pilule-competence .pastille-rarete { margin-bottom: 0; }
+
+/* =========================================================================
    Toasts — pilule blanche cernée qui rebondit
    ========================================================================= */
 

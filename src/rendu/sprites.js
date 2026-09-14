@@ -64,10 +64,12 @@ function dessinerBille(ctx, cx, cy, cellPix, hex, contour) {
   ctx.lineWidth = Math.max(1.5, cellPix * 0.06); ctx.strokeStyle = contour || assombrir(hex, 0.5); ctx.stroke(); // contour ≈ 6 % de la case
   ctx.restore();
 
+  // reflet : goutte allongée + petit point. Planchers en px pour rester une forme nette (pas un
+  // gribouillis anti-aliasé) même à très petite case — cause identifiée du reflet déformé (Puits 5×14).
   ctx.save();
-  ctx.beginPath(); ctx.ellipse(cx - r * 0.36, cy - r * 0.4, r * 0.34, r * 0.18, -0.55, 0, Math.PI * 2);
+  ctx.beginPath(); ctx.ellipse(cx - r * 0.36, cy - r * 0.4, Math.max(1.4, r * 0.34), Math.max(0.9, r * 0.18), -0.55, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill();
-  ctx.beginPath(); ctx.arc(cx - r * 0.02, cy - r * 0.04, r * 0.1, 0, Math.PI * 2);
+  ctx.beginPath(); ctx.arc(cx - r * 0.02, cy - r * 0.04, Math.max(0.7, r * 0.1), 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fill();
   ctx.restore();
 }

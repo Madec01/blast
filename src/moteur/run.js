@@ -107,7 +107,8 @@ function proposerCompetences(ctx, n = 3) {
 function finirRun(ctx, victoire) {
   const e = ctx.etat;
   const monnaieMeta = Math.floor((e.xpTotale / 100) * (victoire ? 1.5 : 1));
-  e.enAttente = { type: 'finRun', victoire, xpTotale: e.xpTotale, monnaieMeta, salleIndex: e.salleIndex };
+  e.stats.fin = Date.now();
+  e.enAttente = { type: 'finRun', victoire, xpTotale: e.xpTotale, monnaieMeta, salleIndex: e.salleIndex, stats: e.stats, competences: e.competences.slice(), totalSalles: e.ordre.length };
   ctx.emettre({ t: 'finRun', victoire });
 }
 
@@ -118,6 +119,7 @@ function choisir(ctx, id) {
     case 'niveau': {
       if (!att.propositions.some((p) => p.id === id)) return false;
       e.enAttente = null;
+      e.stats.effets.push(id);
       appliquerEffet(ctx, id);
       verifierNiveau(ctx);
       verifierFin(ctx);
@@ -189,6 +191,7 @@ export function creerRun({ seed = Date.now(), salles = null, competences = [], d
     xpSalle: 0, niveau: 1, xpTotale: 0, couleurs: 5, modeGravite: MODE_GRAVITE_DEFAUT,
     objectif: null, competences: competences.slice(), effetsActifs: [], effetsVus: [],
     prochainesEntrees: [], annonce: null, enAttente: null, memo: {}, elan: false,
+    stats: { debut: Date.now(), taps: 0, rotations: 0, chaineMax: 0, plusGrosGroupe: 0, billesDetruites: 0, etoilesLiberees: 0, speciales: { bombe: 0, ligne: 0, croix: 0, couleur: 0 }, effets: [], salles: [] },
   };
   const ctx = creerCtx(etat, rng);
   installerCompetences(ctx);
@@ -204,6 +207,7 @@ export function chargerRun(json) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (!data || data.version !== VERSION) return null;
   const etat = data.etat;
+  etat.stats ??= { debut: Date.now(), taps: 0, rotations: 0, chaineMax: 0, plusGrosGroupe: 0, billesDetruites: 0, etoilesLiberees: 0, speciales: { bombe: 0, ligne: 0, croix: 0, couleur: 0 }, effets: [], salles: [] };
   const rng = creerRng(etat.seed); rng.etat = etat.rngEtat;
   const ctx = creerCtx(etat, rng);
   installerCompetences(ctx);

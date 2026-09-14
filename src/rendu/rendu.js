@@ -68,7 +68,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (canvas.height !== ch) canvas.height = ch;
     fitNormalPx = Math.min((cw * MARGE) / w, (ch * MARGE) / h); fitSwapPx = Math.min((cw * MARGE) / h, (ch * MARGE) / w);
     cellPixBase = Math.max(8, Math.floor(Math.max(fitNormalPx, fitSwapPx)));
-    sprites.regenererCases(cellPixBase); sprites.regenererPlateau(w, h, cellPixBase, forme); decor.regenerer(cellPixBase);
+    sprites.regenererCases(cellPixBase); sprites.regenererPlateau(w, h, cellPixBase, forme); decor.regenerer(cellPixBase, cw, ch);
     if (!angleTween) echelleActuelle = calcEchelle(graviteCourante);
   }
   // --- pointeur : tap (souris et tactile) et survol -----------------------------------------
@@ -138,11 +138,14 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     else { shakeMag = 0; shakeX = 0; shakeY = 0; }
   }
   function dessinerFrame() {
-    decor.dessiner(ctx, canvas.width, canvas.height, angleActuel); // ciel étoilé tourné avec le plateau (E1)
+    const plateau = sprites.plateau();
+    // E1/E2 : ciel étoilé tourné avec le plateau ; taille rendue du plateau transmise pour placer
+    // la planète dans la marge réellement visible (pas cachée sous le cadre).
+    decor.dessiner(ctx, canvas.width, canvas.height, angleActuel, plateau ? plateau.width * echelleActuelle : 0, plateau ? plateau.height * echelleActuelle : 0);
     ctx.save();
     ctx.translate(canvas.width / 2 + shakeX, canvas.height / 2 + shakeY);
     ctx.rotate(angleActuel); ctx.scale(echelleActuelle * squashPlateau.sx, echelleActuelle * squashPlateau.sy);
-    const plateau = sprites.plateau(); if (plateau) ctx.drawImage(plateau, -plateau.width / 2, -plateau.height / 2);
+    if (plateau) ctx.drawImage(plateau, -plateau.width / 2, -plateau.height / 2);
     for (const [, bv] of billes) {
       const lx = (bv.x - w / 2 + 0.5) * cellPixBase, ly = (bv.y - h / 2 + 0.5) * cellPixBase;
       if (surligneesSet.size && surligneesSet.has(`${Math.round(bv.x)},${Math.round(bv.y)}`)) dessinerSurlignage(lx, ly); // pas de chaîne allouée sans survol

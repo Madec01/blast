@@ -102,6 +102,7 @@ export function resoudre(ctx, initiale) {
         }
       }
       for (const i of aDetruire) g.cellules[i] = null;
+      ctx.etat.stats.billesDetruites += nBilles; if (s.profondeur > ctx.etat.stats.chaineMax) ctx.etat.stats.chaineMax = s.profondeur;
       ctx.emettre({ t: 'detruit', cellules: evt, cause: s.cause, origine: s.origine, profondeur: s.profondeur });
       xpSalve(ctx, s, nBilles, nPierres);
       // Choix assumé : une pierre détruite par adjacence ne propage rien (ni pierres voisines, ni éléments),
