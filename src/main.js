@@ -61,6 +61,14 @@ const ui = creerUI(document.getElementById('ui'), {
   previsualiser(sens) {
     rendu.previsualiserRotation(sens == null || occupe || !run ? null : run.apercuRotation(sens));
   },
+  relancer() {
+    if (occupe || !run || run.etat.enAttente?.type !== 'niveau') return;
+    const ev = run.relancer();
+    if (!ev.length) { audio.jouer('erreur'); return; }
+    audio.jouer('ui');
+    ui.masquerAttente();
+    jouer(ev);
+  },
   choisir(id) {
     if (occupe || !run || !run.etat.enAttente) return;
     const att = run.etat.enAttente;

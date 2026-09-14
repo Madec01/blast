@@ -68,8 +68,10 @@ async function main() {
     if (etat.attente) {
       if (etat.attente === 'niveau' && shotsNiveau++ === 0) await shot('03-niveau');
       if (etat.attente === 'finSalle') await shot('05-fin-salle');
-      const boutons = page.locator('#ui button:visible');
-      await boutons.first().click(); choix++;
+      // Une carte d'abord (niveau / compétence), sinon le premier bouton actif (Continuer, Retour…) — jamais un bouton désactivé.
+      const cartes = page.locator('#ui button.carte:visible');
+      if (await cartes.count()) await cartes.first().click(); else await page.locator('#ui button:visible:enabled').first().click();
+      choix++;
       continue;
     }
     if (i >= 3 && !shotJeu++) {
@@ -93,8 +95,12 @@ async function main() {
     const coupsAvant = etat.coups;
     await page.mouse.click(sx, sy);
     await page.waitForTimeout(80);
-    const coupsApres = await page.evaluate(() => window.vertige.run?.etat.coups);
-    if (coupsApres === coupsAvant) erreurs.push(`tap pointeur sans effet en (${etat.meilleur.x},${etat.meilleur.y}) gravité ${etat.gravite}`);
+    let coupsApres = await page.evaluate(() => window.vertige.run?.etat.coups);
+    if (coupsApres === coupsAvant) { // une animation pouvait encore bloquer l'entrée : un second essai
+      await attendre(); await page.mouse.click(sx, sy); await page.waitForTimeout(80);
+      coupsApres = await page.evaluate(() => window.vertige.run?.etat.coups);
+      if (coupsApres === coupsAvant) erreurs.push(`tap pointeur sans effet en (${etat.meilleur.x},${etat.meilleur.y}) gravité ${etat.gravite}`);
+    }
     taps++;
   }
   await attendre();

@@ -6,7 +6,7 @@ import { resoudre } from './speciales.js';
 import { monteeBallons } from './elements.js';
 import { SEUILS, ORDRE_SPECIALES } from '../data/speciales.js';
 import { RECHARGE_JAUGE, MODES_GRAVITE, ROTATION_HORS_JAUGE, RENFORT, BONUS_ELAN } from '../data/salles.js';
-import { SEUILS_NIVEAU, NIVEAU_MAX, proposerEffets, expirerEffets } from './progression.js';
+import { SEUILS_NIVEAU, NIVEAU_MAX, proposerEffets, attenteNiveau, expirerEffets } from './progression.js';
 
 /** File des prochaines entrées : couleurs pré-tirées (visibles avec Prévoyance et dans l'aperçu de rotation). */
 export function remplirFile(ctx) {
@@ -182,7 +182,7 @@ export function verifierNiveau(ctx) {
     e.niveau++;
     majSeuilsXp(e);
     const propositions = proposerEffets(ctx, e.niveau);
-    e.enAttente = { type: 'niveau', niveau: e.niveau, propositions };
+    e.enAttente = attenteNiveau(ctx, e.niveau, propositions);
     ctx.emettre({ t: 'niveau', niveau: e.niveau, propositions });
   }
 }

@@ -3,7 +3,7 @@ import { creerRng, seedDepuis } from './rng.js';
 import { creerBus } from './hooks.js';
 import { creerGrille, groupe, estTapable, existeCoup, nouvelleBille, nouvellePierre, nouvelElement, idx, coord } from './grille.js';
 import { retomber, detruire, jouerRotation, jouerTap, jouerRotationJoueur, verifierNiveau, verifierFin, majSeuilsXp, remplirFile } from './tour.js';
-import { appliquerEffet, retirerEffet, SEUILS_NIVEAU, NIVEAU_MAX } from './progression.js';
+import { appliquerEffet, retirerEffet, relancer, SEUILS_NIVEAU, NIVEAU_MAX } from './progression.js';
 import { SALLES, ORDRE_PHASE1, MODES_GRAVITE, MODE_GRAVITE_DEFAUT, ROTATION_HORS_JAUGE } from '../data/salles.js';
 import { apercuRotation } from './apercu.js';
 import { COMPETENCES, POIDS_RARETE } from '../data/competences.js';
@@ -156,6 +156,7 @@ function envelopper(ctx) {
     tap(x, y) { return collecter(() => jouerTap(ctx, x, y)); },
     tourner(sens) { return collecter(() => jouerRotationJoueur(ctx, sens)); },
     choisir(id) { return collecter(() => choisir(ctx, id)); },
+    relancer() { return collecter(() => relancer(ctx)); },
     groupeA(x, y) {
       const g = e.grille, i = idx(g, x, y);
       if (x < 0 || x >= g.w || y < 0 || y >= g.h || !estTapable(g, i)) return [];
@@ -190,7 +191,7 @@ export function creerRun({ seed = Date.now(), salles = null, competences = [], d
     coups: 0, coupsMax: 0, jauge: 0, jaugeMax: 0, tour: 0,
     xpSalle: 0, niveau: 1, xpTotale: 0, couleurs: 5, modeGravite: MODE_GRAVITE_DEFAUT,
     objectif: null, competences: competences.slice(), effetsActifs: [], effetsVus: [],
-    prochainesEntrees: [], annonce: null, enAttente: null, memo: {}, elan: false,
+    prochainesEntrees: [], annonce: null, enAttente: null, memo: {}, elan: false, pitie: 0,
     stats: { debut: Date.now(), taps: 0, rotations: 0, chaineMax: 0, plusGrosGroupe: 0, billesDetruites: 0, etoilesLiberees: 0, speciales: { bombe: 0, ligne: 0, croix: 0, couleur: 0 }, effets: [], salles: [] },
   };
   const ctx = creerCtx(etat, rng);

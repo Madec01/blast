@@ -4,6 +4,7 @@ import { creerRun, chargerRun } from '../src/moteur/run.js';
 import { creerGrille, nouvelleBille, nouvellePierre, nouvelElement, groupe } from '../src/moteur/grille.js';
 import { appliquerGravite, remplir } from '../src/moteur/chute.js';
 import { colonnes, tourner } from '../src/moteur/gravite.js';
+import * as awaitImport from '../src/moteur/tour.js';
 
 test('gravité : colonnes ordonnées du haut visuel vers le bas pour les 4 orientations', () => {
   const c0 = colonnes(3, 2, 0); assert.deepEqual(c0[0], [0, 3]);          // x=0 : y 0→1
@@ -197,4 +198,24 @@ test('pierre : détruite par adjacence à un groupe', () => {
   g.cellules[8 * g.w + 1].couleur = 3; g.cellules[9 * g.w + 2].couleur = 3;
   const ev = run.tap(0, 9);
   assert.ok(ev.some((v) => v.t === 'detruit' && v.cause === 'pierre'));
+});
+
+test('niveau : trois cartes proposées, relance payée en jauge, cartes retirées jamais reproposées', () => {
+  const run = creerRun({ seed: 33 });
+  const e = run.etat;
+  e.xpSalle = 100; // seuil du niveau 2
+  run.ctx.evenements = [];
+  const { verifierNiveau } = awaitImport;
+  verifierNiveau(run.ctx);
+  assert.equal(e.enAttente?.type, 'niveau');
+  assert.equal(e.enAttente.propositions.length, 3);
+  for (const p of e.enAttente.propositions) assert.ok(p.id && p.nom && p.rarete && typeof p.risque === 'boolean');
+  const avant = e.enAttente.propositions.map((p) => p.id), jauge = e.jauge;
+  assert.ok(e.enAttente.relance.possible);
+  const ev = run.relancer();
+  assert.ok(ev.some((v) => v.t === 'niveau' && v.relance));
+  assert.equal(e.jauge, jauge - 1);
+  for (const p of e.enAttente.propositions) assert.ok(!avant.includes(p.id), 'carte retirée reproposée : ' + p.id);
+  assert.ok(run.choisir(e.enAttente.propositions[0].id).some((v) => v.t === 'effet'));
+  assert.equal(e.enAttente?.type ?? null, null);
 });

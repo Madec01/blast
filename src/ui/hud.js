@@ -143,7 +143,10 @@ export function creerHud(elHud) {
       niveauEl.setAttribute('aria-label', `Niveau ${niveau} sur 10`);
       const bas = etat.xpNiveau ?? 0, haut = etat.xpProchain;
       const fraction = haut === null || haut === undefined ? 1 : (etat.xpSalle - bas) / Math.max(1, haut - bas);
-      remplissageXp.style.width = `${Math.min(100, Math.max(0, fraction * 100))}%`;
+      const fractionXp = Math.min(1, Math.max(0, fraction));
+      remplissageXp.style.width = `${fractionXp * 100}%`;
+      // Annonce la montée de niveau imminente.
+      barreXp.classList.toggle('imminent', fractionXp >= 0.8);
 
       const objectif = etat.objectif;
       objectifEl.hidden = !objectif;
@@ -213,6 +216,7 @@ export function creerHud(elHud) {
       effets.forEach((effet) => {
         const chip = document.createElement('span');
         chip.className = 'hud-effet';
+        chip.classList.toggle('clignote', effet.restant === 1); // dernier tour : clignote
         chip.textContent = effet.restant === null || effet.restant === undefined ? `${effet.nom} · salle` : `${effet.nom} · ${effet.restant} tour${effet.restant > 1 ? 's' : ''}`;
         effetsEl.appendChild(chip);
       });

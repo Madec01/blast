@@ -3,6 +3,9 @@
 import { COMPETENCES } from '../data/competences.js';
 import { formatNombre } from './utils.js';
 
+// Mot affiché dans le bandeau de rareté des cartes de niveau/compétence.
+const LIBELLE_RARETE = { commun: 'COMMUN', rare: 'RARE', epique: 'ÉPIQUE' };
+
 // Raison de fin de salle → texte français lisible.
 const LIBELLE_RAISON = {
   coups: 'Plus de coups',
@@ -113,6 +116,7 @@ export function creerCartes(conteneur, actions) {
     badgeEncourageEl.hidden = true;
     grille.hidden = true;
     grille.innerHTML = '';
+    grille.classList.remove('grille-niveau', 'apogee');
     statsGrille.hidden = true;
     statsGrille.innerHTML = '';
     escalierXp.hidden = true;
@@ -122,23 +126,61 @@ export function creerCartes(conteneur, actions) {
     pied.innerHTML = '';
   }
 
-  // Une carte de choix (niveau ou compétence), inclinée façon carton posé
-  // sur la table (voir .carte en CSS).
-  function carteChoix({ nom, desc, rarete, onChoisir }) {
+  // Une carte de choix (niveau ou compétence), inclinée façon carton posé sur
+  // la table (voir .carte en CSS). risque/synergie/evolution ne concernent
+  // que les cartes de niveau ; absents (undefined), ils n'ajoutent rien —
+  // l'écran « compétence » est donc inchangé.
+  function carteChoix({ nom, desc, rarete, risque, synergie, evolution, onChoisir }) {
     const carte = document.createElement('button');
     carte.type = 'button';
     carte.className = 'carte';
     if (rarete) carte.classList.add(`carte-${rarete}`);
+    if (risque) carte.classList.add('carte-risque');
+    if (evolution) carte.classList.add('carte-evolution');
+
+    // Bandeau de rareté (couleur + mot COMMUN/RARE/ÉPIQUE) ; devient rayé
+    // rouge-or sur une carte à risque, doré chatoyant sur une évolution.
+    const bandeau = document.createElement('div');
+    bandeau.className = 'carte-bandeau';
+    if (rarete) {
+      const labelRarete = document.createElement('span');
+      labelRarete.className = 'carte-bandeau-label';
+      labelRarete.textContent = LIBELLE_RARETE[rarete] ?? '';
+      bandeau.appendChild(labelRarete);
+    }
+    carte.appendChild(bandeau);
+
+    if (risque) {
+      const etiquette = document.createElement('span');
+      etiquette.className = 'carte-etiquette-pari';
+      etiquette.textContent = 'PARI';
+      carte.appendChild(etiquette);
+    }
+    if (evolution) {
+      const etoile = document.createElement('span');
+      etoile.className = 'carte-etoile-evolution';
+      etoile.textContent = '★ ÉVOLUTION';
+      carte.appendChild(etoile);
+    }
     if (rarete) {
       const pastille = document.createElement('span');
       pastille.className = `pastille-rarete pastille-${rarete}`;
       carte.appendChild(pastille);
     }
+
     const titreCarte = document.createElement('h3');
     titreCarte.textContent = nom;
     const descCarte = document.createElement('p');
     descCarte.textContent = desc;
     carte.append(titreCarte, descCarte);
+
+    if (synergie) {
+      const bandeauSynergie = document.createElement('p');
+      bandeauSynergie.className = 'carte-synergie';
+      bandeauSynergie.textContent = `Synergie : ${synergie}`;
+      carte.appendChild(bandeauSynergie);
+    }
+
     carte.addEventListener('click', onChoisir);
     return carte;
   }
@@ -180,15 +222,30 @@ export function creerCartes(conteneur, actions) {
       if (!enAttente) return;
 
       if (enAttente.type === 'niveau') {
-        titre.textContent = `Niveau ${enAttente.niveau} !`;
+        const apogee = enAttente.niveau === 10;
+        titre.textContent = apogee ? 'Niveau 10 — apogée !' : `Niveau ${enAttente.niveau} !`;
         grille.hidden = false;
+        grille.classList.add('grille-niveau');
+        grille.classList.toggle('apogee', apogee);
         (enAttente.propositions ?? []).forEach((prop) => {
           grille.appendChild(carteChoix({
             nom: prop.nom,
             desc: prop.desc,
+            rarete: prop.rarete,
+            risque: prop.risque,
+            synergie: prop.synergie,
+            evolution: prop.evolution,
             onChoisir: () => actions.choisir(prop.id),
           }));
         });
+
+        // Retirer les 3 cartes contre 1 point de jauge de rotation.
+        const relance = enAttente.relance ?? {};
+        const boutonRelance = boutonPied(
+          relance.possible ? 'Retirer les cartes (−1 rotation)' : 'Jauge vide',
+          () => actions.relancer(),
+        );
+        boutonRelance.disabled = !relance.possible;
       } else if (enAttente.type === 'competence') {
         titre.textContent = 'Choisis une compétence';
         grille.hidden = false;

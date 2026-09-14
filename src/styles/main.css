@@ -331,6 +331,12 @@ body::after {
   border-radius: 999px 0 0 999px;
   transition: width .3s ease;
 }
+/* Fraction ≥ 80 % : la barre pulse pour annoncer la montée de niveau imminente. */
+.barre-xp.imminent { animation: pulse-niveau 1s ease-in-out infinite; }
+@keyframes pulse-niveau {
+  0%, 100% { box-shadow: inset 0 2px 3px rgba(29, 27, 58, .3), 0 0 0 0 rgba(255, 204, 31, .7); }
+  50% { box-shadow: inset 0 2px 3px rgba(29, 27, 58, .3), 0 0 9px 2px rgba(255, 204, 31, .9); }
+}
 
 /* --- Objectif : premier élément de la 2e ligne du HUD, gros badge + barre --- */
 .hud-objectif {
@@ -474,6 +480,9 @@ body::after {
   border: 2px solid var(--encre);
   color: var(--encre);
 }
+/* Dernier tour restant : clignotement franc plutôt qu'un fondu. */
+.hud-effet.clignote { animation: clignote-effet 1s steps(2, jump-none) infinite; }
+@keyframes clignote-effet { 50% { opacity: .3; } }
 
 /* --- Bille de verre miniature (gomme brillante) --- */
 .bille-mini {
@@ -687,6 +696,30 @@ body::after {
 }
 .attente-pied { display: flex; justify-content: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
 
+/* Niveau (3 cartes) : colonne par défaut (portrait) — la règle .grille-cartes
+   ci-dessus s'applique déjà (auto-fit dès 520px, la 3e carte se resserre ou
+   passe seule sur sa ligne selon la place) ; à partir de 640px (paysage,
+   tablette), les 3 cartes s'alignent à largeur égale. */
+@media (min-width: 640px) {
+  .grille-niveau { grid-template-columns: repeat(3, 1fr); }
+}
+/* Niveau 10 : flash doré derrière les cartes. */
+.grille-niveau.apogee { position: relative; }
+.grille-niveau.apogee::before {
+  content: '';
+  position: absolute;
+  inset: -22px;
+  z-index: -1;
+  border-radius: var(--rayon);
+  background: radial-gradient(circle, rgba(255, 204, 31, .55), transparent 70%);
+  animation: flash-apogee 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes flash-apogee {
+  0%, 100% { opacity: .45; transform: scale(.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
 /* --- Carte (jeton de choix) : rebond élastique + bandeau de rareté --- */
 .carte {
   --tilt: -2deg;
@@ -702,7 +735,7 @@ body::after {
   border: 3px solid var(--encre);
   border-radius: var(--rayon);
   box-shadow: 0 8px 0 var(--encre-25);
-  padding: 28px 16px 16px;
+  padding: 30px 16px 16px;
   transform: rotate(var(--tilt));
   animation: carte-pop .5s cubic-bezier(.34, 1.56, .64, 1) both;
   transition: transform .15s ease, box-shadow .15s ease;
@@ -713,16 +746,26 @@ body::after {
   60% { transform: scale(1.05) rotate(var(--tilt)); opacity: 1; }
   100% { transform: scale(1) rotate(var(--tilt)); }
 }
-.carte::before {
-  content: '';
+/* Bandeau de rareté : élément réel (plutôt qu'un ::before) pour porter le mot
+   COMMUN / RARE / ÉPIQUE et, pour risque/évolution, un motif différent. */
+.carte-bandeau {
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 14px;
+  top: 0; left: 0; right: 0; height: 20px;
   background: var(--bleu);
   border-bottom: 3px solid var(--encre);
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 0 10px;
 }
-.carte-rare::before { background: var(--violet); }
-.carte-epique::before { background: var(--orange); }
+.carte-rare .carte-bandeau { background: var(--violet); }
+.carte-epique .carte-bandeau { background: var(--orange); }
+.carte-bandeau-label {
+  font-size: .58rem;
+  font-weight: 900;
+  letter-spacing: .05em;
+  color: #fff;
+  -webkit-text-stroke: .4px var(--encre);
+  paint-order: stroke fill;
+}
 .carte:hover, .carte:focus-visible {
   transform: rotate(0deg) translateY(-3px);
   box-shadow: 0 11px 0 var(--encre-25);
@@ -731,6 +774,76 @@ body::after {
 .carte:active { transform: rotate(0deg) translateY(0); box-shadow: 0 4px 0 var(--encre-25); }
 .carte h3 { font-size: 1.02rem; margin-bottom: 4px; color: var(--encre); }
 .carte p { font-size: .85rem; opacity: .85; line-height: 1.35; font-family: var(--police-corps); font-weight: 400; }
+
+/* --- Carte à risque : liseré rouge/or qui pulse, bandeau rayé, étiquette « PARI »,
+   petit tremblement après l'apparition des deux autres cartes. --- */
+.carte.carte-risque {
+  animation:
+    carte-pop .5s cubic-bezier(.34, 1.56, .64, 1) both,
+    pulse-risque 1.2s ease-in-out infinite,
+    secousse-risque .4s ease-in-out .55s;
+}
+.carte-risque .carte-bandeau {
+  background: repeating-linear-gradient(45deg, var(--rouge) 0 10px, var(--jaune) 10px 20px);
+}
+@keyframes pulse-risque {
+  0%, 100% { border-color: var(--rouge); box-shadow: 0 8px 0 var(--encre-25), 0 0 0 2px var(--rouge); }
+  50% { border-color: var(--jaune); box-shadow: 0 8px 0 var(--encre-25), 0 0 0 2px var(--jaune); }
+}
+@keyframes secousse-risque {
+  0%, 100% { transform: rotate(var(--tilt)); }
+  25% { transform: rotate(calc(var(--tilt) + 2deg)); }
+  75% { transform: rotate(calc(var(--tilt) - 2deg)); }
+}
+.carte-etiquette-pari {
+  position: absolute;
+  top: 5px; right: 8px;
+  z-index: 2;
+  background: var(--rouge);
+  color: #fff;
+  border: 2px solid var(--encre);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: .6rem;
+  font-weight: 900;
+  transform: rotate(6deg);
+}
+
+/* --- Carte d'évolution : bandeau doré chatoyant + étoile « ÉVOLUTION » en coin. --- */
+.carte-evolution .carte-bandeau {
+  background: linear-gradient(90deg, #ffe9a8, var(--jaune), #ffe9a8);
+  background-size: 220% 100%;
+  animation: chatoiement-or 3s linear infinite;
+}
+@keyframes chatoiement-or {
+  0% { background-position: 0% 0; }
+  100% { background-position: 220% 0; }
+}
+.carte-etoile-evolution {
+  position: absolute;
+  top: 5px; left: 8px;
+  z-index: 2;
+  background: linear-gradient(180deg, var(--jaune-clair), var(--jaune));
+  color: var(--encre);
+  border: 2px solid var(--encre);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: .6rem;
+  font-weight: 900;
+  transform: rotate(-6deg);
+}
+
+/* --- Synergie avec une compétence déjà possédée --- */
+.carte-synergie {
+  margin-top: 8px;
+  background: rgba(58, 210, 79, .18);
+  border: 2px solid var(--vert);
+  border-radius: 10px;
+  padding: 4px 8px;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--vert-fonce);
+}
 
 .pastille-rarete {
   display: inline-block;

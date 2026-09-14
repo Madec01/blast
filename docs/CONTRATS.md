@@ -63,6 +63,7 @@ run.etat            // objet sérialisable, lecture seule pour les autres module
 run.tap(x, y)       // → evenements[]  ([] si action refusée)
 run.tourner(sens)   // → evenements[]
 run.choisir(id)     // répond à etat.enAttente ('niveau' → id d'effet, 'competence' → id ou null pour passer, 'finSalle' → null)
+run.relancer()      // niveau : retire les cartes contre 1 point de jauge ([] si impossible)
 run.groupeA(x, y)   // → [{x,y}] groupe tapable contenant (x,y), [] sinon
 run.peutTaper(x,y), run.peutTourner(sens)   // booléens (faux si enAttente non nul)
 run.apercuRotation(sens)   // télégraphe, pur : { sens, gravite, deplacements:[{id,de,vers}], entrees:[{x,y,couleur|null,depuis}], eclatent:[{id,x,y}] } ; null si enAttente
@@ -77,7 +78,7 @@ run.serialiser()    // → string JSON ;  chargerRun(json) → run
   objectif:{type:'score'|'couleur'|'ballons'|'pierres', cible, progres, couleur?},
   competences:[ids], effetsActifs:[{id,nom,restant}], prochainesEntrees:[couleurs],
   annonce:null|{sens:-1|1|2},          // rotation automatique annoncée pour la fin du tour (Tempête, Pendule)
-  enAttente:null|{type:'niveau',niveau,propositions:[{id,nom,desc}]}
+  enAttente:null|{type:'niveau',niveau,propositions:[{id,nom,desc,rarete,risque,synergie,evolution,palier}],relance:{cout,possible}}
             |{type:'competence',propositions:[{id,nom,desc,rarete}]}
             |{type:'finSalle',victoire,raison,xpSalle,niveau,coups,objectif:{type,progres,cible,manque}}
             |{type:'finRun',victoire,xpTotale,monnaieMeta,salleIndex,totalSalles,competences,stats} }

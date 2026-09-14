@@ -107,18 +107,32 @@ function batirPlanete() {
   return canvas;
 }
 
+// mulberry32 : PRNG seedé minimal, déterministe (motif stable d'un rechargement à l'autre) mais
+// sans la structure visible d'une suite à faible période (retour test de fumée #3 : les positions
+// en angle régulier × rayon quantifié dessinaient des « chapelets » de perles en arcs de cercle).
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function rng() {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const ALPHA_ETOILES = [0.8, 0.85, 0.95]; // par classe (petite/moyenne/grande) — toutes ≥ 0,6 (petites : pas ternes)
+
 // texture carrée pré-rendue une fois (étape 1) : toutes les étoiles (ou seulement les
-// « brillantes ») pour un côté donné, positions lues depuis les tableaux déterministes ci-dessous.
-// `brillantesSeulement` omet la croix de diffraction (déjà dans la texture de base).
-function batirTextureEtoiles(cote, dpr, nx, ny, classe, teinte, brillante, brillantesSeulement) {
+// « brillantes ») pour un côté donné, positions lues depuis les fractions [0,1] ci-dessous
+// (distribution uniforme en x,y — pas de placement polaire). `brillantesSeulement` omet la
+// croix de diffraction (déjà dans la texture de base, sur 5 % des grandes seulement).
+function batirTextureEtoiles(cote, dpr, fx, fy, classe, teinte, brillante, croix, brillantesSeulement) {
   const { canvas, ctx } = creerCanvas(cote, cote);
-  const c0 = cote / 2, rayonChamp = cote / 2;
   for (let i = 0; i < N_ETOILES; i++) {
     if (brillantesSeulement && !brillante[i]) continue;
-    const px = c0 + nx[i] * rayonChamp, py = c0 + ny[i] * rayonChamp, r = TAILLES_ETOILES_CSS[classe[i]] * dpr;
-    ctx.globalAlpha = brillantesSeulement ? 1 : 0.82; ctx.fillStyle = COULEURS_ETOILES[teinte[i]];
+    const px = fx[i] * cote, py = fy[i] * cote, r = TAILLES_ETOILES_CSS[classe[i]] * dpr;
+    ctx.globalAlpha = brillantesSeulement ? 1 : ALPHA_ETOILES[classe[i]]; ctx.fillStyle = COULEURS_ETOILES[teinte[i]];
     ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
-    if (!brillantesSeulement && classe[i] === 2) { // croix de diffraction sur les grandes étoiles
+    if (!brillantesSeulement && croix[i]) { // croix de diffraction : 5 % des grandes seulement
       ctx.globalAlpha = 0.5; ctx.strokeStyle = COULEURS_ETOILES[teinte[i]]; ctx.lineWidth = Math.max(0.6, r * 0.22);
       const L = r * 3.2;
       ctx.beginPath(); ctx.moveTo(px - L, py); ctx.lineTo(px + L, py); ctx.moveTo(px, py - L); ctx.lineTo(px, py + L); ctx.stroke();
@@ -135,20 +149,21 @@ export function creerDecor() {
   const nebuleuseSprites = COULEURS_NEBULEUSES.map((hex, i) => batirNebuleuse(hex, ALPHA_NEBULEUSES[i]));
   const planeteSprite = batirPlanete();
 
-  // 1200 étoiles, réparties dans un disque via une suite déterministe (angle d'or) : stable d'un
-  // rechargement à l'autre, aucune dépendance à Math.random. Positions/classes fixées une fois ;
-  // seule la texture qui en découle (ci-dessous) dépend de la taille du canvas.
-  const starNX = new Float32Array(N_ETOILES), starNY = new Float32Array(N_ETOILES);
-  const starClasse = new Uint8Array(N_ETOILES);   // 0 petite (70 %), 1 moyenne (20 %), 2 grande (10 %, + croix)
-  const starTeinte = new Uint8Array(N_ETOILES);   // 0 chaude (75 %), 1 bleutée (15 %), 2 dorée (10 %)
+  // 1200 étoiles, position ET attributs tirés indépendamment d'un mulberry32 seedé (fixe : motif
+  // stable d'un rechargement à l'autre) — deux tirages par étoile pour x,y, uniforme sur le carré,
+  // sans aucun lien avec l'index i (c'est ce lien, via modulo, qui créait des « chapelets » en arcs).
+  const rng = mulberry32(1337);
+  const starFX = new Float32Array(N_ETOILES), starFY = new Float32Array(N_ETOILES); // fractions [0,1] du côté
+  const starClasse = new Uint8Array(N_ETOILES);    // 0 petite (70 %), 1 moyenne (22 %), 2 grande (8 %)
+  const starTeinte = new Uint8Array(N_ETOILES);    // 0 chaude (75 %), 1 bleutée (15 %), 2 dorée (10 %)
   const starBrillante = new Uint8Array(N_ETOILES); // ~1/7 : dans la texture de scintillement
+  const starCroix = new Uint8Array(N_ETOILES);     // croix de diffraction : 5 % des grandes seulement
   for (let i = 0; i < N_ETOILES; i++) {
-    const a = (i * 2.399963) % (Math.PI * 2);      // angle (nombre d'or) : répartition homogène
-    const rr = Math.sqrt((i * 0.6180339887) % 1);  // rayon en sqrt : densité uniforme sur le disque
-    starNX[i] = Math.cos(a) * rr; starNY[i] = Math.sin(a) * rr;
-    const c10 = i % 10; starClasse[i] = c10 < 7 ? 0 : c10 < 9 ? 1 : 2;
-    const c20 = i % 20; starTeinte[i] = c20 < 3 ? 1 : c20 < 5 ? 2 : 0;
-    starBrillante[i] = i % 7 === 0 ? 1 : 0;
+    starFX[i] = rng(); starFY[i] = rng(); // deux tirages indépendants : x = rng()*côté, y = rng()*côté
+    const rc = rng(); starClasse[i] = rc < 0.7 ? 0 : rc < 0.92 ? 1 : 2;
+    const rt = rng(); starTeinte[i] = rt < 0.75 ? 0 : rt < 0.9 ? 1 : 2;
+    starBrillante[i] = rng() < 1 / 7 ? 1 : 0;
+    starCroix[i] = starClasse[i] === 2 && rng() < 0.05 ? 1 : 0;
   }
   // texture carrée pré-rendue (étape 1) : une seule pour toutes les étoiles + une pour les
   // brillantes, reconstruites uniquement quand le canvas change de taille (jamais par frame).
@@ -157,8 +172,8 @@ export function creerDecor() {
     const cote = Math.max(2, Math.round(Math.hypot(cw, ch) * 1.03)); // ≥ diagonale du canvas (étape 4)
     if (cote === texCote) return;
     texCote = cote;
-    texEtoiles = batirTextureEtoiles(cote, dpr, starNX, starNY, starClasse, starTeinte, starBrillante, false);
-    texBrillantes = batirTextureEtoiles(cote, dpr, starNX, starNY, starClasse, starTeinte, starBrillante, true);
+    texEtoiles = batirTextureEtoiles(cote, dpr, starFX, starFY, starClasse, starTeinte, starBrillante, starCroix, false);
+    texBrillantes = batirTextureEtoiles(cote, dpr, starFX, starFY, starClasse, starTeinte, starBrillante, starCroix, true);
   }
 
   // couleur du ciel + nombre de nébuleuses actives selon le tiers d'acte (etat.salle.index/total)

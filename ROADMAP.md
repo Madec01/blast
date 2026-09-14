@@ -6,16 +6,14 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 
 ## À faire maintenant
 
-Réponses de Martin lues le 2026-09-14 sur la feuille web (75 points) : https://claude.ai/code/artifact/0aae216f-64a0-44c3-949d-482473879eb2
+Réponses de Martin lues le 2026-09-14 sur la feuille web : https://claude.ai/code/artifact/0aae216f-64a0-44c3-949d-482473879eb2
 
-1. **Lot A** juice du tap (a1-a6) + **E1** ciel étoilé qui tourne avec le plateau + sprites étoile filante / astéroïde + mots de combo (Étincelle / Stellaire / Supernova / BIG BANG) + « BOOM ! » — agents en cours.
-2. **UI nuit** + objectifs beaucoup plus visibles (retour Martin) + libellés du contexte — agent en cours.
-3. **Lot C** : écran de fin de run avec titre de build, quasi-victoire, échec nommé. (Défi quotidien et série : plus tard.)
-4. **Lot D** : 3 cartes dont 1 à risque, raretés + pitié, reroll en jauge, niveau 10, évolutions, synergies, 24 effets validés (Prévision : non ; Rotation marquée dès 5) + la carte « Big Bang » de Martin (remélange tout le plateau).
-5. **Lot B** : activations des spéciales, ralenti de chaîne, fin de salle « supernova », combo, vent de rotation.
-6. **Lot E** : Cosmo (sprite dessiné par Martin ; chercher aussi un sprite libre), compteur d'étoiles libérées, noms de salles et titre à reproposer, ouverture en 3 écrans, boss recontextualisés (« Horloge stellaire » refusée).
+1. **Lot B** (agent en cours) : activations différenciées des spéciales, ralenti + zoom de chaîne, fin de salle « supernova », combo de spéciales, vent de rotation.
+2. **Lot E** : Cosmo (sprite de Martin ; recherche d'un sprite libre impossible hors ligne → vectoriel provisoire), ouverture en 3 écrans, noms de salles / titre / méchant après le choix de Martin (propositions : ORBITA ; Première Orbite, La Faille, Pluie de météores, Vent solaire, Le Pulsar ; Krator l'astéroïde).
+3. Contenu : le palier 3 n'a qu'une épique non risquée → l'apogée (niveau 10) complète avec des raretés inférieures. Ajouter 4-6 épiques de palier 3.
+4. Martin joue : ressenti du juice, des cartes, de la fin de run. Audio (samples) plus tard.
 
-Fait aujourd'hui côté moteur (validé par Martin) : croix dès 7 (D10), jauge 3 → 2 et élan ×1,2 d'XP sur le tap qui suit une rotation (D9), fusée dès la salle 1 et étoile filante dès la salle 2 (D11), règle de rétention saine dans CLAUDE.md (c6). Bot avisé après réglages : 100 / 100 / 100 / 82 / 80 %.
+Fait le 2026-09-14 : **Lot A** (juice du tap, ciel étoilé qui tourne, étoile filante, astéroïde, mots de combo, BOOM), **UI nuit** + objectifs visibles, **Lot C** (fin de run avec titre de build, stats, escalier d'XP, quasi-victoire, échec nommé), **Lot D** (3 cartes dont 1 pari, raretés + pitié, relance en jauge, niveau 10, 6 évolutions, synergies, 25 nouveaux effets dont Big Bang, conditions anti-pick à vide). Réglages moteur : croix dès 7, jauge 2, élan ×1,2, fusée et étoile filante dès les premières salles. Bot avisé : 100 / 98 / 96 / 74 / 75 %.
 
 ---
 
@@ -126,6 +124,7 @@ Agent idées 2026-09-11 (18 idées dans `docs/IDEES.md`), son Top 5 :
 
 ## Fait
 
+- 2026-09-14 — Lots A, C, D de la phase 1.5 livrés (voir « À faire maintenant »). 15 tests, fumée verte jusqu'à l'écran de fin de run.
 - 2026-09-11 — Renfort (règle de Martin) : la grille se vide mais reçoit 2 à 5 billes par tap sous 40 % ; bot avisé 100 / 100 / 99 / 75 / ~90 %, gourmand 79 / 54 / 91 / 84 / ~80 %.
 - 2026-09-11 — Règle de Martin appliquée : rien n'entre dans la grille (mode `vide`), objectif « billes », condition de blocage réelle (simulation des 3 rotations), rééquilibrage : bot avisé 100 / 96 / 97 / 52 / 60 %, bot gourmand 67 / 44 / 98 / 79 / 71 %.
 - 2026-09-11 — Retour de Martin appliqué : gravité collante (D12), rotation payée en coup à jauge vide (D13), télégraphe de rotation, chute ∥ remplissage. Sim comparée sur 200 runs × 3 modes, 12 tests, fumée verte, build 435 Ko.

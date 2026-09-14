@@ -63,6 +63,7 @@ export const COMPETENCES = [
     desc: 'Quand les coups tombent à 0, un dernier tap gratuit (une fois par salle).',
     installer(ctx) {
       ctx.bus.on('coupsEpuises', (c) => {
+        if (c.memo.sansFilet) return; // « Mise en jeu » : aucun filet
         if (c.memo.coupDeTrop === c.etat.salleIndex) return;
         c.memo.coupDeTrop = c.etat.salleIndex;
         c.etat.coups = 1; c.emettre({ t: 'coups', coups: 1, jauge: c.etat.jauge }); c.emettre({ t: 'message', texte: 'Coup de trop : un dernier tap' });
