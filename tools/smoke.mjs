@@ -62,7 +62,7 @@ async function main() {
       const r = window.vertige.run; if (!r) return null;
       const e = r.etat, g = e.grille; let meilleur = null;
       for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) if (r.peutTaper(x, y)) { const n = r.groupeA(x, y).length; if (!meilleur || n > meilleur.n) meilleur = { x, y, n }; }
-      return { attente: e.enAttente?.type ?? null, meilleur, coups: e.coups, jauge: e.jauge, w: g.w, h: g.h, gravite: e.gravite, salle: e.salle.nom };
+      return { attente: e.enAttente?.type ?? null, meilleur, coups: e.coups, taps: e.stats.taps, jauge: e.jauge, w: g.w, h: g.h, gravite: e.gravite, salle: e.salle.nom };
     });
     if (!etat) break;
     if (etat.attente === 'finRun') { await shot('07-fin-run'); break; }
@@ -91,14 +91,14 @@ async function main() {
     const boite = await page.locator('#plateau').boundingBox();
     const pos = await page.evaluate(([x, y]) => window.vertige.rendu.positionCase(x, y), [etat.meilleur.x, etat.meilleur.y]);
     const sx = boite.x + pos.x, sy = boite.y + pos.y;
-    const coupsAvant = etat.coups;
+    const tapsAvant = etat.taps; // compteur monotone : les coups peuvent être rendus (Avidité, Coup de trop, Sursis)
     await page.mouse.click(sx, sy);
     await page.waitForTimeout(80);
-    let coupsApres = await page.evaluate(() => window.vertige.run?.etat.coups);
-    if (coupsApres === coupsAvant) { // une animation pouvait encore bloquer l'entrée : un second essai
+    let tapsApres = await page.evaluate(() => window.vertige.run?.etat.stats.taps);
+    if (tapsApres === tapsAvant) { // une animation pouvait encore bloquer l'entrée : un second essai
       await attendre(); await page.mouse.click(sx, sy); await page.waitForTimeout(80);
-      coupsApres = await page.evaluate(() => window.vertige.run?.etat.coups);
-      if (coupsApres === coupsAvant) tapsRates.push(`(${etat.meilleur.x},${etat.meilleur.y}) gravité ${etat.gravite}`);
+      tapsApres = await page.evaluate(() => window.vertige.run?.etat.stats.taps);
+      if (tapsApres === tapsAvant) tapsRates.push(`(${etat.meilleur.x},${etat.meilleur.y}) gravité ${etat.gravite}`);
     }
     taps++;
   }

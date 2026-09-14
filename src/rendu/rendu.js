@@ -118,16 +118,17 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     const val = c.origine + c.dir * c.pos;
     if (c.axe === 'x') bv.x = val; else bv.y = val;
   }
-  function demarrerGlisse(bv, de, vers, duree, retirerApres) {
+  function demarrerGlisse(bv, de, vers, duree, retirerApres, retrecir = false) { // retrecir : la bille fond en glissant (naissance de spéciale)
     bv.x = de.x; bv.y = de.y;
-    bv.glisse = { de: { x: de.x, y: de.y }, vers: { x: vers.x, y: vers.y }, t: 0, duree, retirerApres };
+    bv.glisse = { de: { x: de.x, y: de.y }, vers: { x: vers.x, y: vers.y }, t: 0, duree, retirerApres, retrecir };
   }
   function avancerGlisse(id, bv, dt) {
     const gl = bv.glisse; if (!gl) return;
     gl.t += dt;
     const p = easeInOut(clamp01(gl.t / gl.duree));
     bv.x = lerp(gl.de.x, gl.vers.x, p); bv.y = lerp(gl.de.y, gl.vers.y, p);
-    if (gl.t >= gl.duree) { bv.glisse = null; if (gl.retirerApres) billes.delete(id); }
+    if (gl.retrecir) bv.echelle = 1 - 0.6 * p;
+    if (gl.t >= gl.duree) { bv.glisse = null; if (gl.retirerApres) billes.delete(id); else if (gl.retrecir) bv.echelle = 1; }
   }
   // a1 : amorce le squash + recul vers le barycentre des billes du groupe qui va être détruit
   // (avancé chaque frame dans majAnimations). Purement cosmétique : n'affecte pas le jeu.
@@ -201,7 +202,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     }
     for (const [id, bv] of billes) {
       if (bv.fondu) { bv.fondu.t += dt; if (bv.fondu.t >= bv.fondu.duree) bv.fondu = null; }
-      if (bv.pulse) { bv.pulse.t += dt; const p = clamp01(bv.pulse.t / bv.pulse.duree); bv.echelle = 1 + Math.sin(p * Math.PI) * 0.18; if (p >= 1) { bv.pulse = null; bv.echelle = 1; } }
+      if (bv.pulse) { bv.pulse.t += dt; const p = clamp01(bv.pulse.t / bv.pulse.duree); bv.echelle = 1 + Math.sin(p * Math.PI) * (bv.pulse.ampli ?? 0.18); if (p >= 1) { bv.pulse = null; bv.echelle = 1; } }
       if (bv.pop) { bv.pop.t += dt; const p = clamp01(bv.pop.t / bv.pop.duree); bv.echelle = easeInOut(p); if (p >= 1) { bv.pop = null; bv.echelle = 1; } }
       if (bv.squash) { bv.squash.t += dt; const p = clamp01(bv.squash.t / bv.squash.duree), s = Math.sin(p * Math.PI), a = bv.squash.ampli ?? 0.1; bv.squashX = 1 + a * s; bv.squashY = 1 - a * s; if (p >= 1) { bv.squash = null; bv.squashX = 1; bv.squashY = 1; } }
       if (bv.anticip) { // a1 : squash x1,08/y0,92 + recul vers le barycentre, avant destruction
@@ -251,19 +252,28 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     demarrerBoucle();
   }
   const GESTIONNAIRES_FX = { bombe: 'jouerBombe', ligne: 'jouerLigne', couleur: 'jouerCouleur', fusee: 'jouerFusee' }; // items 1-4 ; les autres causes sont déléguées, génériques, à jouerGenerique
-  async function surDetruit(evt, combo = false) {
+  async function surDetruit(evt, combo = false, naissance = null) {
     dernierPalier = palierGroupe((evt.cellules || []).length);
     if (evt.cause !== 'groupe') await gelerHitstop(FEEL[dernierPalier].hitstop); // F08 : explosion 8+ (le tap a déjà eu la sienne dans surTap)
     if ((evt.profondeur || 0) >= 2) specialesFx.declencherChaine(evt, env); // item 5 : chaîne, quelle que soit la cause
     demarrerBoucle();
     const nomFx = GESTIONNAIRES_FX[evt.cause];
     if (nomFx) { await specialesFx[nomFx](evt, env, combo); return; } // items 1-4 : activation dédiée
-    dernierDetruit = (await specialesFx.jouerGenerique(evt, env, combo)) || dernierDetruit;
+    dernierDetruit = (await specialesFx.jouerGenerique(evt, env, combo, naissance)) || dernierDetruit;
   }
+  // Étape 3 (feuille de Martin) : la naissance d'une spéciale est un événement — flash et onde sur la
+  // case, la bille sort en grand (pulse ×0,5), éclat de sa couleur. Quelle que soit l'origine (groupe, effet).
   async function surSpeciale(evt) {
-    const bv = billes.get(evt.id); if (bv) { bv.speciale = evt.type; bv.pulse = { t: 0, duree: 0.22 }; }
+    const bv = billes.get(evt.id);
+    if (bv) {
+      bv.speciale = evt.type; bv.pulse = { t: 0, duree: 0.34, ampli: 0.5 };
+      const e = localVersEcran(bv.x, bv.y);
+      impact.emettreImpact(e.x, e.y, bv.couleur, 1.2);
+      juice.emettreOnde(e.x, e.y, cellPixBase * 1.8, 1.2);
+      particules.emettreDestruction(e.x, e.y, couleurHex(bv.couleur), 10);
+    }
     if (courantAudio) courantAudio.jouer('speciale', { type: evt.type });
-    demarrerBoucle(); await attend(180);
+    demarrerBoucle(); await attend(150);
   }
   async function surConversion(evt) {
     for (const c of evt.cellules) {
@@ -394,7 +404,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
       const evt = liste[i], suivant = liste[i + 1];
       switch (evt.t) {
         case 'tap': await surTap(evt, suivant && suivant.t === 'detruit' ? suivant : null); break; // a1 : attend l'anticipation (80 ms) avant le detruit qui suit
-        case 'detruit': await surDetruit(evt, estCombo(evt)); break;
+        case 'detruit': await surDetruit(evt, estCombo(evt), evt.cause === 'groupe' && suivant && suivant.t === 'speciale' ? suivant : null); break; // étape 3 : le groupe converge vers la spéciale qu'il crée
         case 'speciale': await surSpeciale(evt); break;
         case 'conversion': await surConversion(evt); break;
         case 'element': await surElement(evt); break;

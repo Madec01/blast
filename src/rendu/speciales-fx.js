@@ -20,6 +20,7 @@ function jouerSon(env, nom, params) { const a = env.audio(); if (a) a.jouer(nom,
 const MOT_COMBO_FORCE = 'BIG BANG !';
 
 const MAX_RAYONS = 16, MAX_TRAIL = 4, MAX_FUSEE = 3, MAX_RECUL = 32, MAX_VENT = 14;
+const NAISSANCE_DUREE = 0.16; // étape 3 : convergence du groupe vers la spéciale qu'il crée (s)
 const CAUSES_EXPLOSION = new Set(['bombe', 'ligne', 'croix', 'couleur', 'fusee']); // anneau d'onde de choc (§2)
 
 export function creerSpecialesFx() {
@@ -339,12 +340,19 @@ export function creerSpecialesFx() {
   // Renvoie le barycentre écran (pour dernierDetruit, lu par le `xp` suivant, §2) ou null.
   // F08 : tout est lu dans FEEL[palier] (3/5/8/10+) — un 3 reste sec, un 6 pousse une onde, un 8+ secoue
   // le plateau entier et lâche une rafale au barycentre, un 10+ est hors norme.
-  async function jouerGenerique(evt, env, combo = false) {
+  // `naissance` = l'événement `speciale` qui suit ce `detruit` (le groupe tapé crée une spéciale) : les
+  // billes convergent vers la case de naissance en rétrécissant au lieu d'éclater sur place, le +XP suit.
+  async function jouerGenerique(evt, env, combo = false, naissance = null) {
     const cellules = evt.cellules || [], taille = cellules.length || 1, f = FEEL[palierGroupe(taille)];
     let sx = 0, sy = 0, n = 0;
     for (const c of cellules) {
       const bv = env.billes.get(c.id), pos = bv ? { x: bv.x, y: bv.y } : { x: c.x, y: c.y }, e = env.ecran(pos.x, pos.y);
       sx += e.x; sy += e.y; n++;
+      if (naissance && bv) {
+        env.particules.emettreDestruction(e.x, e.y, env.couleurHex(c.couleur), Math.max(2, f.particules >> 1));
+        env.glisser(bv, pos, { x: naissance.x, y: naissance.y }, NAISSANCE_DUREE, true, true);
+        continue;
+      }
       env.particules.emettreDestruction(e.x, e.y, env.couleurHex(c.couleur), f.particules);
       env.billes.delete(c.id);
     }
@@ -362,8 +370,8 @@ export function creerSpecialesFx() {
     env.shake(f.shake * (combo ? 1.4 : 1)); // item 6 : secousse +40 % en combo
     if (CAUSES_EXPLOSION.has(evt.cause)) jouerSon(env, 'speciale', { type: evt.cause }); // item 9 : activation (croix)
     jouerSon(env, 'detruit', { taille, cause: evt.cause, profondeur: evt.profondeur || 0 });
-    await attend(90);
-    return centre;
+    await attend(naissance ? NAISSANCE_DUREE * 1000 : 90);
+    return naissance ? env.ecran(naissance.x, naissance.y) : centre;
   }
 
   return {
