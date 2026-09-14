@@ -5,6 +5,8 @@ import { creerGrille, nouvelleBille, nouvellePierre, nouvelElement, groupe } fro
 import { appliquerGravite, remplir } from '../src/moteur/chute.js';
 import { colonnes, tourner } from '../src/moteur/gravite.js';
 import * as awaitImport from '../src/moteur/tour.js';
+import { appliquerEffet } from '../src/moteur/progression.js';
+import { tousGroupes } from '../src/moteur/grille.js';
 
 test('gravité : colonnes ordonnées du haut visuel vers le bas pour les 4 orientations', () => {
   const c0 = colonnes(3, 2, 0); assert.deepEqual(c0[0], [0, 3]);          // x=0 : y 0→1
@@ -200,7 +202,7 @@ test('pierre : détruite par adjacence à un groupe', () => {
   assert.ok(ev.some((v) => v.t === 'detruit' && v.cause === 'pierre'));
 });
 
-test('niveau : trois cartes proposées, relance payée en jauge, cartes retirées jamais reproposées', () => {
+test('niveau : trois cartes proposées, relance gratuite une fois par salle puis payée en jauge (D19), cartes retirées jamais reproposées', () => {
   const run = creerRun({ seed: 33 });
   const e = run.etat;
   e.xpSalle = 100; // seuil du niveau 2
@@ -211,11 +213,50 @@ test('niveau : trois cartes proposées, relance payée en jauge, cartes retirée
   assert.equal(e.enAttente.propositions.length, 3);
   for (const p of e.enAttente.propositions) assert.ok(p.id && p.nom && p.rarete && typeof p.risque === 'boolean');
   const avant = e.enAttente.propositions.map((p) => p.id), jauge = e.jauge;
-  assert.ok(e.enAttente.relance.possible);
+  assert.ok(e.enAttente.relance.possible && e.enAttente.relance.gratuite && e.enAttente.relance.cout === 0);
   const ev = run.relancer();
   assert.ok(ev.some((v) => v.t === 'niveau' && v.relance));
-  assert.equal(e.jauge, jauge - 1);
+  assert.equal(e.jauge, jauge, 'la première relance de la salle est gratuite');
   for (const p of e.enAttente.propositions) assert.ok(!avant.includes(p.id), 'carte retirée reproposée : ' + p.id);
+  assert.ok(e.enAttente.relance.possible && !e.enAttente.relance.gratuite && e.enAttente.relance.cout === 1);
+  const avant2 = e.enAttente.propositions.map((p) => p.id);
+  run.relancer();
+  assert.equal(e.jauge, jauge - 1, 'la deuxième relance coûte 1 point de jauge');
+  for (const p of e.enAttente.propositions) assert.ok(!avant.includes(p.id) && !avant2.includes(p.id), 'carte retirée reproposée : ' + p.id);
   assert.ok(run.choisir(e.enAttente.propositions[0].id).some((v) => v.t === 'effet'));
   assert.equal(e.enAttente?.type ?? null, null);
+});
+
+test('D20 : une durée « parTap » ne s’use qu’aux taps ; Débridé rend la rotation gratuite', () => {
+  const run = creerRun({ seed: 5 });
+  const e = run.etat;
+  run.ctx.evenements = [];
+  appliquerEffet(run.ctx, 'jauge_infinie_3');
+  const actif = () => e.effetsActifs.find((a) => a.id === 'jauge_infinie_3');
+  assert.equal(actif().restant, 5);
+  assert.equal(e.jauge, e.jaugeMax, 'Débridé remplit la jauge');
+  assert.ok(run.tourner(1).length);
+  assert.equal(e.jauge, e.jaugeMax, 'rotation gratuite');
+  assert.equal(actif().restant, 5, 'la rotation ne consomme pas la durée');
+  const gr = tousGroupes(e.grille)[0];
+  assert.ok(run.tap(gr[0] % e.grille.w, (gr[0] / e.grille.w) | 0).length);
+  assert.equal(actif().restant, 4, 'le tap consomme la durée');
+});
+
+test('épique Dernière danse : la rotation qui vide la jauge unit la rangée du sol', () => {
+  const run = creerRun({ seed: 7 });
+  const e = run.etat;
+  run.ctx.evenements = [];
+  appliquerEffet(run.ctx, 'derniere_danse');
+  e.jauge = 1;
+  const ev = run.tourner(1);
+  assert.equal(e.jauge, 0);
+  assert.ok(ev.some((v) => v.t === 'conversion'), 'une conversion attendue');
+  const g = e.grille, couleurs = new Set();
+  for (const col of colonnes(g.w, g.h, e.gravite)) { const c = g.cellules[col[col.length - 1]]; if (c && c.type === 'bille' && !c.speciale) couleurs.add(c.couleur); }
+  assert.equal(couleurs.size, 1, 'toutes les billes du sol ont la même couleur');
+  run.ctx.evenements = [];
+  e.jauge = 0; e.coups = 10;
+  const ev2 = run.tourner(1); // payée en coups : rien ne se passe
+  assert.ok(!ev2.some((v) => v.t === 'conversion'));
 });

@@ -318,11 +318,13 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   }
   async function surSalle() {
     const G = vecteurG(graviteCourante);
+    let retardMax = 0;
     for (const [, bv] of billes) {
-      const cible = { x: bv.x, y: bv.y }, depart = { x: cible.x - G.x * 3, y: cible.y - G.y * 3 };
-      demarrerChute(bv, depart, cible, (bv.x + bv.y) * 0.015);
+      const cible = { x: bv.x, y: bv.y }, depart = { x: cible.x - G.x * 3, y: cible.y - G.y * 3 }, retard = (bv.x + bv.y) * 0.015;
+      if (retard > retardMax) retardMax = retard;
+      demarrerChute(bv, depart, cible, retard);
     }
-    demarrerBoucle(); await attend(450);
+    demarrerBoucle(); await attend(450 + Math.round(retardMax * 1000)); // la dernière bille (grandes grilles) atterrit avant que jouer() ne résolve
   }
   async function surApparition(evt) {
     for (const c of evt.cellules || []) { const bv = creerBilleVis(c, c.x, c.y); bv.echelle = 0; bv.pop = { t: 0, duree: 0.18 }; billes.set(c.id, bv); }

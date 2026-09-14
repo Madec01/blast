@@ -239,13 +239,15 @@ export function creerCartes(conteneur, actions) {
           }));
         });
 
-        // Retirer les 3 cartes contre 1 point de jauge de rotation.
+        // Retirer les 3 cartes : gratuit une fois par salle (D19), puis 1 point de jauge de rotation.
         const relance = enAttente.relance ?? {};
-        const boutonRelance = boutonPied(
-          relance.possible ? 'Retirer les cartes (−1 rotation)' : 'Jauge vide',
-          () => actions.relancer(),
-        );
-        boutonRelance.disabled = !relance.possible;
+        if (!apogee) {
+          const boutonRelance = boutonPied(
+            !relance.possible ? 'Jauge vide' : relance.cout ? 'Retirer les cartes (−1 rotation)' : 'Retirer les cartes (gratuit)',
+            () => actions.relancer(),
+          );
+          boutonRelance.disabled = !relance.possible;
+        }
       } else if (enAttente.type === 'competence') {
         titre.textContent = 'Choisis une compétence';
         grille.hidden = false;

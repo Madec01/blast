@@ -1,6 +1,7 @@
 // XP et niveau en salle (§6.1). Seuils cumulés : index = niveau − 1.
 // Lot D (2026-09-14, validé par Martin) : 3 cartes (2 sûres + 1 à risque), raretés par palier avec pitié,
 // relance payée en jauge de rotation, évolutions, synergies, niveau 10 = apogée (3 épiques).
+// D19 (2026-09-14) : la première relance de chaque salle est gratuite, les suivantes coûtent 1 point de jauge.
 import * as donnees from '../data/effets.js';
 import { COMPETENCES } from '../data/competences.js';
 
@@ -10,7 +11,7 @@ const EVOLUTIONS = donnees.EVOLUTIONS ?? [];
 // Recalés le 2026-09-11 pour ~1 000 XP par salle (la grille ne se remplit plus).
 export const SEUILS_NIVEAU = [0, 100, 250, 450, 700, 1000, 1350, 1800, 2300, 2900];
 export const NIVEAU_MAX = 10;
-export const COUT_RELANCE = 1; // en points de jauge de rotation
+export const COUT_RELANCE = 1; // en points de jauge de rotation, après la relance gratuite de la salle (D19)
 
 /** Palier d'effets : 1 = niveaux 2-3, 2 = niveaux 4-6, 3 = niveaux 7-10. */
 export function palierPour(niveau) { return niveau <= 3 ? 1 : niveau <= 6 ? 2 : 3; }
@@ -87,15 +88,16 @@ export function proposerEffets(ctx, niveau, options = {}) {
 /** Détail de l'attente « niveau » posée sur l'état. */
 export function attenteNiveau(ctx, niveau, propositions) {
   const e = ctx.etat;
-  return { type: 'niveau', niveau, propositions, relance: { cout: COUT_RELANCE, possible: niveau < NIVEAU_MAX && e.jauge >= COUT_RELANCE } };
+  const gratuite = e.relanceGratuite !== false, cout = gratuite ? 0 : COUT_RELANCE;
+  return { type: 'niveau', niveau, propositions, relance: { cout, gratuite, possible: niveau < NIVEAU_MAX && e.jauge >= cout } };
 }
 
-/** Relance : retire les cartes contre 1 point de jauge. Renvoie false si impossible. */
+/** Relance : retire les cartes, gratuite une fois par salle (D19) puis contre 1 point de jauge. Renvoie false si impossible. */
 export function relancer(ctx) {
   const e = ctx.etat, att = e.enAttente;
   if (!att || att.type !== 'niveau' || !att.relance?.possible) return false;
-  e.jauge -= COUT_RELANCE;
-  ctx.emettre({ t: 'coups', coups: e.coups, jauge: e.jauge });
+  if (att.relance.cout) { e.jauge -= att.relance.cout; ctx.emettre({ t: 'coups', coups: e.coups, jauge: e.jauge }); }
+  else e.relanceGratuite = false;
   const exclues = att.propositions.map((p) => p.id);
   e.effetsVus.push(...exclues); // les cartes retirées ne reviennent pas dans la salle
   const propositions = proposerEffets(ctx, att.niveau, { exclure: exclues });
@@ -111,7 +113,7 @@ export function appliquerEffet(ctx, id, options = {}) {
   if (!e) return false;
   if (!options.reprise) {
     ctx.etat.effetsVus.push(id);
-    if (e.duree) ctx.etat.effetsActifs.push({ id, nom: e.nom, restant: e.duree === 'salle' ? null : e.duree });
+    if (e.duree) ctx.etat.effetsActifs.push({ id, nom: e.nom, restant: e.duree === 'salle' ? null : e.duree, ...(e.parTap ? { parTap: true } : {}) });
     ctx.emettre({ t: 'effet', id, nom: e.nom });
   }
   e.appliquer(ctx, options);
@@ -125,10 +127,10 @@ export function retirerEffet(ctx, id) {
   if (k >= 0) l.splice(k, 1);
 }
 
-/** Fin de tour : décrémente les effets à durée, retire ceux qui expirent. */
-export function expirerEffets(ctx) {
+/** Fin de tour : décrémente les effets à durée, retire ceux qui expirent. Les effets `parTap` ignorent les tours de rotation (D20). */
+export function expirerEffets(ctx, { rotation = false } = {}) {
   for (const a of ctx.etat.effetsActifs.slice()) {
-    if (a.restant === null) continue;
+    if (a.restant === null || (a.parTap && rotation)) continue;
     a.restant--;
     if (a.restant <= 0) retirerEffet(ctx, a.id);
   }

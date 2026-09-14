@@ -66,6 +66,7 @@ function entrerSalle(ctx, index) {
   e.modeGravite = MODES_GRAVITE[mode] ? mode : MODE_GRAVITE_DEFAUT;
   e.gravite = 0; e.tour = 0; e.xpSalle = 0; e.niveau = 1; majSeuilsXp(e);
   e.memo.sansFilet = false; // « Mise en jeu » ne dure qu'une salle
+  e.relanceGratuite = true; // D19 : une relance de cartes gratuite par salle
   e.coupsMax = ctx.bus.reduire('coupsInitiaux', Math.max(5, Math.round(def.coups / e.difficulte)), ctx, { salle: def });
   if (e.memo.dette) { e.coupsMax = Math.max(1, e.coupsMax - e.memo.dette); e.memo.dette = 0; } // « Dette » : payée ici, même après rechargement
   e.coups = e.coupsMax;
@@ -193,7 +194,7 @@ export function creerRun({ seed = Date.now(), salles = null, competences = [], d
     coups: 0, coupsMax: 0, jauge: 0, jaugeMax: 0, tour: 0,
     xpSalle: 0, niveau: 1, xpTotale: 0, couleurs: 5, modeGravite: MODE_GRAVITE_DEFAUT,
     objectif: null, competences: competences.slice(), effetsActifs: [], effetsVus: [],
-    prochainesEntrees: [], annonce: null, enAttente: null, memo: {}, elan: false, pitie: 0,
+    prochainesEntrees: [], annonce: null, enAttente: null, memo: {}, elan: false, pitie: 0, relanceGratuite: true,
     stats: { debut: Date.now(), taps: 0, rotations: 0, chaineMax: 0, plusGrosGroupe: 0, billesDetruites: 0, etoilesLiberees: 0, speciales: { bombe: 0, ligne: 0, croix: 0, couleur: 0 }, effets: [], salles: [] },
   };
   const ctx = creerCtx(etat, rng);
@@ -210,6 +211,7 @@ export function chargerRun(json) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (!data || data.version !== VERSION) return null;
   const etat = data.etat;
+  etat.relanceGratuite ??= true; // sauvegardes antérieures à D19
   etat.stats ??= { debut: Date.now(), taps: 0, rotations: 0, chaineMax: 0, plusGrosGroupe: 0, billesDetruites: 0, etoilesLiberees: 0, speciales: { bombe: 0, ligne: 0, croix: 0, couleur: 0 }, effets: [], salles: [] };
   const rng = creerRng(etat.seed); rng.etat = etat.rngEtat;
   const ctx = creerCtx(etat, rng);

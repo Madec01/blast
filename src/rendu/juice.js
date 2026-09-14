@@ -20,6 +20,8 @@ function motCombo(taille) {
   return null;
 }
 const POLICE = '"Arial Rounded MT Bold", "Trebuchet MS", "Nunito", "Segoe UI", sans-serif';
+const polices = new Map(); // taille px → chaîne `ctx.font`, pour ne rien allouer par frame (audit code 2)
+function police(px) { let f = polices.get(px); if (!f) { f = `900 ${px}px ${POLICE}`; polices.set(px, f); } return f; }
 const RETARDS_FANTOMES = [0.09, 0.06, 0.03]; // a5 : 3 fantômes en retard, du plus vieux au plus récent
 const ALPHAS_FANTOMES = [0.1, 0.2, 0.4];
 
@@ -71,7 +73,7 @@ export function creerJuice() {
       ctx.scale(echelle, echelle);
       alphaBase = 1 - clamp01((p - 0.72) / 0.28);
     }
-    ctx.font = `900 ${Math.round(cellPix * tech[i])}px ${POLICE}`;
+    ctx.font = police(Math.round(cellPix * tech[i]));
     ctx.globalAlpha = Math.max(0, alphaBase) * alphaMult;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, cellPix * 0.08);

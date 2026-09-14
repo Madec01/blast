@@ -180,7 +180,7 @@ export function creerUI(racine, actions) {
   // =====================================================================
   // Clavier : Q/← = -1, D/→ = +1, S/↓ = 2, Échap = quitter (confirmation)
   // =====================================================================
-  doc.addEventListener('keydown', (evt) => {
+  const surClavier = (evt) => {
     if (evt.repeat) return;
     const touche = evt.key.toLowerCase();
     if (touche === 'q' || touche === 'arrowleft') actions.tourner(-1);
@@ -192,7 +192,8 @@ export function creerUI(racine, actions) {
         actions.quitter();
       }
     }
-  });
+  };
+  doc.addEventListener('keydown', surClavier);
 
   // =====================================================================
   // Toasts
@@ -209,6 +210,8 @@ export function creerUI(racine, actions) {
   // API publique (§7 CONTRATS)
   // =====================================================================
   return {
+    /** Retire ce que creerUI a posé hors de la racine (écouteur clavier sur document). */
+    detruire() { doc.removeEventListener('keydown', surClavier); },
     afficherMenu(donnees) {
       masquerCouches();
       construireMenu(donnees);
@@ -217,6 +220,7 @@ export function creerUI(racine, actions) {
 
     afficherJeu() {
       masquerCouches();
+      elHud.hidden = false;
     },
 
     majHud(etat) {
@@ -233,11 +237,13 @@ export function creerUI(racine, actions) {
       masquerCouches();
       cartes.afficher(enAttente);
       coucheAttente.hidden = false;
+      elHud.hidden = enAttente.type === 'finRun'; // l'écran de fin de run occupe tout l'écran : le HUD n'a plus de sens
     },
 
     masquerAttente() {
       coucheAttente.hidden = true;
       cartes.masquer();
+      elHud.hidden = false;
     },
 
     message,

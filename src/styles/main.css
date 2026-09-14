@@ -593,6 +593,9 @@ body::after {
    le plateau (ou le ciel du body) reste visible derrière.
    ========================================================================= */
 
+/* Panneau plus haut que l'écran (fin de run sur mobile) : aligné en haut et scrollable au lieu d'être coupé par le centrage. */
+.couche > * { margin-block: auto; }
+
 .couche {
   position: fixed;
   inset: 0;

@@ -51,7 +51,7 @@ function agir(run, rng) {
     if (run.peutTourner(1)) {
       let meilleurSens = 1, apres = -1;
       for (const sens of [-1, 1, 2]) { const v = evaluerRotation(run, sens); if (v > apres) { apres = v; meilleurSens = sens; } }
-      const gratuite = e.jauge > 0;
+      const gratuite = e.jauge > 0 || run.ctx.bus.reduire('coutRotation', 1, run.ctx, { sens: 1 }) === 0; // Débridé / Apesanteur : gratuite même à jauge vide
       // Rotation gratuite : dès qu'elle crée un groupe nettement meilleur ; payante : seulement faute de groupe ≥ 3.
       if ((gratuite && apres >= meilleur + 2) || (!gratuite && meilleur < 3 && apres > meilleur)) return run.tourner(meilleurSens);
     }
@@ -81,15 +81,18 @@ function verifierPleine(e) {
 
 function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
-const stats = { runs: 0, victoires: 0, parSalle: {}, speciales: {}, niveauxMax: [], xpTotale: 0, tours: 0, erreurs: 0,
-  taps: 0, rotations: 0, rotationsPayees: 0, deplacesRotation: 0, entreesRotation: 0, trousRotation: 0 };
+const stats = { runs: 0, victoires: 0, parSalle: {}, speciales: {}, niveauxMax: [], xpTotale: 0, tours: 0, salles: 0, erreurs: 0,
+  taps: 0, rotations: 0, rotationsPayees: 0, rotationsUtiles: 0, deplacesRotation: 0, entreesRotation: 0, trousRotation: 0,
+  // Baseline (feuille de route de Martin, étape 0) : taille des groupes, spéciales utilisées, chaîne max, premier gros moment.
+  tailleGroupes: 0, specialesExplosees: 0, chaineMaxCumul: 0, chaineMaxAbs: 0, premierGrosMoment: 0, runsAvecGrosMoment: 0 };
+const TYPES_SPECIALES = ['bombe', 'ligne', 'croix', 'couleur'];
 const nbVides = (g) => { let n = 0; for (const c of g.cellules) if (c === null) n++; return n; };
 const salleStat = (id) => (stats.parSalle[id] ??= { jouees: 0, gagnees: 0, xp: 0, niveau: 0, coupsRestants: 0, restantes: 0, raisons: {} });
 
 for (let s = 0; s < RUNS; s++) {
   const run = creerRun({ seed: SEED0 + s, competences: COMPETENCES, options: GRAVITE ? { gravite: GRAVITE } : {} });
   const rng = mulberry(SEED0 + s);
-  let garde = 0, journal = run.evenementsInitiaux;
+  let garde = 0, journal = run.evenementsInitiaux, tapsCeRun = 0, grosMoment = 0;
   try {
     while (garde++ < 5000) {
       const e = run.etat;
@@ -98,20 +101,25 @@ for (let s = 0; s < RUNS; s++) {
       const ev = agir(run, rng);
       if (ev === null) { stats.erreurs++; break; }
       // Mesure du grief D12 : que déplace une rotation du joueur ?
-      if (ev.some((x) => x.t === 'tap')) stats.taps++;
-      else if (ev.some((x) => x.t === 'rotation' && !x.auto)) {
+      const tap = ev.find((x) => x.t === 'tap');
+      if (tap) {
+        stats.taps++; tapsCeRun++; stats.tailleGroupes += tap.taille;
+        if (!grosMoment && (tap.taille >= 6 || ev.some((x) => x.t === 'detruit' && x.profondeur >= 1))) grosMoment = tapsCeRun; // premier « gros boom » : groupe 6+ ou chaîne
+      } else if (ev.some((x) => x.t === 'rotation' && !x.auto)) {
         stats.rotations++; stats.trousRotation += videsAvant;
+        if (!e.enAttente && tousGroupes(e.grille).some((g) => g.length >= 3)) stats.rotationsUtiles++;
         if (ev.some((x) => x.t === 'rotation' && x.enCoups)) stats.rotationsPayees++;
         for (const x of ev) { if (x.t === 'chute') stats.deplacesRotation += x.deplacements.length; if (x.t === 'remplissage') stats.entreesRotation += x.cellules.length; }
       }
       if (VERBOSE && s === 0) for (const x of ev) console.log(JSON.stringify(x).slice(0, 160));
       for (const x of ev) {
         if (x.t === 'speciale') stats.speciales[x.type] = (stats.speciales[x.type] ?? 0) + 1;
+        if (x.t === 'detruit' && TYPES_SPECIALES.includes(x.cause)) stats.specialesExplosees++;
         if (x.t === 'finSalle') {
           const st = salleStat(e.salle.id);
           st.jouees++; if (x.victoire) st.gagnees++; st.xp += e.xpSalle; st.niveau += e.niveau; st.coupsRestants += e.coups; st.restantes += e.grille.cellules.filter((c) => c && c.type === 'bille').length;
           st.raisons[x.raison] = (st.raisons[x.raison] ?? 0) + 1;
-          stats.tours += e.tour;
+          stats.tours += e.tour; stats.salles++;
         }
       }
       // Invariant (gravité continue seulement) : aucune case vide après un tour joué, sauf sous un ballon (qui flotte et fait sol).
@@ -120,6 +128,8 @@ for (let s = 0; s < RUNS; s++) {
     stats.runs++;
     if (run.etat.enAttente?.victoire) stats.victoires++;
     stats.xpTotale += run.etat.xpTotale;
+    const cm = run.etat.stats?.chaineMax ?? 0; stats.chaineMaxCumul += cm; if (cm > stats.chaineMaxAbs) stats.chaineMaxAbs = cm;
+    if (grosMoment) { stats.premierGrosMoment += grosMoment; stats.runsAvecGrosMoment++; }
   } catch (err) { stats.erreurs++; console.error('seed', SEED0 + s, err.message); if (VERBOSE) console.error(err.stack); }
 }
 
@@ -128,6 +138,8 @@ const r = Math.max(1, stats.rotations);
 console.log(`rotations : ${stats.rotations} pour ${stats.taps} taps (1 pour ${(stats.taps / r).toFixed(1)}), payées en coups ${stats.rotationsPayees} — par rotation : ${(stats.trousRotation / r).toFixed(1)} trous, ${(stats.deplacesRotation / r).toFixed(1)} billes déplacées, ${(stats.entreesRotation / r).toFixed(1)} entrées`);
 console.log(`victoires : ${stats.victoires} (${((100 * stats.victoires) / Math.max(1, stats.runs)).toFixed(0)} %) — XP moyenne par run ${(stats.xpTotale / Math.max(1, stats.runs)).toFixed(0)} — erreurs ${stats.erreurs}`);
 console.log('spéciales créées :', stats.speciales);
+const nbSpeciales = Object.values(stats.speciales).reduce((a, b) => a + b, 0);
+console.log(`métriques : ${(stats.tours / Math.max(1, stats.salles)).toFixed(1)} tours par salle — groupe tapé moyen ${(stats.tailleGroupes / Math.max(1, stats.taps)).toFixed(2)} billes — rotations utiles (groupe ≥3 juste après) ${((100 * stats.rotationsUtiles) / r).toFixed(0)} % — spéciales explosées / créées ${((100 * stats.specialesExplosees) / Math.max(1, nbSpeciales)).toFixed(0)} % — chaîne max moyenne par run ${(stats.chaineMaxCumul / Math.max(1, stats.runs)).toFixed(2)} (max ${stats.chaineMaxAbs}) — premier gros moment (groupe 6+ ou chaîne) au tap ${(stats.premierGrosMoment / Math.max(1, stats.runsAvecGrosMoment)).toFixed(1)} (${((100 * stats.runsAvecGrosMoment) / Math.max(1, stats.runs)).toFixed(0)} % des runs)`);
 console.table(Object.fromEntries(Object.entries(stats.parSalle).map(([id, s]) => [id, {
   jouees: s.jouees, 'gagnées %': ((100 * s.gagnees) / s.jouees).toFixed(0), 'xp moy': (s.xp / s.jouees).toFixed(0),
   'niveau moy': (s.niveau / s.jouees).toFixed(1), 'coups rest.': (s.coupsRestants / s.jouees).toFixed(1), 'billes rest.': (s.restantes / s.jouees).toFixed(0), raisons: JSON.stringify(s.raisons) }])));

@@ -2,7 +2,7 @@
 // Suite de src/data/effets.js (mêmes conventions, mêmes contraintes de contrat) — scindé ici pour
 // que le fichier principal reste lisible. `EFFETS_NOUVEAUX` et `EVOLUTIONS` sont fusionnés/ré-exportés
 // depuis effets.js ; rien d'autre n'importe ce fichier directement.
-import { coord, voisins, tousGroupes, compter, tombe, nouvelleBille } from '../moteur/grille.js';
+import { coord, voisins, groupe, tousGroupes, compter, tombe, nouvelleBille } from '../moteur/grille.js';
 import { colonnes } from '../moteur/gravite.js';
 import { avancerElements, TYPES_SPECIALES } from '../moteur/speciales.js';
 import { renforcer } from '../moteur/chute.js';
@@ -280,19 +280,15 @@ export const EFFETS_NOUVEAUX = [
     } },
 
   // ================= Palier 3 (niveaux 7-10) =================
+  // D20 (audit gameplay 2, 2026-09-14) : les trois effets de rotation du palier 3 mesuraient ≤ 0. Rendus majeurs :
+  // durée comptée en coups (une rotation ne consomme plus la durée : `parTap`), effet immédiat en plus du différé.
   { id: 'gravite_libre_prolongee', palier: 3, rarete: 'rare', famille: 'rotation', risque: true, nom: 'Apesanteur',
-    desc: '5 tours de rotations gratuites ; une fois sur deux, le plateau tourne encore tout seul, dans un sens aléatoire.', duree: 5,
+    desc: 'Pendant 5 coups : rotations gratuites et illimitées, ×1,5 XP ; mais après chaque coup, le plateau tourne seul, au hasard.', duree: 5, parTap: true,
     appliquer(ctx) {
       ctx.bus.on('coutRotation', () => 0, src('gravite_libre_prolongee'));
-      ctx.bus.on('apresRotation', (c, e) => {
-        if (e.auto || c.memo.graviteLibreRelance) return; // garde-fou : la rotation relancée ne se relance pas elle-même
-        if (c.rng.suivant() >= 0.5) return;
-        c.memo.graviteLibreRelance = true;
-        c.tourner(c.rng.choix([-1, 1, 2]), { gratuit: true });
-        c.retomber({ rotation: true });
-        c.memo.graviteLibreRelance = false;
-        c.emettre({ t: 'message', texte: 'Apesanteur : le plateau tourne encore, seul' });
-      }, src('gravite_libre_prolongee'));
+      ctx.bus.on('xpGain', (v) => v * 1.5, src('gravite_libre_prolongee'));
+      // La rotation subie est annoncée dans le HUD (comme Tempête) et jouée en fin du tour suivant ; jamais d'aléa non annoncé.
+      ctx.bus.on('finTour', (c) => { if (!c.etat.annonce) c.etat.annonce = { sens: c.rng.choix([-1, 1, 2]) }; }, src('gravite_libre_prolongee'));
     } },
 
   { id: 'ligne_devient_croix', palier: 3, rarete: 'epique', famille: 'speciales', nom: 'Ascension',
@@ -327,21 +323,31 @@ export const EFFETS_NOUVEAUX = [
     } },
 
   { id: 'speciales_synchrones', palier: 3, rarete: 'rare', famille: 'speciales', nom: 'Synchronisation',
-    desc: 'À la prochaine rotation, toutes les spéciales présentes explosent.', duree: 'salle',
-    appliquer(ctx) {
+    desc: '2 bombes apparaissent tout de suite ; pendant 5 coups, chaque rotation fait exploser toutes les spéciales présentes.', duree: 5, parTap: true,
+    appliquer(ctx, options = {}) {
+      if (!options.reprise) { // D20 : effet immédiat — des munitions pour le détonateur
+        for (const i of ctx.rng.melanger(billes(ctx, (c) => !c.speciale)).slice(0, 2)) {
+          const c = ctx.grille.cellules[i]; c.speciale = 'bombe'; c.rayon = 1;
+          const [x, y] = coord(ctx.grille, i);
+          ctx.emettre({ t: 'speciale', x, y, id: c.id, type: 'bombe' });
+        }
+      }
       ctx.bus.on('apresRotation', (c, e) => {
         if (e.auto) return;
         const indices = [];
         c.grille.cellules.forEach((cel, i) => { if (cel && cel.speciale) indices.push(i); });
-        c.retirerEffet('speciales_synchrones');
         if (indices.length) { c.detruire(indices, 'effet'); c.retomber(); }
       }, src('speciales_synchrones'));
     } },
 
   { id: 'jauge_infinie_3', palier: 3, rarete: 'rare', famille: 'rotation', nom: 'Débridé',
-    desc: '3 tours de rotations illimitées et gratuites.', duree: 3,
+    desc: 'Pendant 5 coups, les rotations sont gratuites et illimitées ; la jauge se remplit pour la suite.', duree: 5, parTap: true,
     synergies: ['vertige'],
-    appliquer(ctx) { ctx.bus.on('coutRotation', () => 0, src('jauge_infinie_3')); } },
+    appliquer(ctx, options = {}) {
+      // Avant D20 : « 3 tours », mais chaque rotation consommait un tour — « illimitées » ne voulait rien dire.
+      if (!options.reprise && ctx.etat.jauge < ctx.etat.jaugeMax) { ctx.etat.jauge = ctx.etat.jaugeMax; ctx.emettre({ t: 'coups', coups: ctx.etat.coups, jauge: ctx.etat.jauge }); }
+      ctx.bus.on('coutRotation', () => 0, src('jauge_infinie_3'));
+    } },
 
   { id: 'dette_de_coups', palier: 3, rarete: 'rare', famille: 'coups', risque: true, nom: 'Dette',
     desc: '+5 coups immédiats ; la salle suivante démarre avec 3 coups de moins.', duree: null,
@@ -378,6 +384,90 @@ export const EFFETS_NOUVEAUX = [
         c.grille.cellules.forEach((cel, i) => { if (cel && cel.speciale) indices.push(i); });
         if (indices.length) { c.detruire(indices, 'effet'); c.retomber(); }
       }, src('dernier_mot'));
+    } },
+
+  // ================= Épiques de palier 3 (2026-09-14, agent idées → docs/IDEES_EPIQUES_3.md) =================
+  // Le palier 3 n'avait qu'une épique sans risque (Ascension) : l'apogée (niveau 10) se remplissait de rares.
+  // Sonde 600 runs (2026-09-14) : les versions « destructrices » de Dernière danse (−6) et de Comète noire (−10)
+  // drainaient la grille — sans remplissage, chaque bille est une munition, la détruire à 10 XP est une perte.
+  // Les deux effets préparent désormais un gros groupe (conversion) au lieu de détruire.
+  { id: 'derniere_danse', palier: 3, rarete: 'epique', famille: 'rotation', nom: 'Dernière danse',
+    desc: 'La rotation qui vide la jauge unit la rangée du sol dans sa couleur la plus fréquente.', duree: 'salle',
+    appliquer(ctx) {
+      // Seule une rotation payée avec le dernier point de jauge arme l'effet : ni les rotations gratuites, ni celles payées en coups.
+      ctx.bus.on('avantRotation', (c, e) => { if (!e.auto) c.memo.derniereDanseJauge = c.etat.jauge; }, src('derniere_danse'));
+      ctx.bus.on('apresRotation', (c, e) => {
+        if (!e.auto && c.memo.derniereDanseJauge > 0 && c.etat.jauge === 0) c.memo.derniereDanseArmee = true;
+      }, src('derniere_danse'));
+      ctx.bus.on('apresChute', (c) => {
+        if (!c.memo.derniereDanseArmee) return;
+        c.memo.derniereDanseArmee = false;
+        const g = c.grille, indices = [], n = new Array(6).fill(0);
+        for (const col of colonnes(g.w, g.h, c.etat.gravite)) {
+          const i = col[col.length - 1], cel = g.cellules[i];
+          if (cel && cel.type === 'bille' && !cel.speciale) { indices.push(i); n[cel.couleur]++; }
+        }
+        if (indices.length < 2) return;
+        const couleur = n.indexOf(Math.max(...n));
+        c.emettre({ t: 'message', texte: 'Dernière danse : le sol s’unit' });
+        convertir(c, indices, couleur);
+      }, src('derniere_danse'));
+    } },
+
+  { id: 'danse_des_couleurs', palier: 3, rarete: 'epique', famille: 'speciales', nom: 'Danse des couleurs',
+    desc: 'Une bombe de couleur apparaît ; pendant 5 coups, chaque bombe de couleur qui explose en fait naître une autre.', duree: 5, parTap: true,
+    appliquer(ctx, options = {}) {
+      const naitre = (c) => {
+        const cand = billes(c);
+        if (!cand.length) return;
+        const i = c.rng.choix(cand), cel = c.grille.cellules[i];
+        cel.speciale = 'couleur'; cel.rayon = 1;
+        const [x, y] = coord(c.grille, i);
+        c.emettre({ t: 'speciale', x, y, id: cel.id, type: 'couleur' });
+        c.bus.emettre('specialeCreee', c, { i, type: 'couleur', taille: 0 });
+      };
+      if (!options.reprise) naitre(ctx);
+      ctx.bus.on('explosion', (c, e) => { if (e.cause === 'couleur') naitre(c); }, src('danse_des_couleurs'));
+    } },
+
+  { id: 'absorption', palier: 3, rarete: 'epique', famille: 'teinte', nom: 'Absorption',
+    desc: 'Un tap sur deux, le groupe tapé absorbe ses voisines : elles prennent sa couleur et explosent avec lui.', duree: 'salle',
+    synergies: ['propagation_vert'],
+    appliquer(ctx) {
+      // avantTap précède le calcul du groupe (moteur/tour.js jouerTap) : les voisines teintées en font partie, comptent
+      // dans la taille (XP, seuil de spéciale) au lieu d'être détruites à part pour 10 XP.
+      ctx.bus.on('avantTap', (c, e) => {
+        c.memo.absorptionTaps = (c.memo.absorptionTaps ?? 0) + 1;
+        if (c.memo.absorptionTaps % 2) return;
+        const g = c.grille, cibles = new Set();
+        for (const k of groupe(g, e.i)) for (const v of voisins(g, k)) { const cv = g.cellules[v]; if (cv && cv.type === 'bille' && !cv.speciale && cv.couleur !== e.couleur) cibles.add(v); }
+        if (cibles.size) convertir(c, [...cibles], e.couleur);
+      }, src('absorption'));
+    } },
+
+  { id: 'jackpot', palier: 3, rarete: 'epique', famille: 'xp', risque: true, nom: 'Jackpot',
+    desc: 'Un tap sur cinq, au hasard, vaut ×5 XP ; les autres valent moitié moins.', duree: 'salle',
+    appliquer(ctx) {
+      ctx.bus.on('avantTap', (c) => { c.memo.jackpot = c.rng.suivant() < 0.2; if (c.memo.jackpot) c.emettre({ t: 'message', texte: 'JACKPOT ×5 !' }); }, src('jackpot'));
+      ctx.bus.on('xpGain', (v, c) => v * (c.memo.jackpot ? 5 : 0.5), src('jackpot'));
+    } },
+
+  { id: 'avalanche', palier: 3, rarete: 'epique', famille: 'rotation', nom: 'Avalanche',
+    desc: 'Pendant 5 coups, les groupes de 5 ou plus que forme une rotation explosent d’eux-mêmes, comme s’ils étaient tapés.', duree: 5, parTap: true,
+    appliquer(ctx) {
+      ctx.bus.on('apresRotation', (c) => { c.memo.avalanche = 3; }, src('avalanche')); // au plus 3 vagues par rotation
+      // Chaque groupe vaut l'XP d'un tap de sa taille (sinon l'avalanche « vole » les gros groupes à 10 XP la bille).
+      ctx.bus.on('xpGain', (v, c, s) => (s.cause === 'effet' && c.memo.avalancheTaille ? v * (1 + 0.15 * (c.memo.avalancheTaille - 2)) : undefined), src('avalanche'));
+      ctx.bus.on('apresChute', (c) => {
+        if (!c.memo.avalanche) return;
+        const groupes = tousGroupes(c.grille).filter((gr) => gr.length >= 5);
+        if (!groupes.length) { c.memo.avalanche = 0; return; }
+        c.memo.avalanche--;
+        c.emettre({ t: 'message', texte: 'Avalanche !' });
+        for (const gr of groupes) { c.memo.avalancheTaille = gr.length; c.detruire(gr, 'effet'); }
+        c.memo.avalancheTaille = 0;
+        c.retomber();
+      }, src('avalanche'));
     } },
 ];
 

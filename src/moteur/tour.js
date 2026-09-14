@@ -244,7 +244,7 @@ export function finDeTour(ctx, { rotation = false } = {}) {
   appliquerRotationAuto(ctx);
   e.annonce = prochaineAnnonce(ctx);
   reapprovisionnerBallons(ctx);
-  expirerEffets(ctx);
+  expirerEffets(ctx, { rotation });
   ctx.bus.emettre('finTour', ctx, { tour: e.tour });
   ctx.activesCeTour.clear();
   verifierNiveau(ctx);

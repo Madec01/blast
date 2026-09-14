@@ -1,6 +1,6 @@
 // Effets de niveau en salle (§6.1). Lot D (2026-09-14, validé par Martin) : plus de cartes, plus d'enjeu.
 // Format de chaque effet (docs/CONTRATS.md, moteur/progression.js) :
-//   { id, palier:1|2|3, rarete:'commun'|'rare'|'epique', risque?:true, famille?, nom, desc, duree:null|'salle'|n,
+//   { id, palier:1|2|3, rarete:'commun'|'rare'|'epique', risque?:true, famille?, nom, desc, duree:null|'salle'|n, parTap?:true (la durée ne s'use qu'aux taps),
 //     condition?(ctx)=>bool /* faux = la carte n'est pas proposée */, synergies?:[idsCompetences], appliquer(ctx, options) }
 // `famille` est une étiquette de classement (coups/rotation/teinte/speciales/renfort/elements/xp) qui sert
 // à l'équilibrage et aux recettes d'évolution (EVOLUTIONS, dans effets2.js) ; le moteur ne la lit pas.
