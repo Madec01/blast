@@ -6,6 +6,8 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 
 ## À faire maintenant
 
+**Feuille web des décisions (2026-09-14, reprise)** : https://claude.ai/code/artifact/146f2bd7-bb12-4ca5-8acf-66a884747deb — document `retours/partie2`, 30 points (feel livré à juger, D24 cascades, D25 frénésie, D26 les 6 recettes de combos, titre / salles / Krator / format du sprite Cosmo, D21-D23, D27 carte, audio, D7). Lire avec `read_db` avant de coder. L'ancienne feuille (https://claude.ai/code/artifact/0aae216f-64a0-44c3-949d-482473879eb2, `retours/phase15`) reste consultable mais n'est plus alimentée.
+
 **Feuille de route de Martin (2026-09-14, classeur → `docs/FEUILLE_DE_ROUTE_MARTIN.md`)** : ordre Feel → Cascades → Spéciales & combos → Finale → Builds → Niveaux → Carte → Méta. Règle d'or : pas de contenu tant que les 60 secondes en salle ne sont pas satisfaisantes. Elle remplace l'ordre précédent (lot E, D21-D23 passent après).
 
 0. **Baseline — fait** : `docs/METRIQUES.md` (sim avisée/gourmande : tours par salle, taps/rotation, groupe moyen, spéciales explosées/créées, chaîne max, premier gros moment), 17 tests, fumée.
