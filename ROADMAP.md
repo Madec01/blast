@@ -8,7 +8,7 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 
 Réponses de Martin lues le 2026-09-14 sur la feuille web : https://claude.ai/code/artifact/0aae216f-64a0-44c3-949d-482473879eb2
 
-1. **Lot B** (agent en cours) : activations différenciées des spéciales, ralenti + zoom de chaîne, fin de salle « supernova », combo de spéciales, vent de rotation.
+1. **Audits code + gameplay** de fin de phase 1.5 (agents lancés) : appliquer les bloquants.
 2. **Lot E** : Cosmo (sprite de Martin ; recherche d'un sprite libre impossible hors ligne → vectoriel provisoire), ouverture en 3 écrans, noms de salles / titre / méchant après le choix de Martin (propositions : ORBITA ; Première Orbite, La Faille, Pluie de météores, Vent solaire, Le Pulsar ; Krator l'astéroïde).
 3. Contenu : le palier 3 n'a qu'une épique non risquée → l'apogée (niveau 10) complète avec des raretés inférieures. Ajouter 4-6 épiques de palier 3.
 4. Martin joue : ressenti du juice, des cartes, de la fin de run. Audio (samples) plus tard.
@@ -124,7 +124,7 @@ Agent idées 2026-09-11 (18 idées dans `docs/IDEES.md`), son Top 5 :
 
 ## Fait
 
-- 2026-09-14 — Lots A, C, D de la phase 1.5 livrés (voir « À faire maintenant »). 15 tests, fumée verte jusqu'à l'écran de fin de run.
+- 2026-09-14 — Lots A, B, C, D de la phase 1.5 livrés. 15 tests, fumée verte sur un run complet (80 taps, 35 choix, 0 erreur).
 - 2026-09-11 — Renfort (règle de Martin) : la grille se vide mais reçoit 2 à 5 billes par tap sous 40 % ; bot avisé 100 / 100 / 99 / 75 / ~90 %, gourmand 79 / 54 / 91 / 84 / ~80 %.
 - 2026-09-11 — Règle de Martin appliquée : rien n'entre dans la grille (mode `vide`), objectif « billes », condition de blocage réelle (simulation des 3 rotations), rééquilibrage : bot avisé 100 / 96 / 97 / 52 / 60 %, bot gourmand 67 / 44 / 98 / 79 / 71 %.
 - 2026-09-11 — Retour de Martin appliqué : gravité collante (D12), rotation payée en coup à jauge vide (D13), télégraphe de rotation, chute ∥ remplissage. Sim comparée sur 200 runs × 3 modes, 12 tests, fumée verte, build 435 Ko.
