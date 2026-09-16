@@ -11,7 +11,7 @@ import { COMPETENCES, POIDS_RARETE } from '../data/competences.js';
 
 import { ORDRE_SOLAIRE, planeteParId } from '../data/planetes.js';
 import { installerSolaire, proposerBuild, choisirBuild } from './solaire.js';
-import { CARTES_BUILD, palierBuild } from '../data/builds.js';
+import { CARTES_BUILD, palierBuild, plafondBuild } from '../data/builds.js';
 
 const VERSION = 2; // 2 : mode de gravité (D12), la rotation à jauge vide coûte un coup (D13)
 
@@ -71,7 +71,8 @@ function entrerSalle(ctx, index) {
   e.effetsActifs = []; e.effetsVus = [];
   e.salleIndex = index;
   e.salle = { id: def.id, nom: def.nom, type: def.type, desc: def.desc, index, total: e.ordre.length, regles: def.regles ?? {} };
-  if (def.planete) { const p=planeteParId(def.planete); Object.assign(e.salle,{planete:p.id,bonus:p.bonus,malus:p.malus}); }
+  if (def.planete) { const p=planeteParId(def.planete); Object.assign(e.salle,{planete:p.id,bonus:p.bonus,malus:def.malus??p.malus});
+    for(const key of ['planeteIndex','niveauPlanete','totalNiveauxPlanete','phase','titreNiveau']) if(def[key]!=null)e.salle[key]=def[key]; }
   if(e.options.buildSolaire) e.resonance={charge:0,max:100,actions:0};
   e.couleurs = e.options.couleurs ?? def.couleurs;
   const mode = e.options.gravite ?? def.regles?.gravite ?? MODE_GRAVITE_DEFAUT;
@@ -125,7 +126,9 @@ function finirRun(ctx, victoire) {
   const e = ctx.etat;
   const monnaieMeta = Math.floor((e.xpTotale / 100) * (victoire ? 1.5 : 1));
   e.stats.fin = Date.now();
-  e.enAttente = { type: 'finRun', victoire, xpTotale: e.xpTotale, monnaieMeta, salleIndex: e.salleIndex, stats: e.stats, competences: e.competences.slice(), build: (e.build??[]).map(c=>({...c})), totalSalles: e.ordre.length };
+  const planetesSauvees = new Set(e.stats.salles.filter(s=>s.victoire && s.planete && (s.niveauPlanete==null || s.niveauPlanete===s.totalNiveauxPlanete)).map(s=>s.planete)).size;
+  const totalPlanetes = new Set(e.ordre.map(id=>SALLES.find(s=>s.id===id)?.planete).filter(Boolean)).size;
+  e.enAttente = { type: 'finRun', victoire, planetesSauvees, totalPlanetes, niveauxTermines:e.stats.salles.filter(s=>s.victoire).length, xpTotale: e.xpTotale, monnaieMeta, salleIndex: e.salleIndex, stats: e.stats, competences: e.competences.slice(), build: (e.build??[]).map(c=>({...c})), totalSalles: e.ordre.length };
   ctx.emettre({ t: 'finRun', victoire });
 }
 
@@ -159,7 +162,7 @@ function choisir(ctx, id) {
       e.enAttente = null;
       if (!att.victoire) { finirRun(ctx, false); return true; }
       if (e.salleIndex + 1 >= e.ordre.length) { finirRun(ctx, true); return true; }
-      e.enAttente = e.options.buildSolaire ? { type:'competence',propositions:proposerBuild(ctx),xpReference:e.xpReference,palier:palierBuild(e.xpReference) } : { type: 'competence', propositions: proposerCompetences(ctx) };
+      e.enAttente = e.options.buildSolaire ? { type:'competence',propositions:proposerBuild(ctx),xpReference:e.xpReference,palier:palierBuild(e.xpReference,e.salle.planeteIndex),plafond:plafondBuild(e.salle.planeteIndex),planeteIndex:e.salle.planeteIndex } : { type: 'competence', propositions: proposerCompetences(ctx) };
       return true;
     }
     default: return false;
@@ -275,6 +278,10 @@ export function chargerRun(json) {
   try {
   if (!sauvegardeValide(data.etat)) return null;
   const etat = data.etat;
+  for(const salle of [etat.salle,...(etat.stats?.salles??[])]) {
+    const def=SALLES.find(s=>s.id===salle.id);
+    for(const key of ['planete','planeteIndex','niveauPlanete','totalNiveauxPlanete','phase','titreNiveau']) if(def?.[key]!=null)salle[key]=def[key];
+  }
   // Les anciennes parties conservent leurs règles jusqu'au prochain run.
   etat.options = { buildSolaire: false, cascades: false, secours: false, ...etat.options };
   etat.relanceGratuite ??= true; // sauvegardes antérieures à D19

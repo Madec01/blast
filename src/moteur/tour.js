@@ -276,10 +276,12 @@ export function finirSalle(ctx, victoire, raison) {
   // consommation virtuelle, `coups` et `jauge` ci-dessous restent ceux de la fin de partie.
   e.xpReference=e.xpSalle;
   const finale = victoire ? jouerFinale(ctx) : null;
-  e.stats.salles.push({ id: e.salle.id, nom: e.salle.nom, xp: e.xpSalle, xpReference:e.xpReference, niveau: e.niveau, victoire, raison, xpFinale: finale ? finale.xp : 0 });
+  const progression={planete:e.salle.planete,planeteIndex:e.salle.planeteIndex,niveauPlanete:e.salle.niveauPlanete,totalNiveauxPlanete:e.salle.totalNiveauxPlanete,
+    planeteSauvee:!!(victoire&&e.salle.planete&&(e.salle.niveauPlanete==null||e.salle.niveauPlanete===e.salle.totalNiveauxPlanete))};
+  e.stats.salles.push({ ...progression, id: e.salle.id, nom: e.salle.nom, xp: e.xpSalle, xpReference:e.xpReference, niveau: e.niveau, victoire, raison, xpFinale: finale ? finale.xp : 0 });
   // Quasi-victoire : l'écran d'échec peut dire « à N billes de l'objectif ».
-  e.enAttente = { type: 'finSalle', victoire, raison, xpReference:e.xpReference, xpSalle: e.xpSalle, niveau: e.niveau, coups: e.coups, finale, objectif: { type: o.type, progres: Math.min(o.progres, o.cible), cible: o.cible, manque: Math.max(0, o.cible - o.progres) } };
-  ctx.emettre({ t: 'finSalle', victoire, raison });
+  e.enAttente = { ...progression, type: 'finSalle', victoire, raison, xpReference:e.xpReference, xpSalle: e.xpSalle, niveau: e.niveau, coups: e.coups, finale, objectif: { type: o.type, progres: Math.min(o.progres, o.cible), cible: o.cible, manque: Math.max(0, o.cible - o.progres) } };
+  ctx.emettre({ ...progression, t: 'finSalle', victoire, raison });
   ctx.bus.emettre('finSalle', ctx, { victoire, raison });
 }
 

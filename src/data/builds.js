@@ -9,4 +9,5 @@ export const CARTES_BUILD = [
 ];
 export const carteBuildParId = (id) => CARTES_BUILD.find((c) => c.id===id);
 export const SEUILS_BUILD = [0,1600,2800];
-export const palierBuild = (xp) => xp>=SEUILS_BUILD[2]?3:xp>=SEUILS_BUILD[1]?2:1;
+export const plafondBuild = (planeteIndex) => planeteIndex == null ? 3 : planeteIndex < 2 ? 1 : planeteIndex < 5 ? 2 : 3;
+export const palierBuild = (xp, planeteIndex) => Math.min(plafondBuild(planeteIndex),xp>=SEUILS_BUILD[2]?3:xp>=SEUILS_BUILD[1]?2:1);

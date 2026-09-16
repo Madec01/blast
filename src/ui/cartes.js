@@ -281,7 +281,7 @@ export function creerCartes(conteneur, actions) {
       } else if (enAttente.type === 'competence') {
         titre.textContent = 'Un pouvoir pour la suite';
         sousTitre.hidden = false;
-        sousTitre.textContent = `${formatNombre(enAttente.xpReference ?? 0)} XP gagnée sur la planète précédente · Gain : +${enAttente.palier ?? 1} rang${(enAttente.palier ?? 1) > 1 ? 's' : ''}, maximum 3 par carte. Pouvoirs et contreparties restent actifs toute l’expédition.`;
+        sousTitre.textContent = `${formatNombre(enAttente.xpReference ?? 0)} XP gagnée dans ce niveau · Gain : +${enAttente.palier ?? 1} rang${(enAttente.palier ?? 1) > 1 ? 's' : ''}, plafond actuel : rang ${enAttente.plafond ?? 3}. Pouvoirs et contreparties restent actifs toute l’expédition.`;
         grille.classList.add('grille-build');
         grille.hidden = false;
         (enAttente.propositions ?? []).forEach((prop) => {
@@ -299,11 +299,14 @@ export function creerCartes(conteneur, actions) {
         });
         boutonPied('Continuer sans carte', () => actions.choisir(null));
       } else if (enAttente.type === 'finSalle') {
-        titre.textContent = enAttente.victoire ? 'Planète sauvée' : 'Mission interrompue';
+        const planeteSauvee = enAttente.planeteSauvee ?? !enAttente.totalNiveauxPlanete;
+        titre.textContent = enAttente.victoire ? (planeteSauvee ? 'Planète sauvée !' : 'Niveau terminé !') : 'Mission interrompue';
         sousTitre.hidden = false;
         const libelleRaison = enAttente.raison ? (LIBELLE_RAISON[enAttente.raison] ?? enAttente.raison) : '';
         const raison = libelleRaison ? `${libelleRaison} — ` : '';
-        sousTitre.textContent = `${raison}XP ${enAttente.xpSalle ?? 0}`;
+        const progression = enAttente.totalNiveauxPlanete ? `Niveau ${enAttente.niveauPlanete} / ${enAttente.totalNiveauxPlanete} · ` : '';
+        const voyage = enAttente.victoire && planeteSauvee ? (enAttente.planeteIndex === 7 ? ' · Les huit mondes sont libérés.' : ' · Cap sur la prochaine planète.') : '';
+        sousTitre.textContent = `${progression}${raison}XP ${enAttente.xpSalle ?? 0}${voyage}`;
 
         // F07 : ce que la finale a rapporté (rien à l'échec, rien si tout était déjà dépensé).
         const finale = enAttente.finale;
@@ -335,7 +338,7 @@ export function creerCartes(conteneur, actions) {
 
         boutonPied('Continuer', () => actions.choisir(null), true);
       } else if (enAttente.type === 'finRun') {
-        titre.textContent = enAttente.victoire ? (enAttente.totalSalles === 8 ? 'Le système solaire est sauvé !' : 'Expédition accomplie !') : 'Fin de l’expédition';
+        titre.textContent = enAttente.victoire ? ((enAttente.totalPlanetes === 8 || enAttente.totalSalles === 8) ? 'Le système solaire est sauvé !' : 'Expédition accomplie !') : 'Fin de l’expédition';
         sousTitre.hidden = false;
         sousTitre.textContent = titreDeBuild(enAttente);
 
@@ -346,7 +349,8 @@ export function creerCartes(conteneur, actions) {
         statsGrille.hidden = false;
         [
           ['Durée', formatDuree((stats.fin ?? 0) - (stats.debut ?? 0))],
-          ['Planètes sauvées', `${enAttente.stats?.salles?.filter(s => s.victoire).length ?? enAttente.salleIndex ?? 0} / ${enAttente.totalSalles ?? 0}`],
+          ['Planètes sauvées', `${enAttente.planetesSauvees ?? 0} / ${enAttente.totalPlanetes ?? 8}`],
+          ['Niveaux terminés', `${enAttente.niveauxTermines ?? enAttente.stats?.salles?.filter(s => s.victoire).length ?? 0} / ${enAttente.totalSalles ?? 0}`],
           ['XP totale', formatNombre(enAttente.xpTotale ?? 0)],
           ['Monnaie méta', `+${formatNombre(enAttente.monnaieMeta ?? 0)}`],
           ['Plus grosse chaîne', `×${(stats.chaineMax ?? 0) + 1}`],

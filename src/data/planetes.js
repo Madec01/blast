@@ -19,4 +19,38 @@ export const SALLES_SOLAIRES = PLANETES.map((p,i) => ({
   elements:[[{type:'pierre',n:3},{type:'fusee',n:1}],[{type:'bulle',n:4},{type:'fusee',n:2}],[],[{type:'pierre',n:10},{type:'fusee',n:2}],[{type:'pierre',n:4},{type:'fusee',n:2}],[{type:'pierre',n:8}], [{type:'bulle',n:4},{type:'fusee',n:2}],[{type:'pierre',n:6},{type:'fusee',n:3}]][i],
   regles:{renfort:{seuil:0.60,min:4,max:7},...([4,7].includes(i)?{rotationAuto:'pendule',rotationPeriode:i===4?5:4}:{})},
 }));
-export const ORDRE_SOLAIRE = SALLES_SOLAIRES.map((s) => s.id);
+// Les huit anciens identifiants restent immuables pour les expéditions déjà sauvegardées.
+export const ORDRE_SOLAIRE_HISTORIQUE = SALLES_SOLAIRES.map((s) => s.id);
+const TITRES = [
+  ['Premier contact', 'Failles brûlantes', 'Le cœur de Mercure'],
+  ['Sous les nuages', 'Pression maximale', 'Percer la fournaise'],
+  ['Signal lunaire', 'Orbites encombrées', 'Le dernier refuge'],
+  ['Dunes rouges', 'Le champ de débris', 'Réveiller Mars'],
+  ['Bandes nuageuses', 'La grande tache rouge', 'Calmer la géante'],
+  ['Poussière des anneaux', 'Passage étroit', 'Les noyaux captifs'],
+  ['Lumière de glace', 'L’axe renversé', 'Dégeler le cœur'],
+  ['Aux confins', 'Vents supersoniques', 'Le Système sauvé'],
+];
+const OBJECTIFS = [
+  [{type:'billes',cible:95},{type:'score',cible:1800},{type:'reliques',cible:2,sortie:{gravite:1}}],
+  [{type:'billes',cible:110},{type:'score',cible:2200},{type:'reliques',cible:2,sortie:{gravite:3}}],
+  [{type:'billes',cible:110},{type:'score',cible:2200},{type:'reliques',cible:2,sortie:{gravite:2}}],
+  [{type:'billes',cible:125},{type:'score',cible:2400},{type:'reliques',cible:2,sortie:{gravite:1}}],
+  [{type:'billes',cible:140},{type:'score',cible:2700},{type:'reliques',cible:2,sortie:{gravite:3}}],
+  [{type:'billes',cible:125},{type:'score',cible:2600},{type:'reliques',cible:2,sortie:{gravite:1}}],
+  [{type:'billes',cible:120},{type:'score',cible:2500},{type:'reliques',cible:2,sortie:{gravite:2}}],
+  [{type:'billes',cible:150},{type:'score',cible:3100},{type:'reliques',cible:2,sortie:{gravite:3}}],
+];
+export const NIVEAUX_SOLAIRES = SALLES_SOLAIRES.flatMap((base,i) => TITRES[i].map((titre,j) => ({
+  ...base, id:`${base.id}_${j+1}`, nom:`${base.nom} · ${titre}`,
+  planeteIndex:i, niveauPlanete:j+1, totalNiveauxPlanete:3,
+  phase:['decouverte','defi','sauvetage'][j], titreNiveau:titre,
+  type:j===2?'boss':'normale',
+  desc:['Découvre les particularités de cette planète.', 'Prépare tes combinaisons pour franchir ce défi.', 'Libère les noyaux par la sortie pour sauver cette planète.'][j],
+  coups:base.coups-2+j*2,
+  objectif:OBJECTIFS[i][j],
+  elements:base.elements.map(el=>({...el,n:el.type==='pierre'?el.n+(j===1?2:0):el.n})),
+  // La contrainte affichée doit rester exacte même lorsque l’objectif change.
+  malus:(i===2?(j===2?'Orbites fragiles : les noyaux doivent rejoindre leur sortie.':'Orbites encombrées : préparer les groupes avant de tourner.'):i===5?'Débris des anneaux : 8 rochers occupent le plateau.':PLANETES[i].malus)+(j===1&&base.elements.some(el=>el.type==='pierre')?' Deux rochers supplémentaires dans ce défi.':''),
+})));
+export const ORDRE_SOLAIRE = NIVEAUX_SOLAIRES.map(s=>s.id);

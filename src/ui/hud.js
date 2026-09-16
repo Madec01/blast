@@ -3,7 +3,7 @@
 // bande « Prochaines entrées » (compétence Prévoyance) et effets actifs.
 import { COULEURS } from '../data/couleurs.js';
 import { PLANETES, planeteParId } from '../data/planetes.js';
-import { palierBuild, carteBuildParId, SEUILS_BUILD } from '../data/builds.js';
+import { palierBuild, plafondBuild, carteBuildParId, SEUILS_BUILD } from '../data/builds.js';
 import { formatNombre } from './utils.js';
 
 // Traduit l'objectif de la salle en texte français selon son type (§3/§7 CONTRATS).
@@ -166,8 +166,12 @@ export function creerHud(elHud, actions = {}) {
   return {
     // Met à jour l'ensemble du HUD depuis l'état du moteur (etat, §3 CONTRATS).
     maj(etat) {
-      nomSalle.textContent = etat.salle?.nom ?? '';
-      progression.textContent = `PLANÈTE ${(etat.salleIndex ?? 0) + 1} / ${etat.ordre?.length ?? 8}`;
+      nomSalle.textContent = planeteParId(etat.salle?.planete)?.nom ?? etat.salle?.nom ?? '';
+      nomSalle.title = etat.salle?.nom ?? '';
+      const planeteIndex = etat.salle?.planeteIndex ?? PLANETES.findIndex(p => p.id === etat.salle?.planete);
+      const niveauPlanete = etat.salle?.niveauPlanete ?? 1;
+      const niveauxPlanete = etat.salle?.totalNiveauxPlanete ?? 1;
+      progression.textContent = planeteIndex >= 0 ? `PLANÈTE ${planeteIndex + 1} / 8 · NIVEAU ${niveauPlanete} / ${niveauxPlanete}` : `NIVEAU ${(etat.salleIndex ?? 0) + 1} / ${etat.ordre?.length ?? 1}`;
       coupsEl.classList.toggle('urgence', (etat.coups ?? 0) <= 5);
       retour.disabled = !!etat.enAttente;
       coupsEl.textContent = `${etat.coups ?? 0} coups`;
@@ -175,16 +179,17 @@ export function creerHud(elHud, actions = {}) {
 
       const xp = etat.options?.buildSolaire && etat.enAttente
         ? (etat.xpReference ?? 0) : (etat.xpSalle ?? 0);
-      const rang = palierBuild(xp);
+      const rang = palierBuild(xp, etat.salle?.planeteIndex);
       niveauEl.textContent = `R${rang}`;
       niveauEl.setAttribute('aria-label', `Prochaine carte de rang ${rang}`);
       // Utilise les seuils du moteur pour suivre son équilibrage.
-      const seuil = etat.xpProchainPalier ?? (SEUILS_BUILD[rang] ?? null);
-      xpLabel.textContent = seuil ? `${formatNombre(xp)} / ${formatNombre(seuil)} XP` : `${formatNombre(xp)} XP · rang max`;
-      xpEl.title = 'L’XP de cette planète fixe le rang du prochain choix de carte. Aucun choix pendant le jeu.';
+      const plafond = plafondBuild(etat.salle?.planeteIndex);
+      const seuil = rang >= plafond ? null : (etat.xpProchainPalier ?? SEUILS_BUILD[rang] ?? null);
+      xpLabel.textContent = seuil ? `${formatNombre(xp)} / ${formatNombre(seuil)} XP` : `${formatNombre(xp)} XP · rang ${plafond} max`;
+      xpEl.title = `L’XP de ce niveau fixe le rang du prochain choix de carte. Plafond actuel : rang ${plafond}. Les rangs supérieurs se débloquent sur les prochaines planètes.`;
       const fractionXp = seuil ? Math.min(1, xp / seuil) : 1;
       remplissageXp.style.width = `${fractionXp * 100}%`;
-      barreXp.classList.toggle('imminent', fractionXp >= 0.8 && rang < 3);
+      barreXp.classList.toggle('imminent', fractionXp >= 0.8 && rang < plafond);
       const resonance = etat.resonance ?? {charge:0,max:100,actions:0};
       resonanceLabel.textContent = resonance.actions > 0 ? `RÉSONANCE · ${resonance.actions} actions renforcées` : `RÉSONANCE · ${Math.round(resonance.charge ?? 0)} / ${resonance.max ?? 100}`;
       resonanceEl.classList.toggle('active', resonance.actions > 0);
@@ -194,7 +199,7 @@ export function creerHud(elHud, actions = {}) {
       route.hidden = !planete;
       Array.from(route.children).forEach((node, i) => {
         const actuel = PLANETES[i].id === planete?.id;
-        const sauvee = i < (etat.salleIndex ?? 0);
+        const sauvee = i < planeteIndex;
         node.classList.toggle('actuelle', actuel); node.classList.toggle('sauvee', sauvee);
         node.title = `${PLANETES[i].nom} · ${actuel ? 'en cours' : sauvee ? 'sauvée' : 'à sauver'}`;
         node.setAttribute('aria-label', node.title);
@@ -205,10 +210,11 @@ export function creerHud(elHud, actions = {}) {
       if (cleCarnet !== dernierCarnet) {
         dernierCarnet = cleCarnet; carnet.open = false; carnetTexte.replaceChildren();
         function ligne(tag, texte, classe = '') { const e = document.createElement(tag); e.textContent = texte; e.className = classe; carnetTexte.appendChild(e); }
-        ligne('h3', planete?.nom ?? etat.salle?.nom ?? 'Mission');
+        ligne('h3', etat.salle?.nom ?? planete?.nom ?? 'Mission');
+        if (etat.salle?.phase) ligne('p', `${etat.salle.phase} · niveau ${niveauPlanete} / ${niveauxPlanete}`);
         if (planete) { ligne('p', `+ ${planete.bonus}`, 'mission-bonus'); ligne('p', `− ${planete.malus}`, 'mission-malus'); }
         ligne('h4', 'Votre collection · active toute l’expédition');
-        if (!build.length) ligne('p', 'Votre première carte vous attend après Mercure. L’XP gagnée détermine son rang.');
+        if (!build.length) ligne('p', 'Votre première carte vous attend après ce niveau. L’XP gagnée détermine sa puissance.');
         build.forEach((b) => { const c = carteBuildParId(b.id); ligne('h4', `${c?.nom ?? b.id} · rang ${b.rang}`); ligne('p', c?.bonus ?? c?.desc ?? ''); if(c?.malus) ligne('p', c.malus, 'mission-malus'); });
         ligne('h4', 'Préparez vos combinaisons');
         ligne('p', 'Fusée + fusée : grande croix. Bombe + fusée : trois lignes. Couleur + fusée : une flotte de fusées. Touchez deux boosters voisins pour les combiner.');

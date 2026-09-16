@@ -37,8 +37,11 @@ Après une mise à jour, fermer tous les onglets du jeu (et l’application inst
 - Un nouveau groupe de 6+ assemblé par la chute d'une rotation déclenche une cascade ; une grappe
   qui glisse sans changer ne se déclenche pas. Maximum quatre vagues par résolution.
 - Si aucun tap ni rotation ne peut aider, une paire ou une bombe est offerte, sans coût ni points.
-- Cinq salles : collecte de gemmes, puits, astéroïdes, étoiles filantes et boss à score.
-- Les choix de pouvoirs et les finales de salle restent au cœur de l'expédition.
+- Huit planètes, trois niveaux chacune : découverte, défi et sauvetage final, soit 24 niveaux.
+- Choisissez une carte entre les niveaux, jamais pendant le jeu. Le build reste acquis dans l’expédition.
+- Le rang des cartes dépend de l’XP active : plafond I sur Mercure/Vénus, II de la Terre à Jupiter, III à partir de Saturne.
+- Chaque sauvetage final demande de guider deux noyaux vers la sortie avec la gravité.
+- Les planètes réalistes, lunes et soleil tournent avec le plateau ; les textures sont embarquées pour jouer hors ligne.
 - Le bouton Menu sauvegarde la partie. Continuer restaure le plateau, les pouvoirs et le hasard.
 - Réglages séparés : effets sonores, ambiance musicale (désactivée initialement), vibrations.
 - Clavier : Q / D / S pour tourner ; avec le plateau sélectionné par Tab, flèches puis Entrée pour jouer.
@@ -52,6 +55,7 @@ Les anciennes sauvegardes conservent leurs anciennes règles jusqu'au prochain r
 npm test
 npm run sim:solar -- 40
 npx playwright install chromium
+npm run smoke -- --chapitre  # premier chapitre par vrais clics
 npm run smoke:shot           # partie complète par vrais clics, captures dans /tmp/vertige-shots
 npm run qa:mobile            # 4 résolutions, tactile, souris, sauvegarde, reprise hors ligne
 ```
@@ -64,7 +68,7 @@ des captures. Pour un serveur existant, `QA_URL` remplace celui lancé automatiq
 - `src/moteur/` : logique déterministe indépendante du DOM et journal d'événements.
 - `src/data/` : salles, seuils, pouvoirs et palette. Ajouter un niveau dans `salles.js`, puis son ID à l'ordre.
 - `src/rendu/` : Canvas 2D, atlas de sprites pré-rendus, chutes, particules et finales.
-- `src/ui/` : menus HTML accessibles, illustration SVG originale, HUD et cartes.
+- `src/ui/` : menus HTML accessibles, illustration planétaire texturée, HUD et cartes.
 - `src/audio/` : sons et ambiance générés localement via Web Audio.
 - `src/persistence.js` : stockage tolérant aux erreurs et migration des préférences.
 - `vite.config.js`, `public/` : manifeste, icônes originales et génération du cache hors ligne.
@@ -73,7 +77,11 @@ Vite et Playwright sont les seules dépendances de développement. Aucune biblio
 supplémentaire : le moteur Canvas existant sépare déjà les règles du rendu, utilise des sprites
 mis en cache et ne nécessite pas de migration WebGL pour cette taille de plateau.
 
-Nouvelle campagne, équilibrage et validation : [docs/EXPEDITION_SOLAIRE.md](docs/EXPEDITION_SOLAIRE.md).
+Campagne 0.4, équilibrage et validation : [docs/CHAPITRES_2026-09-16.md](docs/CHAPITRES_2026-09-16.md).
+
+Textures planétaires : Solar System Scope / INOVE, CC BY 4.0. Voir les [crédits et adaptations](public/CREDITS_PLANETES.md) et la [traçabilité des fichiers](docs/SOURCES_PLANETES.json). Ces cartographies composites sont projetées sur des sphères éclairées ; la composition n’est pas à l’échelle astronomique.
+
+Historique de la campagne à huit salles : [docs/EXPEDITION_SOLAIRE.md](docs/EXPEDITION_SOLAIRE.md).
 
 Bilan initial, charte, ressources et limites : [docs/REFONTE_2026-09-16.md](docs/REFONTE_2026-09-16.md).
 Cette version est une base web jouable ; elle n'est pas encore validée pour les stores.

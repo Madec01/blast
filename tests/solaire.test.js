@@ -8,12 +8,12 @@ import {PLANETES} from '../src/data/planetes.js';
 import {creerGrille,nouvelleBille,nouvelElement} from '../src/moteur/grille.js';
 
 test('campagne : huit planètes, sans carte pendant une salle, énergie automatique',()=>{
- const r=creerRun({seed:17}),e=r.etat;assert.equal(e.ordre.length,8);assert.equal(e.salle.planete,'mercure');
+ const r=creerRun({seed:17}),e=r.etat;assert.equal(e.ordre.length,24);assert.equal(e.salle.planete,'mercure');
  e.xpSalle=3000;e.jauge=0;verifierNiveau(r.ctx);assert.equal(e.enAttente,null);assert.equal(e.niveau,10);assert.equal(e.jauge,e.jaugeMax);
  assert.ok(chargerRun(r.serialiser()));
 });
 test('build : XP active avant finale, choix persistant et reprise déterministe',()=>{
- const r=creerRun({seed:14}),e=r.etat;e.xpSalle=1700;e.xpTotale=1700;finirSalle(r.ctx,true,'objectif');
+ const r=creerRun({seed:14,salles:['solaire_mercure','solaire_venus']}),e=r.etat;e.xpSalle=1700;e.xpTotale=1700;finirSalle(r.ctx,true,'objectif');
  assert.equal(e.xpReference,1700);assert.ok(e.xpSalle>1700);r.choisir(null);assert.equal(e.enAttente.palier,2);
  assert.ok(e.enAttente.propositions.some(c=>!c.malus));
  const reprise=chargerRun(r.serialiser());assert.ok(reprise);

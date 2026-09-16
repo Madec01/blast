@@ -6,7 +6,7 @@ for (let seed=1;seed<=n;seed++) {
   const run=creerRun({seed});
   let pas=0;
   try {
-    while (run.etat.enAttente?.type!=='finRun' && pas++<500) {
+    while (run.etat.enAttente?.type!=='finRun' && pas++<1500) {
       const a=choisirAction(run); if(!a) throw new Error('Aucune action');
       if(run.etat.enAttente?.type==='niveau') stats.interruptions++;
       if(run.etat.enAttente?.type==='competence') stats.cartes++;
@@ -20,7 +20,7 @@ for (let seed=1;seed<=n;seed++) {
         p.jouees++;p.gagnees+=v.victoire?1:0;p.xp+=run.etat.xpSalle;p.tours+=run.etat.tour;
       }
     }
-    if(pas>=500) throw new Error('Limite actions');
+    if(pas>=1500) throw new Error('Limite actions');
     if(run.etat.enAttente?.victoire)stats.victoires++;
   } catch(error) {stats.erreurs++;console.error('seed',seed,error.stack);}
 }

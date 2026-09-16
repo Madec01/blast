@@ -1,19 +1,19 @@
-import { CARTES_BUILD, palierBuild } from '../data/builds.js';
+import { CARTES_BUILD, palierBuild, plafondBuild } from '../data/builds.js';
 import { planeteParId } from '../data/planetes.js';
 import { voisins, tousGroupes, coord } from './grille.js';
 import { convertir } from '../data/effets.js';
 
 export const rangBuild = (e,id) => e.build?.find((c)=>c.id===id)?.rang ?? 0;
 export function proposerBuild(ctx) {
-  const e=ctx.etat, palier=palierBuild(e.xpReference??0);
-  const pool=CARTES_BUILD.filter(c=>rangBuild(e,c.id)<3);
+  const e=ctx.etat, palier=palierBuild(e.xpReference??0,e.salle.planeteIndex), plafond=plafondBuild(e.salle.planeteIndex);
+  const pool=CARTES_BUILD.filter(c=>rangBuild(e,c.id)<plafond);
   const sures=ctx.rng.melanger(pool.filter(c=>!c.risque));
   const risques=ctx.rng.melanger(pool.filter(c=>c.risque));
   const choix=[...sures.slice(0,1),...risques.slice(0,1)];
   choix.push(...ctx.rng.melanger(pool.filter(c=>!choix.includes(c))).slice(0,3-choix.length));
   // Si tous les choix sûrs ont atteint le rang maximal, une réserve sans malus reste disponible.
-  if (!sures.length) choix.unshift({id:'reserve_solaire',nom:'Réserve solaire',archetype:'Soutien',desc:'+3 coups pour la prochaine planète.',bonus:'+3 coups pour la prochaine planète.',malus:null});
-  return choix.slice(0,3).map(c=>({...c,palier,rang:c.id==='reserve_solaire'?1:Math.min(3,rangBuild(e,c.id)+palier),rarete:['commun','rare','epique'][palier-1]}));
+  if (!sures.length) choix.unshift({id:'reserve_solaire',nom:'Réserve solaire',archetype:'Soutien',desc:'+3 coups pour le prochain niveau.',bonus:'+3 coups pour le prochain niveau.',malus:null});
+  return choix.slice(0,3).map(c=>({...c,palier,rang:c.id==='reserve_solaire'?1:Math.min(plafond,rangBuild(e,c.id)+palier),rarete:['commun','rare','epique'][palier-1]}));
 }
 export function choisirBuild(ctx,carte) {
   const e=ctx.etat;

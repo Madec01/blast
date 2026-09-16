@@ -197,6 +197,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; overflow: hidden; }
 body {
+  isolation: isolate;
   margin: 0;
   overflow-x: hidden;
   font-family: var(--police-corps);
@@ -221,7 +222,7 @@ img, canvas { max-width: 100%; }
 body::before, body::after {
   content: '';
   position: fixed;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   top: 0; left: 0;
   width: 1px; height: 1px;
@@ -1119,7 +1120,7 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px 
 .menu-edition { margin-left:auto; letter-spacing:.1em; }
 .menu-hero { display:grid; grid-template-columns:1fr 1fr; gap:32px; align-items:center; padding:38px 0 46px; }
 .menu-illustration { order:2; min-width:0; }
-.menu-illustration svg { width:115%; margin-left:-8%; overflow:visible; }
+.menu-illustration canvas { width:115%; margin-left:-8%; overflow:visible; }
 .cosmos-float { animation:cosmos-float 6s ease-in-out infinite; transform-origin:center; }
 @keyframes cosmos-float { 50% { transform:translateY(-9px) rotate(2deg); } }
 .menu-kicker { font-size:9px; letter-spacing:.18em; font-weight:700; color:var(--menthe); margin:0 0 18px; }
@@ -1214,7 +1215,7 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px 
   .menu-univers { font-size:8px; }
   .menu-hero { display:flex; flex-direction:column; gap:0; padding:2px 0 25px; }
   .menu-illustration { order:0; width:82%; max-width:340px; margin:0 auto -6px; }
-  .menu-illustration svg { width:100%; margin:0; }
+  .menu-illustration canvas { width:100%; margin:0; }
   .menu-contenu { text-align:center; width:100%; }
   .menu-kicker { font-size:8px; margin-bottom:10px; }
   .titre-vertige { font-size:58px; margin-bottom:14px; }
@@ -1316,3 +1317,6 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px 
   .grille-build .carte-archetype { margin-bottom:3px; font-size:9px; }
   .grille-build .carte-benefice,.grille-build .carte-malus { margin-top:5px; font-size:11px; }
 }
+
+.menu-systeme-solaire { display:block; aspect-ratio:520 / 370; height:auto; }
+.menu-explications a { color:#a4deee; text-underline-offset:3px; }

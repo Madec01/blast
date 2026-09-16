@@ -10,7 +10,8 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 - [x] Cascades de rotation sur nouveaux groupes 6+, secours plateau, sauvegardes validées.
 - [x] PWA hors ligne, tests Node et vérifications navigateur multi-résolutions.
 - [ ] Playtester sur iPhone et Android physiques ; mesurer cadence et durée des longues chaînes.
-- [ ] Concevoir les recettes de combos dédiées puis enrichir la progression.
+- [x] Trois recettes de combos et campagne de 24 niveaux sur huit planètes.
+- [ ] Affiner après retour humain les défis tardifs et la durée totale de l’expédition.
 - [ ] Préparer les exigences natives/légales/commerciales avant soumission store.
 
 Bilan détaillé et limites : `docs/REFONTE_2026-09-16.md`. La demande du 16 septembre autorise cette
@@ -207,3 +208,15 @@ Agent idées 2026-09-11 (18 idées dans `docs/IDEES.md`), son Top 5 :
 Voir [le bilan solaire](docs/EXPEDITION_SOLAIRE.md).
 
 - [x] Publication : workflow de compilation, tests et déploiement Pages ; compatibilité avec la publication Jekyll historique.
+
+## Chapitres et planètes réalistes 0.4 — 2026-09-16
+
+- [x] Trois niveaux distincts par planète : découverte, défi et sauvetage ; 24 niveaux au total.
+- [x] Cartes entre chaque niveau ; rangs plafonnés I/II/III selon la planète, réserve sûre en secours.
+- [x] Compteur réel de planètes sauvées ; anciennes expéditions à huit salles conservées.
+- [x] Textures locales Solar System Scope / INOVE CC BY 4.0, accueil et jeu, projection sphérique et crédits.
+- [x] 59 tests ; 20 simulations, 10 victoires, aucune erreur ni carte pendant un niveau.
+- [x] Vérifications navigateur sur quatre résolutions, sauvegarde et reprise hors ligne.
+- [ ] Retour humain sur la longueur des chapitres et le défi d’Uranus.
+
+Voir [le bilan des chapitres](docs/CHAPITRES_2026-09-16.md).

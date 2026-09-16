@@ -6,7 +6,7 @@ export function effacer(cle) { try { localStorage.removeItem(cle); } catch { /* 
 export function normaliserProfil(valeur) {
   const p = valeur && typeof valeur === 'object' && !Array.isArray(valeur) ? valeur : {};
   const profil = {};
-  for (const k of ['runs', 'victoires', 'meilleureSalle', 'monnaieMeta', 'xpTotale']) profil[k] = Number.isFinite(p[k]) && p[k] >= 0 ? Math.floor(p[k]) : 0;
+  for (const k of ['runs', 'victoires', 'meilleureSalle', 'planetesSauvees', 'monnaieMeta', 'xpTotale']) profil[k] = Number.isFinite(p[k]) && p[k] >= 0 ? Math.floor(p[k]) : 0;
   profil.effets = typeof p.effets === 'boolean' ? p.effets : !p.muet;
   profil.musique = p.musique === true;
   profil.vibrations = p.vibrations !== false;
@@ -23,6 +23,7 @@ export function appliquerRecompense(profil, etat) {
   if (profil.derniereRecompense === id) return profil;
   return { ...profil, derniereRecompense: id,
     runs: profil.runs + 1, victoires: profil.victoires + (att.victoire ? 1 : 0),
+    planetesSauvees: Math.max(profil.planetesSauvees??0, att.planetesSauvees??0),
     meilleureSalle: Math.max(profil.meilleureSalle, att.salleIndex + 1),
     monnaieMeta: profil.monnaieMeta + att.monnaieMeta, xpTotale: profil.xpTotale + att.xpTotale };
 }

@@ -1,6 +1,7 @@
-import { SALLES_SOLAIRES } from './planetes.js';
+import { SALLES_SOLAIRES, NIVEAUX_SOLAIRES } from './planetes.js';
 // Salles de la phase 1, enchaînées linéairement. Voir CLAUDE.md §7.
 export const SALLES = [
+  ...NIVEAUX_SOLAIRES,
   ...SALLES_SOLAIRES,
   { id: 'vestibule', nom: 'Le Vestibule', type: 'normale', acteMin: 1,
     desc: 'Une salle calme pour prendre le plateau en main. Vide-la.',

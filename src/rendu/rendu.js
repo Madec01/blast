@@ -440,7 +440,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   function synchroniser(etat) {
     etatCourant = etat;
     w = etat.grille.w; h = etat.grille.h; forme = etat.grille.forme || null; graviteCourante = etat.gravite || 0;
-    decor.definirPlanete(etat.salle?.planete);
+    decor.definirPlanete(etat.salle?.planete, Math.max(0, (etat.salle?.niveauPlanete || 1) - 1));
     const s = etat.salle; decor.definirActe(s && s.total ? s.index / s.total : 0); // E1 : ciel/nébuleuses selon l'acte — tolérant si absent
     apercuCombo=null; angleTween = null; telegraphe.definir(null); particules.vider(); juice.vider(); impact.vider(); dernierDetruit = null;
     specialesFx.vider(); finale.vider(); shakeMag = 0; shakeX = 0; shakeY = 0; surligneesSet.clear(); billes.clear();
