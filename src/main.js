@@ -19,9 +19,14 @@ const rendu = creerRendu(canvas, {
     audio.init();
     if (!run.peutTaper(x, y)) { audio.jouer('erreur'); return; }
     rendu.surligner([]);
+    rendu.previsualiserCombo?.(null);
     jouer(run.tap(x, y));
   },
-  onSurvol(x, y) { rendu.surligner(run && !occupe && x !== null && x !== undefined ? run.groupeA(x, y) : []); },
+  onSurvol(x, y) {
+    const actif = run && !occupe && x != null && y != null;
+    rendu.surligner(actif ? run.groupeA(x, y) : []);
+    rendu.previsualiserCombo?.(actif ? run.apercuCombo?.(x, y) : null);
+  },
 });
 
 const ui = creerUI(document.getElementById('ui'), {
@@ -48,6 +53,7 @@ const ui = creerUI(document.getElementById('ui'), {
   },
   tourner(sens) {
     rendu.previsualiserRotation(null);
+    rendu.previsualiserCombo?.(null);
     if (occupe || !run || document.hidden) return;
     audio.init();
     const ev = run.tourner(sens);
@@ -92,7 +98,9 @@ async function jouer(evenements) {
   evenements = evenements ?? [];
   occupe = true;
   sauvegarder();
-  for (const ev of evenements) if (ev.t === 'message') ui.message(ev.texte);
+  // Une seule annonce par action : les effets d'un build ne doivent pas empiler des fenêtres.
+  const messages = evenements.filter(ev => ev.t === 'message');
+  if (messages.length) ui.message(messages[messages.length - 1].texte);
   if (evenements.some((ev) => ev.t === 'salle')) rendu.synchroniser(run.etat); // nouvelle salle : le rendu repart de l'état
   if (evenements.length) { try { await rendu.jouer(evenements, { audio }); } catch (err) { console.error('rendu', err); rendu.synchroniser(run.etat); } }
   occupe = false;
@@ -167,6 +175,7 @@ canvas.addEventListener('keydown', (event) => {
     selection.x = Math.max(0, Math.min(run.etat.grille.w - 1, selection.x + dx));
     selection.y = Math.max(0, Math.min(run.etat.grille.h - 1, selection.y + dy));
     rendu.surligner(run.groupeA(selection.x, selection.y));
+    rendu.previsualiserCombo?.(run.apercuCombo?.(selection.x, selection.y));
     canvas.setAttribute('aria-label', `Colonne ${selection.x + 1}, ligne ${selection.y + 1}. ${run.groupeA(selection.x, selection.y).length} pièces dans le groupe. Entrée pour jouer.`);
   } else if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault(); event.stopPropagation();

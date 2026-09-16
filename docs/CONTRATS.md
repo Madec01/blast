@@ -181,3 +181,12 @@ Le panneau Test reçoit les listes depuis `src/data/*.js` (salles, compétences)
 Valeurs réductibles : `seuils xpGain coupsInitiaux jaugeInitiale propositionsNiveau`.
 `xpGain` reçoit la salve (`cause`, `profondeur`, `finale?`, `bonus?`) ; la finale (F07) passe par lui comme toute explosion, mais ses rotations n'émettent aucun hook (`avantRotation` / `apresRotation` / `rotationEvaluee`).
 Compétences et effets de niveau ne sont **jamais** codés en dur dans grille/chute/speciales.
+
+## Campagne solaire (0.3)
+
+- `options.buildSolaire` sélectionne la progression entre planètes ; les sauvegardes antérieures gardent la progression historique.
+- `etat.build` contient `{id,rang}` (1–3), `etat.resonance` contient `{charge,max,actions}`. Les hooks sont réinstallés à la reprise, sans appliquer deux fois les bonus initiaux.
+- `xpReference` fige l'XP de jeu avant la finale. `enAttente.type = 'competence'` porte les propositions, le palier et cette référence ; aucun `niveau` bloquant en solaire.
+- `run.apercuCombo(x,y)` retourne une prévision pure avec `cellules:[{x,y}]`. Le module moteur utilise des indices ; l'API de run les normalise pour le rendu.
+- Une balise est un élément `relique`, mobile et invulnérable aux explosions. L'objectif `reliques` contient `sortie.gravite` : 0 bas, 1 droite, 2 haut, 3 gauche dans les coordonnées du plateau. Elle sort seulement si la gravité et le bord coïncident.
+- Le rendu des planètes est procédural, sans ressource distante. Son angle suit le plateau ; les règles viennent de `src/data/planetes.js`, les cartes de `src/data/builds.js`.

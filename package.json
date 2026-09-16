@@ -1,7 +1,7 @@
 {
   "name": "vertige",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "VERTIGE - tap-blast roguelite a plateau rotatif",
   "scripts": {
@@ -12,7 +12,8 @@
     "sim": "node tools/sim.mjs",
     "smoke": "node tools/smoke.mjs",
     "smoke:shot": "node tools/smoke.mjs --shot",
-    "qa:mobile": "npm run build && node tools/qa-mobile.mjs"
+    "qa:mobile": "npm run build && node tools/qa-mobile.mjs",
+    "sim:solar": "node tools/solar-sim.mjs"
   },
   "devDependencies": {
     "playwright": "^1.62.1",

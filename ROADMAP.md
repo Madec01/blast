@@ -194,3 +194,14 @@ Agent idées 2026-09-11 (18 idées dans `docs/IDEES.md`), son Top 5 :
 - 2026-09-11 — Phase 1 jouable : rendu Cartoon pop + juice, UI bonbon, audits code et gameplay appliqués, build 412 Ko avec sourcemaps, zéro réseau.
 - 2026-09-11 — Phase 1 : moteur complet (1 200 lignes), données, UI, audio, sim, tests. Reste le rendu et l'intégration.
 - 2026-09-11 — Import du document de cadrage dans `vertige/CLAUDE.md`, création de `ROADMAP.md`, mesure des seuils (`tools/seuils.mjs`).
+
+## Expédition solaire 0.3 — 2026-09-16
+
+- [x] Huit planètes avec modificateurs et décors proches rotatifs.
+- [x] Choix de build entre salles, rang selon XP active, cartes à compromis.
+- [x] Trois recettes de boosters, balises par gravité, résonance sans timer.
+- [x] HUD, route, inventaire du build et bilan final.
+- [x] Tests moteur, simulations, sauvegardes et contrôle mobile/hors ligne.
+- [ ] Retour de jeu humain sur rythme, Terre/Saturne et valeur des malus.
+
+Voir [le bilan solaire](docs/EXPEDITION_SOLAIRE.md).

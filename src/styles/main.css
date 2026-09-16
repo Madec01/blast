@@ -1255,3 +1255,64 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px 
 .hud-salle-bloc .hud-salle { max-width:100%; }
 .hud-coups { flex:none; }
 #commandes { max-width:500px; width:100%; align-self:center; }
+
+/* Expédition solaire : une information compacte, le plateau reste la vedette. */
+#hud.hud { position:relative; overflow:visible; gap:6px 12px; background:linear-gradient(155deg,#16263aef,#142139ed); }
+.route-solaire { flex:1 0 100%; display:flex; align-items:flex-start; justify-content:space-between; padding:2px 0 3px; position:relative; }
+.route-solaire::before { content:''; position:absolute; height:1px; background:#51607870; left:5%; right:5%; top:9px; }
+.route-planete { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:4px; position:relative; opacity:.48; }
+.route-planete i { width:12px; height:12px; border-radius:50%; background:radial-gradient(circle at 30% 25%,#ffffffc0,var(--planete) 45%,#102031); border:1px solid #ffffff40; }
+.route-planete small { font-size:8px; line-height:1; color:#b3c3d5; }
+.route-planete.actuelle { opacity:1; }
+.route-planete.actuelle i { box-shadow:0 0 0 3px #9ee8ce25,0 0 13px var(--planete); }
+.route-planete.actuelle small { color:#fff5df; font-weight:700; }
+.route-planete.sauvee { opacity:1; }
+.route-planete.sauvee i::after { content:'✓'; display:block; font:900 10px/11px sans-serif; color:#071e20; text-align:center; background:#91e7c9; border-radius:50%; }
+.hud-carnet { flex:none; }
+.hud-carnet summary { display:block; cursor:pointer; font-size:10px; color:#bcebdc; padding:10px 8px; border:1px solid #395367; border-radius:10px; list-style:none; }
+.hud-carnet summary::-webkit-details-marker { display:none; }
+.hud-carnet[open] summary { background:#325064; }
+.carnet-contenu { position:absolute; z-index:30; top:54px; right:8px; left:8px; max-height:min(60dvh,470px); overflow:auto; padding:18px; border:1px solid #608d9b; border-radius:16px; background:#112334fa; box-shadow:0 14px 40px #02071499; color:#d4e2ed; font-size:12px; line-height:1.5; }
+.carnet-contenu h3 { color:#fff0d5; font-size:20px; margin:0 0 12px; }
+.carnet-contenu h4 { color:#fff0d5; font-size:12px; margin:17px 0 4px; }
+.carnet-contenu p { margin:4px 0; }
+.carnet-contenu .mission-bonus { color:#9ce9cb; }
+.carnet-contenu .mission-malus { color:#ffb5a1; }
+.carnet-fermer { float:right; background:#2a4356; color:#f5e9d7; border:1px solid #516d7c; border-radius:8px; padding:9px 12px; cursor:pointer; }
+#hud .hud-xp { display:grid; grid-template-columns:auto 1fr; gap:3px 7px; flex:1; max-width:none; min-width:100px; margin-left:auto; }
+#hud .niveau-pastille { grid-row:1 / 3; align-self:center; width:24px; height:24px; font-size:9px; }
+.xp-label { font-size:8px; color:#e7c79b; line-height:1.2; white-space:nowrap; }
+#hud .barre-xp { height:4px; width:100%; }
+.hud-resonance { flex:1 0 100%; display:flex; align-items:center; gap:10px; color:#a9bfd3; font-size:8px; letter-spacing:.04em; padding:2px 0; }
+.hud-resonance > span { min-width:135px; }
+.resonance-barre { height:4px; flex:1; background:#081626; border-radius:5px; overflow:hidden; }
+.resonance-barre i { display:block; height:100%; background:linear-gradient(90deg,#6b8ee7,#b8a8ff); border-radius:5px; transition:width .3s; }
+.hud-resonance.active { color:#fff0b3; }
+.hud-resonance.active .resonance-barre i { background:linear-gradient(90deg,#ffc177,#fff2b2); box-shadow:0 0 10px #ffd37a; }
+.hud-mission-hint { flex:1 0 100%; font-size:9px; color:#9ee8ce; line-height:1.35; }
+.carte-archetype { font-size:10px; text-transform:uppercase; letter-spacing:.09em; color:#637287; font-weight:700; margin-bottom:7px; }
+.carte .carte-benefice,.carte .carte-malus { font-size:12px; line-height:1.4; margin-top:10px; }
+.carte .carte-benefice strong,.carte .carte-malus strong { display:block; font-size:8px; letter-spacing:.1em; margin-bottom:3px; }
+.carte .carte-benefice strong { color:#277162; }
+.carte .carte-malus { color:#8e4145; border-top:1px solid #d8b8a080; padding-top:8px; }
+.carte-sans-malus { display:block; margin-top:10px; color:#55766e; font-size:10px; }
+.grille-build .carte { text-align:left; }
+@media(min-width:760px) { .grille-build { grid-template-columns:repeat(3,1fr); align-items:stretch; } }
+@media(max-width:420px) {
+  #hud.hud { padding:8px 12px; gap:5px 8px; }
+  .hud-carnet summary { font-size:9px; padding:9px 6px; }
+  .hud-coups { padding:6px 9px; font-size:12px; }
+  .hud-salle-bloc { gap:2px; }
+  .hud-parcours { font-size:7px; }
+  .hud-salle-bloc .hud-salle { font-size:12px; }
+  .route-planete small { font-size:7px; }
+  .route-planete i { width:10px; height:10px; }
+  .route-solaire::before { top:7px; }
+  .hud-resonance { font-size:7px; }
+  .objectif-badge { min-height:26px; }
+  .grille-build { gap:10px; }
+  .grille-build .carte { padding:28px 14px 12px; }
+  .grille-build .carte h3 { font-size:14px; }
+  .grille-build .carte-archetype { margin-bottom:3px; font-size:9px; }
+  .grille-build .carte-benefice,.grille-build .carte-malus { margin-top:5px; font-size:11px; }
+}

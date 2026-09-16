@@ -56,7 +56,8 @@ export function jouerFinale(ctx) {
   const xpAvant = e.xpSalle, billesAvant = e.stats.billesDetruites, chaineMax = e.stats.chaineMax;
   const rngJeu = ctx.rng;
   ctx.rng = creerRng(seedDepuis(e.seed + ':finale:' + e.salleIndex + ':' + e.tour));
-  try { jouerSequence(ctx, coups, rotations, speciales); } finally { ctx.rng = rngJeu; }
+  ctx.finale=true;
+  try { jouerSequence(ctx, coups, rotations, speciales); } finally { ctx.rng = rngJeu; ctx.finale=false; }
   bilan.billes = e.stats.billesDetruites - billesAvant;
   bilan.xp = e.xpSalle - xpAvant;
   e.objectif.progres = Math.min(e.objectif.progres, e.objectif.cible); // l'objectif est atteint, pas dépassé (HUD : « 60 / 60 »)
