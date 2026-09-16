@@ -52,6 +52,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   let dernierDetruit = null, dernierPalier = 0; // position écran et palier (F08) de la dernière salve `detruit` (pour le +XP qui suit, §2)
   let hitstopRestant = 0, hitstopFait = false; // F08 : micro-pause (60-90 ms) avant une explosion 8+, au plus une par coup joué
   const surligneesSet = new Set();
+  let apercuCombo = null;
   let courantAudio = null, rafId = null, dernierT = null;
   // fabrique un sprite visuel de bille à partir d'une Cellule (§1)
   function creerBilleVis(cel, x, y) {
@@ -100,10 +101,12 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (rx < 0 || ry < 0 || rx >= w || ry >= h || (forme && forme[ry * w + rx] === 0)) return null;
     return { x: rx, y: ry };
   }
-  const surPointerDown = (e) => { const p = pointDepuisEvenement(e); if (p && onTap) onTap(p.x, p.y); };
-  const surPointerMove = (e) => { const p = pointDepuisEvenement(e); if (onSurvol) onSurvol(p ? { x: p.x, y: p.y } : null); };
-  const surPointerLeave = () => { if (onSurvol) onSurvol(null); };
-  canvas.addEventListener('pointerdown', surPointerDown); canvas.addEventListener('pointermove', surPointerMove); canvas.addEventListener('pointerleave', surPointerLeave);
+  let appui = null;
+  const surPointerDown = (e) => { if (e.isPrimary === false || (e.button != null && e.button !== 0)) return; const p=pointDepuisEvenement(e);appui=p?{...p,id:e.pointerId}:null;if(p)canvas.setPointerCapture?.(e.pointerId);if(onSurvol)onSurvol(p?.x??null,p?.y??null); };
+  const surPointerMove = (e) => { const p=pointDepuisEvenement(e); if(appui && (!p || p.x!==appui.x || p.y!==appui.y))appui=null;if(onSurvol)onSurvol(p?.x??null,p?.y??null); };
+  const surPointerUp = (e) => { const p=pointDepuisEvenement(e),a=appui;appui=null;if(onSurvol)onSurvol(null);if(a&&a.id===e.pointerId&&p&&p.x===a.x&&p.y===a.y&&onTap)onTap(p.x,p.y); };
+  const surPointerLeave = () => { appui=null;if(onSurvol)onSurvol(null); };
+  canvas.addEventListener('pointerdown',surPointerDown);canvas.addEventListener('pointermove',surPointerMove);canvas.addEventListener('pointerup',surPointerUp);canvas.addEventListener('pointercancel',surPointerLeave);canvas.addEventListener('pointerleave',surPointerLeave);
   // --- intégrateurs d'animation par bille -----------------------------------------------------
   function demarrerChute(bv, de, vers, retard = 0) {
     // décompose le déplacement sur l'axe de G (animé) et son perpendiculaire (posé instantanément)
@@ -175,13 +178,18 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   };
   function dessinerFrame() {
     const plateau = sprites.plateau(); // E1/E2 : ciel étoilé tourné avec le plateau ; taille transmise pour placer la planète hors du cadre
-    decor.dessiner(ctx, canvas.width, canvas.height, mouvementReduit ? 0 : angleActuel, plateau ? plateau.width * echelleActuelle : 0, plateau ? plateau.height * echelleActuelle : 0);
+    decor.dessiner(ctx, canvas.width, canvas.height, angleActuel, plateau ? plateau.width * echelleActuelle : 0, plateau ? plateau.height * echelleActuelle : 0);
     finale.dessinerFond(ctx, canvas.width, canvas.height); // item 7 : fond qui s'éclaircit, sous le plateau
     ctx.save();
     ctx.translate(canvas.width / 2 + shakeX, canvas.height / 2 + shakeY); ctx.rotate(angleActuel);
     if (mouvementReduit) ctx.scale(echelleActuelle, echelleActuelle);
     else specialesFx.appliquerZoom(ctx, echelleActuelle * squashPlateau.sx * squashRebond.sx, echelleActuelle * squashPlateau.sy * squashRebond.sy); // item 5 : chaîne
     if (plateau) ctx.drawImage(plateau, -plateau.width / 2, -plateau.height / 2);
+    // Sortie fixe dans les coordonnées du plateau : toute la bordure concernée accueille les balises.
+    const sortie=etatCourant?.objectif?.sortie;
+    if(sortie){const g=sortie.gravite,hw=w*cellPixBase/2,hh=h*cellPixBase/2;ctx.save();ctx.strokeStyle='#72ffe0';ctx.lineWidth=cellPixBase*.09;ctx.shadowColor='#5cffd5';ctx.shadowBlur=cellPixBase*.22;ctx.beginPath();if(g===0||g===2){const y=g===0?hh:-hh;ctx.moveTo(-hw,y);ctx.lineTo(hw,y);}else{const x=g===1?hw:-hw;ctx.moveTo(x,-hh);ctx.lineTo(x,hh);}ctx.stroke();ctx.restore();}
+    if(etatCourant?.resonance?.actions>0){ctx.save();ctx.strokeStyle='#ffdf87';ctx.lineWidth=cellPixBase*.055;ctx.strokeRect(-w*cellPixBase/2-.1*cellPixBase,-h*cellPixBase/2-.1*cellPixBase,(w+.2)*cellPixBase,(h+.2)*cellPixBase);ctx.restore();}
+    if(apercuCombo){ctx.save();ctx.fillStyle='rgba(255,215,112,.24)';ctx.strokeStyle='#ffe8a2';ctx.lineWidth=cellPixBase*.025;for(const p of apercuCombo.cellules||[]){const x=(p.x-w/2)*cellPixBase,y=(p.y-h/2)*cellPixBase;ctx.fillRect(x,y,cellPixBase,cellPixBase);ctx.strokeRect(x,y,cellPixBase,cellPixBase);}ctx.restore();}
     for (const [, bv] of billes) {
       const lx = (bv.x - w / 2 + 0.5) * cellPixBase, ly = (bv.y - h / 2 + 0.5) * cellPixBase;
       if (surligneesSet.size && surligneesSet.has(`${Math.round(bv.x)},${Math.round(bv.y)}`)) dessinerSurlignage(lx, ly); // pas de chaîne allouée sans survol
@@ -194,6 +202,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     }
     telegraphe.dessiner(ctx, { cellPixBase, w, h, billes, dessinerCellule, tempsTotal, couleurHex });
     ctx.restore();
+    if(apercuCombo?.nom){ctx.save();ctx.font=`700 ${Math.max(12,cellPixBase*.35)}px system-ui`;ctx.textAlign='center';ctx.fillStyle='#ffe5a0';ctx.shadowColor='#071226';ctx.shadowBlur=8;ctx.fillText(apercuCombo.nom,canvas.width/2,cellPixBase*.8);ctx.restore();}
     juice.dessinerOndes(ctx, cellPixBase); juice.dessinerTextes(ctx, cellPixBase);
     impact.dessiner(ctx, cellPixBase); // a2 : flash + halo, sous les confettis
     specialesFx.dessiner(ctx, cellPixBase); // Lot B : rayons/traînée/fusée/vent
@@ -340,6 +349,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (bv) {
       bv.element = { type: evt.type, activations: evt.activations, max: evt.max, contenu: bv.element ? bv.element.contenu : null };
       if (evt.action === 'activation' || evt.action === 'libere') bv.pulse = { t: 0, duree: 0.2 };
+      else if (evt.action === 'sauvee') { const p=localVersEcran(bv.x,bv.y);particules.emettreConfettis(p.x,p.y,18);juice.emettreMot(p.x,p.y,'BALISE SAUVÉE',.8);billes.delete(evt.id); }
       else if (evt.action === 'eclate') {
         const ecran = localVersEcran(bv.x, bv.y);
         if (evt.type === 'ballon') particules.emettreConfettis(ecran.x, ecran.y, 18);
@@ -430,8 +440,9 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   function synchroniser(etat) {
     etatCourant = etat;
     w = etat.grille.w; h = etat.grille.h; forme = etat.grille.forme || null; graviteCourante = etat.gravite || 0;
+    decor.definirPlanete(etat.salle?.planete);
     const s = etat.salle; decor.definirActe(s && s.total ? s.index / s.total : 0); // E1 : ciel/nébuleuses selon l'acte — tolérant si absent
-    angleTween = null; telegraphe.definir(null); particules.vider(); juice.vider(); impact.vider(); dernierDetruit = null;
+    apercuCombo=null; angleTween = null; telegraphe.definir(null); particules.vider(); juice.vider(); impact.vider(); dernierDetruit = null;
     specialesFx.vider(); finale.vider(); shakeMag = 0; shakeX = 0; shakeY = 0; surligneesSet.clear(); billes.clear();
     recalculerEchelles();
     angleActuel = graviteCourante * (Math.PI / 2); echelleActuelle = calcEchelle(graviteCourante);
@@ -445,7 +456,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     demarrerBoucle(); // le décor anime en continu tant que visible (§2)
   }
   async function jouer(evenements, { audio } = {}) {
-    courantAudio = audio || null;
+    courantAudio = audio || null; apercuCombo=null;
     if (telegraphe.actif) previsualiserRotation(null);
     demarrerBoucle();
     const liste = evenements || [];
@@ -455,6 +466,8 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     for (let i = 0; i < liste.length; i++) {
       const evt = liste[i], suivant = liste[i + 1];
       switch (evt.t) {
+        case 'combo': { const p=localVersEcran(evt.x,evt.y);juice.emettreMot(p.x,p.y,evt.nom || 'FUSION !',1.15);juice.emettreOnde(p.x,p.y,cellPixBase*2,1.2);apercuCombo=evt;demarrerBoucle();await attend(220);apercuCombo=null;break; }
+        case 'resonance': if(evt.actions===3){juice.emettreMot(canvas.width/2,canvas.height/2,'RÉSONANCE !',1.2);demarrerBoucle();} break;
         case 'tap': await surTap(evt, suivant && suivant.t === 'detruit' ? suivant : null); break; // a1 : attend l'anticipation (80 ms) avant le detruit qui suit
         case 'detruit': await surDetruit(evt, estCombo(evt), evt.cause === 'groupe' && suivant && suivant.t === 'speciale' ? suivant : null); break; // étape 3 : le groupe converge vers la spéciale qu'il crée
         case 'speciale': await surSpeciale(evt); break;
@@ -484,6 +497,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   }
   /** Télégraphe : `a` = run.apercuRotation(sens) ({sens, gravite, deplacements, entrees, eclatent}) ou null pour effacer. */
   function previsualiserRotation(a) { telegraphe.definir(a); demarrerBoucle(); dessinerFrame(); }
+  function previsualiserCombo(info) { apercuCombo=info;demarrerBoucle();dessinerFrame(); }
   function redimensionner() { if (etatCourant) { recalculerEchelles(); dessinerFrame(); } }
   let observateur = null; // suit les changements de taille CSS du canvas après mise en page (HUD, couche masquée)
   if (typeof ResizeObserver !== 'undefined') { observateur = new ResizeObserver(redimensionner); observateur.observe(canvas); }
@@ -494,11 +508,11 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (observateur) { observateur.disconnect(); observateur = null; }
     if (typeof document !== 'undefined' && document.removeEventListener) document.removeEventListener('visibilitychange', surVisibilite);
     if (rafId != null) cancelAnimationFrame(rafId); rafId = null;
-    canvas.removeEventListener('pointerdown', surPointerDown); canvas.removeEventListener('pointermove', surPointerMove); canvas.removeEventListener('pointerleave', surPointerLeave);
+    canvas.removeEventListener('pointerup',surPointerUp);canvas.removeEventListener('pointercancel',surPointerLeave);canvas.removeEventListener('pointerdown', surPointerDown); canvas.removeEventListener('pointermove', surPointerMove); canvas.removeEventListener('pointerleave', surPointerLeave);
     particules.vider(); juice.vider(); impact.vider(); specialesFx.vider(); finale.vider(); billes.clear();
   }
   return {
-    synchroniser, jouer, surligner, previsualiserRotation, redimensionner, detruire, pause, reprendre,
+    synchroniser, jouer, surligner, previsualiserRotation, previsualiserCombo, redimensionner, detruire, pause, reprendre,
     get enAnimation() { return !rienNAnime(); },
     /** Centre d'une case en pixels CSS du canvas (tests, télégraphe externe). */
     positionCase(cx, cy) { const p = localVersEcran(cx, cy), dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1; return { x: p.x / dpr, y: p.y / dpr }; },

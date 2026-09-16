@@ -7,6 +7,8 @@ import { createServer } from 'node:http';
 import { readFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { chromium } from 'playwright';
+import { creerRun, chargerRun } from '../src/moteur/run.js';
+import { choisirAction } from './politique-solaire.mjs';
 
 const SHOT_DIR = process.env.SHOT_DIR || '/tmp/vertige-shots';
 const wantShots = process.argv.includes('--shot');
@@ -50,13 +52,15 @@ async function main() {
   await page.goto(`http://localhost:${PORT}/`);
   await page.waitForFunction(() => window.vertige && document.querySelector('#ui button'), null, { timeout: 15000 });
   await shot('01-menu');
-  await page.getByRole('button', { name: /nouveau run/i }).click();
+  await page.evaluate(saved => localStorage.setItem('vertige.run', saved), creerRun({ seed: 1 }).serialiser());
+  await page.reload();
+  await page.getByRole('button', { name: /continuer/i }).click();
   await page.waitForFunction(() => window.vertige.run !== null);
 
   const attendre = () => page.waitForFunction(() => !window.vertige.occupe, null, { timeout: 20000 });
   let taps = 0, rotations = 0, choix = 0, shotsNiveau = 0, shotJeu = 0, termine = false;
   const tapsRates = []; // un tap sur un bord pendant une secousse peut rater d'un pixel : seul un cumul est une erreur
-  for (let i = 0; i < 160; i++) {
+  for (let i = 0; i < 500; i++) {
     await attendre();
     const etat = await page.evaluate(() => {
       const r = window.vertige.run; if (!r) return null;
@@ -65,13 +69,15 @@ async function main() {
       return { attente: e.enAttente?.type ?? null, meilleur, coups: e.coups, taps: e.stats.taps, jauge: e.jauge, w: g.w, h: g.h, gravite: e.gravite, salle: e.salle.nom };
     });
     if (!etat) break;
-    if (etat.attente === 'finRun') { termine = true; await shot('07-fin-run'); break; }
+    const action = choisirAction(chargerRun(await page.evaluate(() => window.vertige.run.serialiser())));
+    if (etat.attente === 'niveau') erreurs.push('Interruption de niveau pendant une planète');
+    if (etat.attente === 'finRun') { if (!await page.evaluate(() => window.vertige.run.etat.enAttente.victoire)) erreurs.push('Expédition seed 1 non gagnée'); termine = true; await shot('07-fin-run'); break; }
     if (etat.attente) {
       if (etat.attente === 'niveau' && shotsNiveau++ === 0) await shot('03-niveau');
       if (etat.attente === 'finSalle') await shot('05-fin-salle');
       // Une carte d'abord (niveau / compétence), sinon le premier bouton actif (Continuer, Retour…) — jamais un bouton désactivé.
       const cartes = page.locator('#ui button.carte:visible');
-      if (await cartes.count()) await cartes.first().click(); else await page.locator('#ui button:visible:enabled').first().click();
+      if (await cartes.count()) { const idx = await page.evaluate(id => window.vertige.run.etat.enAttente.propositions.findIndex(p => p.id === id), action.id); await cartes.nth(idx).click(); } else await page.locator('#ui button:visible:enabled').first().click();
       choix++;
       continue;
     }
@@ -84,7 +90,8 @@ async function main() {
       await page.mouse.move(5, 5); await page.waitForTimeout(60);
       if (await page.evaluate(() => window.vertige.rendu.apercuActif)) erreurs.push('aperçu de rotation non effacé après le survol');
     }
-    if (i % 5 === 4 && etat.jauge > 0) { await page.locator('#btn-rotation-droite').click(); rotations++; continue; }
+    if (action?.type === 'rotation') { await page.locator(action.sens === -1 ? '#btn-rotation-gauche' : action.sens === 2 ? '#btn-rotation-180' : '#btn-rotation-droite').click(); rotations++; continue; }
+    if (action?.type === 'tap') etat.meilleur = action;
     if (!etat.meilleur) { await page.locator('#btn-rotation-gauche').click(); rotations++; continue; }
     // Un vrai tap par le pointeur : la case est projetée comme le rendu le fait (centrage, marge 6 %, rotation).
     // Position exacte fournie par le rendu (même transformation que le pointeur).

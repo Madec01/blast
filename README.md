@@ -1,4 +1,4 @@
-# VERTIGE — Carrousel cosmique
+# VERTIGE — Sauvez le système solaire
 
 Puzzle tap-blast à gravité rotative, en français, mobile et ordinateur. Éclatez des groupes,
 créez des boosters et tournez le plateau pour assembler de nouvelles cascades.
@@ -44,7 +44,7 @@ Les anciennes sauvegardes conservent leurs anciennes règles jusqu'au prochain r
 
 ```sh
 npm test
-npm run sim -- --runs 200 --seed 123 --politique avisee
+npm run sim:solar -- 40
 npx playwright install chromium
 npm run smoke:shot           # partie complète par vrais clics, captures dans /tmp/vertige-shots
 npm run qa:mobile            # 4 résolutions, tactile, souris, sauvegarde, reprise hors ligne
@@ -67,5 +67,7 @@ Vite et Playwright sont les seules dépendances de développement. Aucune biblio
 supplémentaire : le moteur Canvas existant sépare déjà les règles du rendu, utilise des sprites
 mis en cache et ne nécessite pas de migration WebGL pour cette taille de plateau.
 
-Bilan, charte, ressources et limites : [docs/REFONTE_2026-09-16.md](docs/REFONTE_2026-09-16.md).
+Nouvelle campagne, équilibrage et validation : [docs/EXPEDITION_SOLAIRE.md](docs/EXPEDITION_SOLAIRE.md).
+
+Bilan initial, charte, ressources et limites : [docs/REFONTE_2026-09-16.md](docs/REFONTE_2026-09-16.md).
 Cette version est une base web jouable ; elle n'est pas encore validée pour les stores.

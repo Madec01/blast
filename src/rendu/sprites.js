@@ -369,15 +369,15 @@ export function creerSprites() {
     // cadre peint épais : bord clair en haut, foncé en bas, contour encre
     chemineRectArrondi(ctx, bx, by, bw, bh, rCoin);
     const gc = ctx.createLinearGradient(bx, by, bx, by + bh);
-    gc.addColorStop(0, CADRE_CLAIR); gc.addColorStop(0.5, CADRE); gc.addColorStop(1, CADRE_FONCE);
+    gc.addColorStop(0, 'rgba(102,158,198,.30)'); gc.addColorStop(0.5, 'rgba(15,31,55,.25)'); gc.addColorStop(1, 'rgba(7,16,37,.40)');
     ctx.fillStyle = gc; ctx.fill();
-    ctx.lineWidth = Math.max(3, taille * 0.05); ctx.strokeStyle = ENCRE; ctx.stroke();
+    ctx.lineWidth = Math.max(1, taille * 0.025); ctx.strokeStyle = 'rgba(161,208,243,.5)'; ctx.stroke();
 
     // champ intérieur indigo
     const ix = bx + rim, iy = by + rim, iw = bw - rim * 2, ih = bh - rim * 2;
     chemineRectArrondi(ctx, ix, iy, iw, ih, rCoin * 0.55);
     const gf = ctx.createLinearGradient(ix, iy, ix, iy + ih);
-    gf.addColorStop(0, CHAMP_HAUT); gf.addColorStop(1, CHAMP_BAS);
+    gf.addColorStop(0, 'rgba(3,12,30,.55)'); gf.addColorStop(1, 'rgba(3,12,30,.67)');
     ctx.fillStyle = gf; ctx.fill();
     ctx.lineWidth = Math.max(2, taille * 0.03); ctx.strokeStyle = ENCRE; ctx.globalAlpha = 0.6; ctx.stroke(); ctx.globalAlpha = 1;
 

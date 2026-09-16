@@ -7,6 +7,8 @@ import { monteeBallons } from './elements.js';
 import { SEUILS, ORDRE_SPECIALES } from '../data/speciales.js';
 import { RECHARGE_JAUGE, MODES_GRAVITE, ROTATION_HORS_JAUGE, RENFORT, BONUS_ELAN } from '../data/salles.js';
 import { SEUILS_NIVEAU, NIVEAU_MAX, proposerEffets, attenteNiveau, expirerEffets } from './progression.js';
+import { declencherCombo } from './combos.js';
+import { commencerActionSolaire, finirActionSolaire, sauverReliques } from './solaire.js';
 import { jouerFinale } from './finale.js';
 
 /** File des prochaines entrées : couleurs pré-tirées (visibles avec Prévoyance et dans l'aperçu de rotation). */
@@ -34,6 +36,7 @@ export function retomber(ctx, { rotation = false } = {}) {
     const dep = appliquerGravite(g, gr);
     if (dep.length) ctx.emettre({ t: 'chute', deplacements: dep });
     ctx.bus.emettre('apresChute', ctx, { deplacements: dep });
+    while(sauverReliques(ctx)){const suite=appliquerGravite(g,gr);if(suite.length)ctx.emettre({t:'chute',deplacements:suite});}
     const casc = ctx.etat.options.cascades;
     if (casc === 'toutes' || (casc === 'rotation' && rotation)) cascader(ctx, groupesAvant, dep);
   }
@@ -78,6 +81,7 @@ function cascader(ctx, avant, deplacements) {
     deplacements = appliquerGravite(g, e.gravite);
     if (deplacements.length) ctx.emettre({ t: 'chute', deplacements });
     ctx.bus.emettre('apresChute', ctx, { deplacements });
+    while(sauverReliques(ctx)){const suite=appliquerGravite(g,e.gravite);if(suite.length)ctx.emettre({t:'chute',deplacements:suite});}
   }
 }
 
@@ -134,10 +138,12 @@ export function jouerTap(ctx, x, y) {
   const i = idx(g, x, y);
   if (!estTapable(g, i)) return false;
   const c = g.cellules[i];
+  commencerActionSolaire(ctx);
   ctx.bus.emettre('avantTap', ctx, { i, x, y, couleur: c.couleur });
   const gr = groupe(g, i), taille = gr.length;
   e.stats.taps++; if (taille > e.stats.plusGrosGroupe) e.stats.plusGrosGroupe = taille;
   ctx.emettre({ t: 'tap', x, y, taille, couleur: c.couleur, elan: !!e.elan });
+  if(c.speciale && declencherCombo(ctx,i)) { e.coups--; e.elan=false; emettreCoups(ctx); finDeTour(ctx); return true; }
   let type = c.speciale ? null : typeSpecialePour(ctx, taille);
   if (type) type = ctx.bus.reduire('typeSpeciale', type, ctx, { taille });
   resoudre(ctx, { cellules: type ? gr.filter((k) => k !== i) : gr, cause: 'groupe', origine: { x, y }, profondeur: 0, couleur: c.couleur, tapee: type ? i : undefined });
@@ -180,6 +186,7 @@ function evaluerRotation(ctx, avant) {
 export function jouerRotationJoueur(ctx, sens) {
   if (ctx.etat.enAttente) return false;
   const avant = { ...bilanGroupes(ctx.grille), cascades: ctx.etat.stats.cascades ?? 0 }; // F09 : ce que le plateau offrait avant de tourner
+  commencerActionSolaire(ctx);
   if (!jouerRotation(ctx, sens)) return false;
   finDeTour(ctx, { rotation: true, avant });
   return true;
@@ -205,6 +212,8 @@ function appliquerMaree(ctx) {
 function prochaineAnnonce(ctx) {
   const mode = ctx.etat.salle.regles.rotationAuto;
   if (!mode) return null;
+  const periode=ctx.etat.salle.regles.rotationPeriode;
+  if(periode&&(ctx.etat.tour+1)%periode!==0)return null;
   if (mode === 'tempete') return { sens: ctx.rng.choix([-1, 1, 2]) };
   if (mode === 'pendule') return { sens: [1, 1, -1, -1][ctx.etat.tour % 4] };
   return null;
@@ -244,6 +253,13 @@ export function verifierNiveau(ctx) {
   const e = ctx.etat;
   majSeuilsXp(e);
   if (e.enAttente) return;
+  if(e.options.buildSolaire) {
+    let gains=0;
+    while(e.niveau<NIVEAU_MAX&&e.xpSalle>=SEUILS_NIVEAU[e.niveau]){e.niveau++;gains++;}
+    majSeuilsXp(e);
+    if(gains){e.jauge=Math.min(e.jaugeMax,e.jauge+gains);ctx.emettre({t:'message',texte:'Niveau '+e.niveau+' · énergie rechargée'});emettreCoups(ctx);}
+    return;
+  }
   if (e.niveau < NIVEAU_MAX && e.xpSalle >= SEUILS_NIVEAU[e.niveau]) {
     e.niveau++;
     majSeuilsXp(e);
@@ -258,10 +274,11 @@ export function finirSalle(ctx, victoire, raison) {
   const e = ctx.etat, o = e.objectif;
   // F07 : à la victoire, coups, jauge et spéciales restants deviennent des destructions et de l'XP (finale.js) ;
   // consommation virtuelle, `coups` et `jauge` ci-dessous restent ceux de la fin de partie.
+  e.xpReference=e.xpSalle;
   const finale = victoire ? jouerFinale(ctx) : null;
-  e.stats.salles.push({ id: e.salle.id, nom: e.salle.nom, xp: e.xpSalle, niveau: e.niveau, victoire, raison, xpFinale: finale ? finale.xp : 0 });
+  e.stats.salles.push({ id: e.salle.id, nom: e.salle.nom, xp: e.xpSalle, xpReference:e.xpReference, niveau: e.niveau, victoire, raison, xpFinale: finale ? finale.xp : 0 });
   // Quasi-victoire : l'écran d'échec peut dire « à N billes de l'objectif ».
-  e.enAttente = { type: 'finSalle', victoire, raison, xpSalle: e.xpSalle, niveau: e.niveau, coups: e.coups, finale, objectif: { type: o.type, progres: Math.min(o.progres, o.cible), cible: o.cible, manque: Math.max(0, o.cible - o.progres) } };
+  e.enAttente = { type: 'finSalle', victoire, raison, xpReference:e.xpReference, xpSalle: e.xpSalle, niveau: e.niveau, coups: e.coups, finale, objectif: { type: o.type, progres: Math.min(o.progres, o.cible), cible: o.cible, manque: Math.max(0, o.cible - o.progres) } };
   ctx.emettre({ t: 'finSalle', victoire, raison });
   ctx.bus.emettre('finSalle', ctx, { victoire, raison });
 }
@@ -282,6 +299,7 @@ export function verifierFin(ctx) {
   if (!existeCoup(ctx.grille)) {
     const peutTourner = e.jauge > 0 || (ROTATION_HORS_JAUGE === 'coup' && e.coups > 0);
     const mode = MODES_GRAVITE[e.modeGravite] ?? MODES_GRAVITE.continue;
+    if(o.type==='reliques'&&peutTourner&&compter(ctx.grille,c=>c.element?.type==='relique'))return;
     if (!compter(ctx.grille, (c) => c.type === 'bille')) finirSalle(ctx, false, 'vide');
     // Sans remplissage, tourner ne sert que si la chute recrée un groupe : sinon la salle est perdue.
     else if (peutTourner && (mode.remplissageRotation !== false || rotationUtile(ctx))) ctx.emettre({ t: 'message', texte: 'Plus aucun groupe : tourne le plateau' });
@@ -345,6 +363,7 @@ export function finDeTour(ctx, { rotation = false, avant = null } = {}) {
   expirerEffets(ctx, { rotation });
   ctx.bus.emettre('finTour', ctx, { tour: e.tour });
   ctx.activesCeTour.clear();
+  finirActionSolaire(ctx);
   verifierNiveau(ctx);
   verifierFin(ctx);
 }

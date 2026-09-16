@@ -1,6 +1,7 @@
 // Écrans d'attente construits depuis etat.enAttente (§3/§7 CONTRATS) :
 // montée de niveau, choix de compétence, fin de salle, fin de run.
 import { COMPETENCES } from '../data/competences.js';
+import { carteBuildParId } from '../data/builds.js';
 import { formatNombre } from './utils.js';
 
 // Mot affiché dans le bandeau de rareté des cartes de niveau/compétence.
@@ -22,6 +23,7 @@ const UNITE_OBJECTIF = {
   ballons: 'étoiles filantes',
   pierres: 'astéroïdes',
   billes: 'billes',
+  reliques: 'noyaux',
 };
 
 // mm:ss entre deux instants epoch (ms).
@@ -38,6 +40,13 @@ export function titreDeBuild(enAttente) {
   const stats = enAttente?.stats ?? {};
   const speciales = stats.speciales ?? {};
   const competences = enAttente?.competences ?? [];
+
+  if (enAttente?.build?.length) {
+    const familles = {};
+    for (const b of enAttente.build) { const famille = carteBuildParId(b.id)?.archetype; if (famille) familles[famille] = (familles[famille] ?? 0) + (b.rang ?? 1); }
+    const premiere = Object.entries(familles).sort((a,b) => b[1] - a[1])[0]?.[0] ?? 'Explorateur';
+    return `${premiere} ${enAttente.victoire ? 'du système solaire' : 'en orbite'}`;
+  }
 
   let nom;
   if ((stats.chaineMax ?? 0) >= 3) nom = 'Réaction en chaîne';
@@ -123,7 +132,7 @@ export function creerCartes(conteneur, actions) {
     badgeEncourageEl.hidden = true;
     grille.hidden = true;
     grille.innerHTML = '';
-    grille.classList.remove('grille-niveau', 'apogee');
+    grille.classList.remove('grille-niveau', 'grille-build', 'apogee');
     statsGrille.hidden = true;
     statsGrille.innerHTML = '';
     escalierXp.hidden = true;
@@ -137,7 +146,7 @@ export function creerCartes(conteneur, actions) {
   // la table (voir .carte en CSS). risque/synergie/evolution ne concernent
   // que les cartes de niveau ; absents (undefined), ils n'ajoutent rien —
   // l'écran « compétence » est donc inchangé.
-  function carteChoix({ nom, desc, rarete, risque, synergie, evolution, onChoisir }) {
+  function carteChoix({ nom, desc, rarete, risque, synergie, evolution, archetype, bonus, malus, rang, palier, onChoisir }) {
     const carte = document.createElement('button');
     carte.type = 'button';
     carte.className = 'carte';
@@ -152,7 +161,7 @@ export function creerCartes(conteneur, actions) {
     if (rarete) {
       const labelRarete = document.createElement('span');
       labelRarete.className = 'carte-bandeau-label';
-      labelRarete.textContent = LIBELLE_RARETE[rarete] ?? '';
+      labelRarete.textContent = `${LIBELLE_RARETE[rarete] ?? ''}${rang || palier ? ` · RANG ${rang ?? palier}` : ''}`;
       bandeau.appendChild(labelRarete);
     }
     carte.appendChild(bandeau);
@@ -177,9 +186,23 @@ export function creerCartes(conteneur, actions) {
 
     const titreCarte = document.createElement('h3');
     titreCarte.textContent = nom;
+    if (archetype) {
+      const famille = document.createElement('div');
+      famille.className = 'carte-archetype';
+      famille.textContent = archetype;
+      carte.appendChild(famille);
+    }
     const descCarte = document.createElement('p');
     descCarte.textContent = desc;
-    carte.append(titreCarte, descCarte);
+    carte.append(titreCarte);
+    if (!bonus) carte.appendChild(descCarte);
+    for (const [label, texte, classe] of [['BÉNÉFICE', bonus, 'carte-benefice'], ['CONTREPARTIE', malus, 'carte-malus']]) {
+      if (!texte) continue;
+      const bloc = document.createElement('p'); bloc.className = classe;
+      const entete = document.createElement('strong'); entete.textContent = label;
+      bloc.append(entete, document.createTextNode(texte)); carte.appendChild(bloc);
+    }
+    if (archetype && !malus) { const info = document.createElement('small'); info.className = 'carte-sans-malus'; info.textContent = 'Sans contrepartie'; carte.appendChild(info); }
 
     if (synergie) {
       const bandeauSynergie = document.createElement('p');
@@ -256,19 +279,27 @@ export function creerCartes(conteneur, actions) {
           boutonRelance.disabled = !relance.possible;
         }
       } else if (enAttente.type === 'competence') {
-        titre.textContent = 'Choisis une compétence';
+        titre.textContent = 'Un pouvoir pour la suite';
+        sousTitre.hidden = false;
+        sousTitre.textContent = `${formatNombre(enAttente.xpReference ?? 0)} XP gagnée sur la planète précédente · Gain : +${enAttente.palier ?? 1} rang${(enAttente.palier ?? 1) > 1 ? 's' : ''}, maximum 3 par carte. Pouvoirs et contreparties restent actifs toute l’expédition.`;
+        grille.classList.add('grille-build');
         grille.hidden = false;
         (enAttente.propositions ?? []).forEach((prop) => {
           grille.appendChild(carteChoix({
             nom: prop.nom,
             desc: prop.desc,
             rarete: prop.rarete,
+            archetype: prop.archetype,
+            bonus: prop.bonus,
+            malus: prop.malus,
+            rang: prop.rang,
+            palier: prop.palier,
             onChoisir: () => actions.choisir(prop.id),
           }));
         });
-        boutonPied('Passer', () => actions.choisir(null));
+        boutonPied('Continuer sans carte', () => actions.choisir(null));
       } else if (enAttente.type === 'finSalle') {
-        titre.textContent = enAttente.victoire ? 'Étape franchie' : 'Échec';
+        titre.textContent = enAttente.victoire ? 'Planète sauvée' : 'Mission interrompue';
         sousTitre.hidden = false;
         const libelleRaison = enAttente.raison ? (LIBELLE_RAISON[enAttente.raison] ?? enAttente.raison) : '';
         const raison = libelleRaison ? `${libelleRaison} — ` : '';
@@ -304,7 +335,7 @@ export function creerCartes(conteneur, actions) {
 
         boutonPied('Continuer', () => actions.choisir(null), true);
       } else if (enAttente.type === 'finRun') {
-        titre.textContent = enAttente.victoire ? 'Victoire !' : 'Fin du run';
+        titre.textContent = enAttente.victoire ? (enAttente.totalSalles === 8 ? 'Le système solaire est sauvé !' : 'Expédition accomplie !') : 'Fin de l’expédition';
         sousTitre.hidden = false;
         sousTitre.textContent = titreDeBuild(enAttente);
 
@@ -315,7 +346,7 @@ export function creerCartes(conteneur, actions) {
         statsGrille.hidden = false;
         [
           ['Durée', formatDuree((stats.fin ?? 0) - (stats.debut ?? 0))],
-          ['Salles franchies', `${enAttente.salleIndex ?? 0} / ${enAttente.totalSalles ?? 0}`],
+          ['Planètes sauvées', `${enAttente.stats?.salles?.filter(s => s.victoire).length ?? enAttente.salleIndex ?? 0} / ${enAttente.totalSalles ?? 0}`],
           ['XP totale', formatNombre(enAttente.xpTotale ?? 0)],
           ['Monnaie méta', `+${formatNombre(enAttente.monnaieMeta ?? 0)}`],
           ['Plus grosse chaîne', `×${(stats.chaineMax ?? 0) + 1}`],
@@ -390,6 +421,14 @@ export function creerCartes(conteneur, actions) {
             listePilules.appendChild(pilule);
           });
           competencesFin.appendChild(listePilules);
+        }
+
+        if (enAttente.build?.length) {
+          competencesFin.hidden = false;
+          const label = document.createElement('p'); label.className = 'section-fin-titre'; label.textContent = 'Votre collection finale'; competencesFin.appendChild(label);
+          const liste = document.createElement('div'); liste.className = 'liste-pilules';
+          for (const carte of enAttente.build) { const info = carteBuildParId(carte.id); const pill = document.createElement('span'); pill.className = 'pilule-competence'; pill.textContent = `${info?.nom ?? carte.id} · rang ${carte.rang}`; liste.appendChild(pill); }
+          competencesFin.appendChild(liste);
         }
 
         boutonPied('Retour au menu', () => actions.quitter());

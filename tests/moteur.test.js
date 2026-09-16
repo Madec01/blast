@@ -1,12 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { creerRun, chargerRun } from '../src/moteur/run.js';
+import { creerRun as creerRunSolaire, chargerRun } from '../src/moteur/run.js';
 import { creerGrille, nouvelleBille, nouvellePierre, nouvelElement, groupe } from '../src/moteur/grille.js';
 import { appliquerGravite, remplir } from '../src/moteur/chute.js';
 import { colonnes, tourner } from '../src/moteur/gravite.js';
 import * as awaitImport from '../src/moteur/tour.js';
 import { appliquerEffet } from '../src/moteur/progression.js';
 import { tousGroupes } from '../src/moteur/grille.js';
+
+// Les contrats historiques restent testés sur leur campagne d’origine.
+const creerRun = (config = {}) => creerRunSolaire({ salles: ['vestibule', 'puits', 'maree', 'tempete', 'pendule'], ...config });
 
 test('gravité : colonnes ordonnées du haut visuel vers le bas pour les 4 orientations', () => {
   const c0 = colonnes(3, 2, 0); assert.deepEqual(c0[0], [0, 3]);          // x=0 : y 0→1

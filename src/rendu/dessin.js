@@ -42,9 +42,15 @@ export function creerDessinCellule(ctx, sprites) {
       ctx.restore();
     }
   }
-  function dessinerElement(bv, angleActuel) {
+  function dessinerElement(bv, angleActuel, cellPixBase, tempsTotal) {
     const el = bv.element || {};
-    if (el.type === 'bulle') { if (el.contenu) { ctx.save(); ctx.scale(0.62, 0.62); dessinerContenu(el.contenu); ctx.restore(); } dessinerCentre(sprites.bulleOverlay()); }
+    if (el.type === 'relique') {
+      const r=cellPixBase*.4;
+      ctx.save();ctx.rotate(-angleActuel);ctx.shadowColor='#7affde';ctx.shadowBlur=cellPixBase*.3;
+      ctx.strokeStyle='#66f0d7';ctx.lineWidth=cellPixBase*.035;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.39:r*.86;i?ctx.lineTo(Math.cos(a)*rr,Math.sin(a)*rr):ctx.moveTo(Math.cos(a)*rr,Math.sin(a)*rr);}ctx.closePath();ctx.fillStyle='#ffed9d';ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-r*.1,-r*.12,r*.12,0,Math.PI*2);ctx.fill();ctx.restore();
+    }
+    else if (el.type === 'bulle') { if (el.contenu) { ctx.save(); ctx.scale(0.62, 0.62); dessinerContenu(el.contenu); ctx.restore(); } dessinerCentre(sprites.bulleOverlay()); }
     else if (el.type === 'ballon') { // étoile filante (E1) : contre-rotée comme fusee/ligne pour rester orientée écran-haut
       ctx.save(); ctx.rotate(-angleActuel); dessinerCentre(sprites.ballon(bv.couleur != null ? bv.couleur : 0)); ctx.restore();
     }
@@ -52,7 +58,7 @@ export function creerDessinCellule(ctx, sprites) {
   }
   function dessinerCellule(bv, tempsTotal, cellPixBase, angleActuel) {
     if (bv.type === 'pierre') dessinerCentre(sprites.pierre());
-    else if (bv.type === 'element') dessinerElement(bv, angleActuel);
+    else if (bv.type === 'element') dessinerElement(bv, angleActuel, cellPixBase, tempsTotal);
     else dessinerBilleCouleur(bv, tempsTotal, cellPixBase, angleActuel);
   }
   function dessinerSurlignage(lx, ly, cellPixBase) {

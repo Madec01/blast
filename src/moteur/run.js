@@ -1,12 +1,17 @@
 // Le run : enchaînement des salles, compétences, sérialisation. API publique : docs/CONTRATS.md §3.
+import { apercuCombo } from './combos.js';
 import { creerRng, seedDepuis } from './rng.js';
 import { creerBus } from './hooks.js';
 import { creerGrille, groupe, estTapable, existeCoup, nouvelleBille, nouvellePierre, nouvelElement, idx, coord } from './grille.js';
 import { retomber, detruire, jouerRotation, jouerTap, jouerRotationJoueur, verifierNiveau, verifierFin, majSeuilsXp, remplirFile } from './tour.js';
 import { appliquerEffet, retirerEffet, relancer, SEUILS_NIVEAU, NIVEAU_MAX } from './progression.js';
-import { SALLES, ORDRE_PHASE1, MODES_GRAVITE, MODE_GRAVITE_DEFAUT, ROTATION_HORS_JAUGE } from '../data/salles.js';
+import { SALLES, MODES_GRAVITE, MODE_GRAVITE_DEFAUT, ROTATION_HORS_JAUGE } from '../data/salles.js';
 import { apercuRotation } from './apercu.js';
 import { COMPETENCES, POIDS_RARETE } from '../data/competences.js';
+
+import { ORDRE_SOLAIRE, planeteParId } from '../data/planetes.js';
+import { installerSolaire, proposerBuild, choisirBuild } from './solaire.js';
+import { CARTES_BUILD, palierBuild } from '../data/builds.js';
 
 const VERSION = 2; // 2 : mode de gravité (D12), la rotation à jauge vide coûte un coup (D13)
 
@@ -48,6 +53,11 @@ function genererGrille(ctx, def) {
         else g.cellules[i] = nouvelElement(g, el.type);
       }
     }
+    if (def.objectif.type === 'reliques') {
+      // Deux balises centrales, jamais sur une sortie au départ ; nombre cohérent en mode Test.
+      const positions = libres.filter(i => { const [x,y]=coord(g,i); return x>=2&&x<g.w-2&&y>=2&&y<g.h-2; });
+      for(let k=0;k<e.objectif.cible;k++) {const i=positions.pop()??libres.pop(); if(i!==undefined)g.cellules[i]=nouvelElement(g,'relique');}
+    }
     if (existeCoup(g)) return g;
   }
   return creerGrille(def.grille.w, def.grille.h);
@@ -61,6 +71,8 @@ function entrerSalle(ctx, index) {
   e.effetsActifs = []; e.effetsVus = [];
   e.salleIndex = index;
   e.salle = { id: def.id, nom: def.nom, type: def.type, desc: def.desc, index, total: e.ordre.length, regles: def.regles ?? {} };
+  if (def.planete) { const p=planeteParId(def.planete); Object.assign(e.salle,{planete:p.id,bonus:p.bonus,malus:p.malus}); }
+  if(e.options.buildSolaire) e.resonance={charge:0,max:100,actions:0};
   e.couleurs = e.options.couleurs ?? def.couleurs;
   const mode = e.options.gravite ?? def.regles?.gravite ?? MODE_GRAVITE_DEFAUT;
   e.modeGravite = MODES_GRAVITE[mode] ? mode : MODE_GRAVITE_DEFAUT;
@@ -69,15 +81,17 @@ function entrerSalle(ctx, index) {
   e.relanceGratuite = true; // D19 : une relance de cartes gratuite par salle
   e.coupsMax = ctx.bus.reduire('coupsInitiaux', Math.max(5, Math.round(def.coups / e.difficulte)), ctx, { salle: def });
   if (e.memo.dette) { e.coupsMax = Math.max(1, e.coupsMax - e.memo.dette); e.memo.dette = 0; } // « Dette » : payée ici, même après rechargement
+  if(e.memo.reserveSolaire){e.coupsMax+=e.memo.reserveSolaire;e.memo.reserveSolaire=0;}
   e.coups = e.coupsMax;
   e.jaugeMax = ctx.bus.reduire('jaugeInitiale', e.options.jauge ?? def.jauge ?? 3, ctx, { salle: def });
   e.jauge = e.jaugeMax;
   e.objectif = { type: def.objectif.type, cible: Math.round(def.objectif.cible * e.difficulte), progres: 0 };
+  if(def.objectif.sortie)e.objectif.sortie={...def.objectif.sortie};
   if (def.objectif.type === 'couleur') e.objectif.couleur = ctx.rng.entier(e.couleurs);
   e.prochainesEntrees = [];
   e.grille = genererGrille(ctx, def);
   remplirFile(ctx); // la file est connue dès l'entrée (Prévoyance, aperçu de rotation)
-  e.annonce = def.regles?.rotationAuto ? (def.regles.rotationAuto === 'pendule' ? { sens: 1 } : { sens: ctx.rng.choix([-1, 1, 2]) }) : null;
+  e.annonce = def.regles?.rotationAuto && !def.regles?.rotationPeriode ? (def.regles.rotationAuto === 'pendule' ? { sens: 1 } : { sens: ctx.rng.choix([-1, 1, 2]) }) : null;
   e.enAttente = null;
   ctx.activesCeTour.clear();
   ctx.emettre({ t: 'salle', index, nom: def.nom });
@@ -111,7 +125,7 @@ function finirRun(ctx, victoire) {
   const e = ctx.etat;
   const monnaieMeta = Math.floor((e.xpTotale / 100) * (victoire ? 1.5 : 1));
   e.stats.fin = Date.now();
-  e.enAttente = { type: 'finRun', victoire, xpTotale: e.xpTotale, monnaieMeta, salleIndex: e.salleIndex, stats: e.stats, competences: e.competences.slice(), totalSalles: e.ordre.length };
+  e.enAttente = { type: 'finRun', victoire, xpTotale: e.xpTotale, monnaieMeta, salleIndex: e.salleIndex, stats: e.stats, competences: e.competences.slice(), build: (e.build??[]).map(c=>({...c})), totalSalles: e.ordre.length };
   ctx.emettre({ t: 'finRun', victoire });
 }
 
@@ -131,7 +145,8 @@ function choisir(ctx, id) {
     case 'competence': {
       if (id !== null && !att.propositions.some((p) => p.id === id)) return false;
       e.enAttente = null;
-      if (id) {
+      if (id && e.options.buildSolaire) choisirBuild(ctx,att.propositions.find(p=>p.id===id));
+      else if (id) {
         e.competences.push(id);
         const c = COMPETENCES.find((x) => x.id === id);
         if (ctx.nb(id) === 1) c.installer(ctx);
@@ -144,7 +159,7 @@ function choisir(ctx, id) {
       e.enAttente = null;
       if (!att.victoire) { finirRun(ctx, false); return true; }
       if (e.salleIndex + 1 >= e.ordre.length) { finirRun(ctx, true); return true; }
-      e.enAttente = { type: 'competence', propositions: proposerCompetences(ctx) };
+      e.enAttente = e.options.buildSolaire ? { type:'competence',propositions:proposerBuild(ctx),xpReference:e.xpReference,palier:palierBuild(e.xpReference) } : { type: 'competence', propositions: proposerCompetences(ctx) };
       return true;
     }
     default: return false;
@@ -160,6 +175,11 @@ function envelopper(ctx) {
     tourner(sens) { return collecter(() => jouerRotationJoueur(ctx, sens)); },
     choisir(id) { return collecter(() => choisir(ctx, id)); },
     relancer() { return collecter(() => relancer(ctx)); },
+    apercuCombo(x,y) {
+      if(e.enAttente||!Number.isInteger(x)||!Number.isInteger(y)||x<0||y<0||x>=e.grille.w||y>=e.grille.h)return null;
+      const a=apercuCombo(ctx,idx(e.grille,x,y));
+      return a?{...a,cellules:a.cellules.map(i=>{const [x,y]=coord(e.grille,i);return {x,y};})}:null;
+    },
     groupeA(x, y) {
       const g = e.grille, i = idx(g, x, y);
       if (x < 0 || x >= g.w || y < 0 || y >= g.h || !estTapable(g, i)) return [];
@@ -183,29 +203,30 @@ function envelopper(ctx) {
 
 /**
  * Crée un run. options : { couleurs, jauge, gravite } pour le mode Test (gravite : clé de MODES_GRAVITE).
- * salles : liste d'ids (défaut : ORDRE_PHASE1).
+ * salles : liste d'ids (défaut : ORDRE_SOLAIRE ; ids historiques conservés).
  */
 export function creerRun({ seed = Date.now(), salles = null, competences = [], difficulte = 1, options = {} } = {}) {
-  if (!Array.isArray(salles ?? ORDRE_PHASE1) || !(salles ?? ORDRE_PHASE1).length || (salles ?? ORDRE_PHASE1).some((id) => !SALLES.some((s) => s.id === id))) throw new Error('Liste de salles invalide');
+  if (!Array.isArray(salles ?? ORDRE_SOLAIRE) || !(salles ?? ORDRE_SOLAIRE).length || (salles ?? ORDRE_SOLAIRE).some((id) => !SALLES.some((s) => s.id === id))) throw new Error('Liste de salles invalide');
   if (!Number.isFinite(difficulte) || difficulte <= 0 || difficulte > 5) throw new Error('Difficulté invalide');
   if (!options || typeof options !== 'object' || (options.couleurs != null && (!Number.isInteger(options.couleurs) || options.couleurs < 2 || options.couleurs > 6))) throw new Error('Options invalides');
   if (!Array.isArray(competences) || competences.some((id) => !COMPETENCES.some((c) => c.id === id))) throw new Error('Compétences invalides');
   if (options.jauge != null && (!Number.isInteger(options.jauge) || options.jauge < 0 || options.jauge > 100)) throw new Error('Jauge invalide');
   if (options.cascadeMin != null && (!Number.isInteger(options.cascadeMin) || options.cascadeMin < 2 || options.cascadeMin > 80)) throw new Error('Seuil de cascade invalide');
-  options = { cascades: 'rotation', cascadeMin: 6, secours: true, ...options };
+  options = { buildSolaire: salles === null || salles.some(id=>id.startsWith('solaire_')), cascades: 'rotation', cascadeMin: 6, secours: true, ...options };
   const s = seedDepuis(seed);
   const rng = creerRng(s);
   const etat = {
-    version: VERSION, seed: s, rngEtat: s, ordre: salles ?? ORDRE_PHASE1.slice(), difficulte, options,
+    version: VERSION, seed: s, rngEtat: s, ordre: salles ?? ORDRE_SOLAIRE.slice(), difficulte, options,
     salleIndex: 0, salle: null, grille: null, gravite: 0,
     coups: 0, coupsMax: 0, jauge: 0, jaugeMax: 0, tour: 0,
     xpSalle: 0, niveau: 1, xpTotale: 0, couleurs: 5, modeGravite: MODE_GRAVITE_DEFAUT,
-    objectif: null, competences: competences.slice(), effetsActifs: [], effetsVus: [],
+    objectif: null, build: [], resonance: null, xpReference: 0, competences: competences.slice(), effetsActifs: [], effetsVus: [],
     prochainesEntrees: [], annonce: null, enAttente: null, memo: {}, elan: false, pitie: 0, relanceGratuite: true,
     stats: { debut: Date.now(), taps: 0, rotations: 0, rotationsProductives: 0, chaineMax: 0, plusGrosGroupe: 0, billesDetruites: 0, etoilesLiberees: 0, xpFinale: 0, speciales: { bombe: 0, ligne: 0, croix: 0, couleur: 0 }, effets: [], salles: [] },
   };
   const ctx = creerCtx(etat, rng);
   installerCompetences(ctx);
+  installerSolaire(ctx);
   ctx.evenements = [];
   entrerSalle(ctx, 0);
   const run = envelopper(ctx);
@@ -218,6 +239,14 @@ export function creerRun({ seed = Date.now(), salles = null, competences = [], d
 function sauvegardeValide(e) {
   if (!e || !Array.isArray(e.ordre) || !e.ordre.length || e.ordre.some((id) => !SALLES.some((s) => s.id === id))) return false;
   if (!Number.isInteger(e.salleIndex) || e.salleIndex < 0 || e.salleIndex >= e.ordre.length || e.salle?.id !== e.ordre[e.salleIndex]) return false;
+  if(e.options?.buildSolaire) {
+    if(!Array.isArray(e.build)||e.build.length>6||new Set(e.build.map(c=>c.id)).size!==e.build.length||e.build.some(c=>!CARTES_BUILD.some(b=>b.id===c.id)||!Number.isInteger(c.rang)||c.rang<1||c.rang>3))return false;
+    const r=e.resonance;
+    if(!r||r.max!==100||!Number.isFinite(r.charge)||r.charge<0||r.charge>100||!Number.isInteger(r.actions)||r.actions<0||r.actions>3)return false;
+    if(!Number.isFinite(e.xpReference)||e.xpReference<0)return false;
+    if(e.enAttente?.type==='competence'&&(!Array.isArray(e.enAttente.propositions)||e.enAttente.propositions.some(p=>!p||(!CARTES_BUILD.some(c=>c.id===p.id)&&p.id!=='reserve_solaire')||!Number.isInteger(p.rang)||p.rang<1||p.rang>3)))return false;
+    if(e.objectif?.type==='reliques'&&![0,1,2,3].includes(e.objectif.sortie?.gravite))return false;
+  }
   const g = e.grille;
   if (!g || !Number.isInteger(g.w) || !Number.isInteger(g.h) || g.w < 1 || g.h < 1 || g.w > 30 || g.h > 30) return false;
   if (!Array.isArray(g.cellules) || g.cellules.length !== g.w * g.h || !Array.isArray(g.forme) || g.forme.length !== g.cellules.length || g.forme.some((v) => v !== 0 && v !== 1)) return false;
@@ -227,7 +256,7 @@ function sauvegardeValide(e) {
     if (!c || !Number.isInteger(c.id) || c.id < 1 || ids.has(c.id) || !['bille', 'pierre', 'element'].includes(c.type)) return false;
     ids.add(c.id);
     if (c.type === 'bille' && (!Number.isInteger(c.couleur) || c.couleur < 0 || c.couleur > 5 || ![null, undefined, 'bombe', 'ligne', 'croix', 'couleur', 'magnet'].includes(c.speciale))) return false;
-    if (c.type === 'element' && (!c.element || !['bulle', 'ballon', 'fusee'].includes(c.element.type))) return false;
+    if (c.type === 'element' && (!c.element || !['bulle', 'ballon', 'fusee', 'relique'].includes(c.element.type))) return false;
     return !c.element?.contenu || celluleValide(c.element.contenu);
   };
   if (!g.cellules.every(celluleValide) || !Number.isInteger(g.prochainId) || [...ids].some((id) => id >= g.prochainId)) return false;
@@ -247,7 +276,7 @@ export function chargerRun(json) {
   if (!sauvegardeValide(data.etat)) return null;
   const etat = data.etat;
   // Les anciennes parties conservent leurs règles jusqu'au prochain run.
-  etat.options = { cascades: false, secours: false, ...etat.options };
+  etat.options = { buildSolaire: false, cascades: false, secours: false, ...etat.options };
   etat.relanceGratuite ??= true; // sauvegardes antérieures à D19
   etat.stats ??= { debut: Date.now(), taps: 0, rotations: 0, chaineMax: 0, plusGrosGroupe: 0, billesDetruites: 0, etoilesLiberees: 0, speciales: { bombe: 0, ligne: 0, croix: 0, couleur: 0 }, effets: [], salles: [] };
   etat.stats.rotationsProductives ??= 0; // sauvegardes antérieures à F09
@@ -255,6 +284,7 @@ export function chargerRun(json) {
   const rng = creerRng(etat.seed); rng.etat = etat.rngEtat;
   const ctx = creerCtx(etat, rng);
   installerCompetences(ctx);
+  installerSolaire(ctx);
   for (const a of etat.effetsActifs) appliquerEffet(ctx, a.id, { reprise: true, restant: a.restant });
   ctx.evenements = [];
   return envelopper(ctx);
