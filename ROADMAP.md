@@ -11,6 +11,7 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 - [x] Hélios 0.5 : décor plein écran, cristaux sci-fi, animations continues et récit progressif.
 - [x] PWA hors ligne, tests Node et vérifications navigateur multi-résolutions.
 - [x] 0.5.1 : corriger la cadence Retina (fond composé séparément, pixels bornés, survols regroupés, flous retirés).
+- [x] 0.5.2 : approche narrative avant chaque planète, décor réellement chargé avant le niveau, réessai en cas d’erreur.
 - [ ] Playtester sur iPhone et Android physiques ; mesurer cadence et durée des longues chaînes.
 - [x] Trois recettes de combos et campagne de 24 niveaux sur huit planètes.
 - [ ] Affiner après retour humain les défis tardifs et la durée totale de l’expédition.

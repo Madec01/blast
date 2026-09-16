@@ -1410,3 +1410,28 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px 
 #plateau { position:relative; z-index:1; }
 #hud .hud-menu, #hud .hud-carnet summary, #hud .hud-coups,
 #commandes .touche, .toast { backdrop-filter:none; -webkit-backdrop-filter:none; }
+
+/* Une approche orbitale opaque masque le premier rendu des textures. */
+.transit-planete {
+  position:fixed; inset:0; z-index:100; display:flex; align-items:safe center;
+  justify-content:center; overflow:auto; pointer-events:auto;
+  padding:max(28px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));
+  background:radial-gradient(ellipse at 50% 35%,#142a38 0%,#08121e 48%,#030810 100%);
+  color:#e8f2f5; outline:none;
+}
+.transit-planete[hidden], .transit-planete [hidden] { display:none; }
+.transit-contenu { width:min(430px,100%); text-align:center; }
+.transit-repere { position:relative; width:76px; height:76px; margin:0 auto 30px; border:1px solid #7ab8c43d; border-radius:50%; }
+.transit-repere::before { content:''; position:absolute; inset:13px; border:1px solid #8fc7d366; border-radius:50%; }
+.transit-repere::after { content:''; position:absolute; width:8px; height:8px; border-radius:50%; top:4px; left:14px; background:#b0e0e7; box-shadow:0 0 12px #77bace55; }
+.transit-repere span { position:absolute; inset:27px; border-radius:50%; background:#79aeba; }
+.transit-kicker { color:#96becb; font-size:10px; letter-spacing:.16em; line-height:1.7; margin:0 0 14px; }
+.transit-planete h1 { font-size:clamp(30px,7vw,42px); font-weight:500; letter-spacing:.025em; margin:0 0 22px; }
+.transit-recit { color:#c8dae3; font-size:15px; line-height:1.8; margin:0 0 28px; text-wrap:pretty; }
+.transit-etat { display:flex; align-items:center; justify-content:center; gap:9px; min-height:38px; color:#9bb7c5; font-size:11px; line-height:1.6; }
+.transit-spinner { width:13px; height:13px; flex-shrink:0; border:1px solid #759cac44; border-top-color:#b8e5ea; border-radius:50%; animation:transit-attente .9s linear infinite; }
+.transit-action { margin:18px auto 0; min-height:46px; min-width:170px; padding:11px 26px; font-size:14px; }
+.transit-action:disabled { opacity:.35; cursor:wait; }
+@keyframes transit-attente { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .transit-spinner { animation:none; } }
+@media (max-height:550px) { .transit-repere { width:50px; height:50px; margin-bottom:14px; } .transit-repere span { inset:20px; } .transit-planete h1 { margin-bottom:12px; } .transit-recit { margin-bottom:12px; font-size:13px; } }

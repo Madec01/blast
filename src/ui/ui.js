@@ -1,3 +1,4 @@
+import { creerTransit } from './transit.js';
 // Assemble l'interface complète de VERTIGE : menu, HUD, commandes de
 // rotation, cartes de choix, panneau Mode Test et toasts. Point d'entrée
 // unique conforme au contrat §7 (docs/CONTRATS.md) : creerUI(racine, actions).
@@ -37,6 +38,7 @@ export function creerUI(racine, actions) {
 
   racine.append(coucheMenu, coucheAttente, coucheTest, coucheToasts);
 
+  const transit = creerTransit(racine);
   const hud = creerHud(elHud, actions);
   const cartes = creerCartes(coucheAttente, actions);
   const test = creerTest(coucheTest, actions);
@@ -112,7 +114,7 @@ export function creerUI(racine, actions) {
   // Clavier : Q/← = -1, D/→ = +1, S/↓ = 2, Échap = quitter (confirmation)
   // =====================================================================
   const surClavier = (evt) => {
-    if (evt.repeat) return;
+    if (evt.repeat || transit.actif) return;
     if (!coucheMenu.hidden || !coucheTest.hidden || !coucheAttente.hidden || /INPUT|SELECT|TEXTAREA|BUTTON/.test(evt.target?.tagName ?? '')) return;
     const touche = evt.key.toLowerCase();
     if (touche === 'q' || touche === 'arrowleft') actions.tourner(-1);
@@ -143,7 +145,8 @@ export function creerUI(racine, actions) {
   // =====================================================================
   return {
     /** Retire ce que creerUI a posé hors de la racine (écouteur clavier sur document). */
-    detruire() { doc.removeEventListener('keydown', surClavier); },
+    detruire() { transit.detruire(); doc.removeEventListener('keydown', surClavier); },
+    attendrePlanete: options => transit.attendre(options),
     afficherMenu(donnees) {
       masquerCouches();
       construireMenu(donnees);

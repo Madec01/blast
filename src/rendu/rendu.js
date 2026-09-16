@@ -541,6 +541,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     decor.detruire(); particules.vider(); juice.vider(); impact.vider(); specialesFx.vider(); finale.vider(); billes.clear();
   }
   return {
+    preparerSalle(etat) { return decor.preparer(etat.salle?.planete, Math.max(0, (etat.salle?.niveauPlanete || 1) - 1)); },
     synchroniser, jouer, surligner, previsualiserRotation, previsualiserCombo, redimensionner, detruire, pause, reprendre,
     get enAnimation() { return !rienNAnime(); },
     /** Centre d'une case en pixels CSS du canvas (tests, télégraphe externe). */

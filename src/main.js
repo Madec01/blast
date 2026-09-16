@@ -1,3 +1,5 @@
+import { PLANETES } from './data/planetes.js';
+import { TRANSMISSIONS } from './data/histoire.js';
 // Orchestration : moteur ↔ rendu ↔ UI ↔ audio. Voir docs/CONTRATS.md.
 import { creerRun, chargerRun } from './moteur/run.js';
 import { creerRendu } from './rendu/rendu.js';
@@ -10,7 +12,7 @@ import { lire, lireJson, ecrire, effacer, normaliserProfil, appliquerRecompense 
 const CLE_RUN = 'vertige.run', CLE_PROFIL = 'vertige.profil';
 
 const profil = normaliserProfil(lireJson(CLE_PROFIL, {}));
-let run = null, occupe = false, modeTest = false;
+let run = null, occupe = false, modeTest = false, dernierePlanete = null;
 
 const canvas = document.getElementById('plateau');
 const rendu = creerRendu(canvas, {
@@ -35,7 +37,7 @@ const ui = creerUI(document.getElementById('ui'), {
     audio.init(); modeTest = false;
     run = chargerRun(lire(CLE_RUN));
     if (!run) { effacer(CLE_RUN); run = creerRun({ seed: Date.now() }); demarrer(run.evenementsInitiaux); return; }
-    demarrer([{ t: 'salle', index: run.etat.salleIndex, nom: run.etat.salle.nom }]);
+    demarrer([{ t: 'salle', index: run.etat.salleIndex, nom: run.etat.salle.nom }], { reprise: true });
   },
   ouvrirModeTest() {
     ui.afficherTest({
@@ -85,11 +87,11 @@ const ui = creerUI(document.getElementById('ui'), {
   reglages(options) { Object.assign(profil, options); profil.muet = !profil.effets; audio.configurer(profil); ecrire(CLE_PROFIL, profil); },
 });
 
-function demarrer(evenements) {
+function demarrer(evenements, { reprise = false } = {}) {
+  dernierePlanete = reprise ? run.etat.salle?.planete : null;
   ui.afficherJeu();
   rendu.reprendre();
   audio.reprendre();
-  rendu.synchroniser(run.etat);
   ui.majHud(run.etat);
   jouer(evenements);
 }
@@ -103,8 +105,21 @@ async function jouer(evenements) {
   sauvegarder();
   // Une seule annonce par action : les effets d'un build ne doivent pas empiler des fenêtres.
   const messages = evenements.filter(ev => ev.t === 'message');
+  if (evenements.some(ev => ev.t === 'salle')) {
+    const salle = run.etat.salle;
+    const index = PLANETES.findIndex(p => p.id === salle?.planete);
+    const narratif = index >= 0 && salle.planete !== dernierePlanete;
+    await ui.attendrePlanete({
+      nom: PLANETES[index]?.nom ?? salle.nom,
+      texte: narratif ? TRANSMISSIONS[index]?.entree ?? '' : '', narratif,
+      charger: async () => {
+        await rendu.preparerSalle(run.etat);
+        rendu.synchroniser(run.etat); // le bitmap et ses lunes sont prêts avant de révéler la scène
+      },
+    });
+    dernierePlanete = salle?.planete;
+  }
   if (messages.length) ui.message(messages[messages.length - 1].texte);
-  if (evenements.some((ev) => ev.t === 'salle')) rendu.synchroniser(run.etat); // nouvelle salle : le rendu repart de l'état
   if (evenements.length) { try { await rendu.jouer(evenements, { audio }); } catch (err) { console.error('rendu', err); rendu.synchroniser(run.etat); } }
   occupe = false;
   canvas.setAttribute('aria-busy', 'false');

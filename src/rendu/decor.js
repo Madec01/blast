@@ -14,14 +14,23 @@ function calque(nom) {
 export function creerDecor() {
   let id = 'terre', planete = null, sprite = null, lune = null, phase = 0, version = 0;
   let fond = null, vignette = null, largeur = 0, hauteur = 0, largeurCSS = 0, hauteurCSS = 0, sale = true, dernierAngle = null, detruit = false;
-  chargerPlanete('lune', 160).then(s => { if (!detruit) { lune = s; sale = true; } }).catch(() => {});
+  let chargement = null;
+  async function preparer(nouveau, etape = 0) {
+    await definirPlanete(nouveau, etape);
+    if (!lune && (planete?.lunes ?? (id === 'terre' ? 1 : 0)) > 0) {
+      const s = await chargerPlanete('lune', 160);
+      if (!detruit) { lune = s; sale = true; }
+    }
+  }
   function definirPlanete(nouveau, etape = 0) {
     if (detruit) return;
     const next = nouveau || 'terre', nouvellePhase = Number(etape) || 0;
-    if (next === id && nouvellePhase === phase && (sprite || version)) return;
+    if (next === id && nouvellePhase === phase && (sprite || chargement)) return chargement;
     id = next; phase = nouvellePhase; planete = planeteParId(id); sprite = null; sale = true;
     const v = ++version;
-    chargerPlanete(id, 1024, phase).then(s => { if (!detruit && v === version) { sprite = s; sale = true; } }).catch(() => {});
+    chargement = chargerPlanete(id, 1024, phase).then(s => { if (!detruit && v === version) { sprite = s; sale = true; } });
+    chargement.catch(() => { if (v === version) chargement = null; });
+    return chargement;
   }
   function regenerer(_cell, cw, ch) {
     if (cw !== largeur || ch !== hauteur) { largeur = cw; hauteur = ch; sale = true; }
@@ -100,5 +109,5 @@ export function creerDecor() {
     for (const c of [fond, vignette]) if (c) { c.remove(); c.width = c.height = 1; }
     fond = vignette = sprite = lune = null;
   }
-  return { regenerer, definirPlanete, definirActe() {}, maj() {}, dessiner, detruire };
+  return { preparer, regenerer, definirPlanete, definirActe() {}, maj() {}, dessiner, detruire };
 }

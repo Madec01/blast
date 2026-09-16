@@ -56,6 +56,14 @@ async function main() {
   await shot('01-menu');
   await page.evaluate(saved => localStorage.setItem('vertige.run', saved), creerRun({ seed: 3 }).serialiser());
   await page.reload();
+  await page.evaluate(() => {
+    window.transitsNarratifs = [];
+    const transit = document.querySelector('.transit-planete');
+    new MutationObserver(() => {
+      if (!transit.hidden && !transit.querySelector('.transit-recit').hidden)
+        window.transitsNarratifs.push(transit.querySelector('h1').textContent);
+    }).observe(transit, { attributes:true, attributeFilter:['hidden'] });
+  });
   await page.getByRole('button', { name: /continuer/i }).click();
   await page.waitForFunction(() => window.vertige.run !== null);
 
@@ -84,6 +92,8 @@ async function main() {
       if (!/PLANÈTE 2 \/ 8 · NIVEAU 1 \/ 3/.test(parcours)) erreurs.push('HUD de transition incorrect : '+parcours);
       if (etat.victoires !== 3) erreurs.push('Les trois niveaux de Mercure ne sont pas terminés');
       if (await page.locator('.route-planete.sauvee').count() !== 1) erreurs.push('Le parcours ne montre pas exactement une planète sauvée');
+      const transits = await page.evaluate(() => window.transitsNarratifs);
+      if (JSON.stringify(transits) !== JSON.stringify(['Vénus'])) erreurs.push('Récits répétés ou planète manquante : '+JSON.stringify(transits));
       await shot('07-chapitre-venus'); termine = true; console.log('Chapitre Mercure terminé : arrivée sur Vénus 1/3, trois victoires et cartes conservées.'); break;
     }
     const action = choisirAction(chargerRun(await page.evaluate(() => window.vertige.run.serialiser())));
