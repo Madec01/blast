@@ -1,0 +1,51 @@
+name: Publier VERTIGE
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  # Compatibilité avec les dépôts encore réglés sur « Deploy from a branch » :
+  # republier le vrai build APRÈS la publication automatique des sources par Jekyll.
+  workflow_run:
+    workflows: [pages build and deployment]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vertige-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publier le jeu compilé
+        id: deployment
+        uses: actions/deploy-pages@v5

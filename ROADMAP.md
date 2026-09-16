@@ -205,3 +205,5 @@ Agent idées 2026-09-11 (18 idées dans `docs/IDEES.md`), son Top 5 :
 - [ ] Retour de jeu humain sur rythme, Terre/Saturne et valeur des malus.
 
 Voir [le bilan solaire](docs/EXPEDITION_SOLAIRE.md).
+
+- [x] Publication : workflow de compilation, tests et déploiement Pages ; compatibilité avec la publication Jekyll historique.

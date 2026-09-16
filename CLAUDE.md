@@ -452,3 +452,5 @@ Toutes les compétences et effets passent par un **système de hooks** central :
 | 2026-09-16 | Refonte 0.2 | Sur demande de refonte autonome : gemmes à six silhouettes, UI mobile, cascades de rotation nouveaux groupes ≥6, secours gratuit, PWA, réglages audio séparés et validation des sauvegardes. Canvas conservé, cinq salles, anciennes règles préservées pour anciens runs. | Voir docs/REFONTE_2026-09-16.md pour validation et limites ; pas encore prêt stores. |
 
 | 2026-09-16 | Expédition 0.3 | Demande explicite de Martin : huit planètes, cartes uniquement entre salles, puissance selon XP active, malus, trois recettes, balises gravitationnelles, résonance sur trois actions, trois familles de build et décor planétaire rotatif. | Réduire les coupures et renforcer les décisions sur le plateau ; validation et limites dans docs/EXPEDITION_SOLAIRE.md. |
+
+| 2026-09-16 | Publication | Publication automatique Vite → dist → Pages après push main et après Jekyll historique ; titre solaire mis à jour. | Martin a fusionné mais le site servait les sources non compilées ; fermeture des onglets active le nouveau cache sans effacer les sauvegardes. |

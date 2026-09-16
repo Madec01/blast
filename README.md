@@ -22,6 +22,12 @@ La PWA est installable depuis les navigateurs compatibles ; une première visite
 met les ressources en cache. Les mises à jour s'activent après fermeture des anciens onglets.
 Aucun compte, aucune requête tierce à l'exécution.
 
+## Publication automatique
+
+Le workflow `.github/workflows/pages.yml` teste et compile le jeu, puis publie **dist/** sur GitHub Pages à chaque modification de main. Il republie aussi après l’ancien workflow Jekyll si Pages est encore configuré sur une branche, pour éviter que les sources remplacent le build.
+
+Après une mise à jour, fermer tous les onglets du jeu (et l’application installée), puis rouvrir : le cache hors ligne conserve volontairement la version d’une partie ouverte. Ne pas effacer les données du site, qui contiennent les sauvegardes. Pour découvrir la nouvelle campagne, démarrer un nouveau run ; une ancienne sauvegarde garde ses règles.
+
 ## Jouer
 
 - Tapez au moins deux gemmes voisines de même couleur. Une spéciale seule peut aussi être activée.
