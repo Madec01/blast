@@ -5,7 +5,7 @@
  *   node tools/sim.mjs --runs 50 --seed 7 --politique gourmande|aleatoire|avisee --competences vertige,domino
  *   (avisee : choisit le sens de rotation avec l'aperçu, comme un joueur qui lit le télégraphe)
  *   node tools/sim.mjs --gravite vide|continue|mixte|collante   # mode de gravité (D12), défaut : celui du jeu (vide)
- *   node tools/sim.mjs --cascades rotation|toutes --cascadeMin 5   # prototype D24 (jamais actif par défaut)
+ *   node tools/sim.mjs --cascades rotation|toutes --cascadeMin 5   # surcharge des cascades (rotation ≥6 par défaut)
  *   node tools/sim.mjs --verbose        # journal du premier run
  */
 import { creerRun } from '../src/moteur/run.js';
@@ -18,7 +18,7 @@ const opt = (n, d) => { const i = args.indexOf('--' + n); return i >= 0 ? args[i
 const RUNS = +opt('runs', 200), SEED0 = +opt('seed', 1), POLITIQUE = opt('politique', 'gourmande');
 const COMPETENCES = (opt('competences', '') || '').split(',').filter(Boolean);
 const GRAVITE = opt('gravite', null);
-const CASCADES = opt('cascades', null), CASCADE_MIN = +opt('cascadeMin', 5); // prototype D24
+const CASCADES = opt('cascades', null), CASCADE_MIN = +opt('cascadeMin', 6);
 const VERBOSE = args.includes('--verbose');
 
 /** Plus gros groupe après la rotation `sens`, d'après l'aperçu (entrées de couleur inconnue ignorées). */
@@ -32,6 +32,8 @@ function evaluerRotation(run, sens) {
   for (const [id, v] of finale) cellules[v.y * g.w + v.x] = parId.get(id);
   return tousGroupes({ w: g.w, h: g.h, forme: g.forme, cellules }).reduce((m, gr) => Math.max(m, gr.length), 0);
 }
+
+const rotationTentee = new WeakSet();
 
 /** Politique : tap du plus gros groupe ; tourne si aucun groupe ≥ 3 et jauge disponible. */
 function agir(run, rng) {
@@ -62,7 +64,13 @@ function agir(run, rng) {
     if (specialeSeule >= 0) return run.tap(specialeSeule % e.grille.w, (specialeSeule / e.grille.w) | 0);
     return run.peutTourner(1) ? run.tourner(1) : null;
   }
-  if ((!groupes.length || groupes[0].length < 3) && run.peutTourner(1)) return run.tourner(rng() < 0.5 ? 1 : -1);
+  // Une seule tentative de rotation avant de jouer la paire/spéciale disponible.
+  // Sinon les effets de rotations gratuites peuvent piéger le robot indéfiniment.
+  if ((!groupes.length || groupes[0].length < 3) && run.peutTourner(1) && !rotationTentee.has(run)) {
+    rotationTentee.add(run);
+    return run.tourner(rng() < 0.5 ? 1 : -1);
+  }
+  rotationTentee.delete(run);
   if (groupes.length) return run.tap(groupes[0][0] % e.grille.w, (groupes[0][0] / e.grille.w) | 0);
   if (specialeSeule >= 0) return run.tap(specialeSeule % e.grille.w, (specialeSeule / e.grille.w) | 0);
   if (run.peutTourner(1)) return run.tourner(1);
@@ -135,6 +143,7 @@ for (let s = 0; s < RUNS; s++) {
       // Invariant (gravité continue seulement) : aucune case vide après un tour joué, sauf sous un ballon (qui flotte et fait sol).
       if (!e.enAttente && e.modeGravite === 'continue') verifierPleine(e);
     }
+    if (garde > 5000 && run.etat.enAttente?.type !== 'finRun') throw new Error('Limite de 5000 actions atteinte');
     stats.runs++;
     if (run.etat.enAttente?.victoire) stats.victoires++;
     stats.xpTotale += run.etat.xpTotale;
@@ -157,3 +166,5 @@ console.log(`par salle (D25 frénésie / D26 combos) : taps 2 ${(tp[0] / ps).toF
 console.table(Object.fromEntries(Object.entries(stats.parSalle).map(([id, s]) => [id, {
   jouees: s.jouees, 'gagnées %': ((100 * s.gagnees) / s.jouees).toFixed(0), 'xp moy': (s.xp / s.jouees).toFixed(0),
   'xp finale': (s.xpFinale / Math.max(1, s.gagnees)).toFixed(0), 'niveau moy': (s.niveau / s.jouees).toFixed(1), 'coups rest.': (s.coupsRestants / s.jouees).toFixed(1), 'billes rest.': (s.restantes / s.jouees).toFixed(0), raisons: JSON.stringify(s.raisons) }])));
+
+if (stats.erreurs) process.exitCode = 1;

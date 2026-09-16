@@ -448,3 +448,5 @@ Toutes les compétences et effets passent par un **système de hooks** central :
 | 2026-09-11 | 1 | **D13** : à jauge vide, la rotation coûte un coup (`ROTATION_HORS_JAUGE`) au lieu d'être refusée | Sans ça la collante bloque le joueur sans groupe. Pastille « −1 coup » sur les touches |
 | 2026-09-11 | 1 | Télégraphe de rotation : `run.apercuRotation(sens)` (pur, sans rng), fantômes / chevrons / cases d'entrée dans le rendu, appui maintenu ou survol des touches | Pilier 1 ; audit gameplay §1. Le simulateur a une politique `avisee` qui s'en sert |
 | 2026-09-11 | 1 | Rendu : chute et remplissage joués en parallèle, la chute démarre à 70 % de la rotation | Audit gameplay : tap < 450 ms |
+
+| 2026-09-16 | Refonte 0.2 | Sur demande de refonte autonome : gemmes à six silhouettes, UI mobile, cascades de rotation nouveaux groupes ≥6, secours gratuit, PWA, réglages audio séparés et validation des sauvegardes. Canvas conservé, cinq salles, anciennes règles préservées pour anciens runs. | Voir docs/REFONTE_2026-09-16.md pour validation et limites ; pas encore prêt stores. |

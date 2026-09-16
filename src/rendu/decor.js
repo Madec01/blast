@@ -1,34 +1,15 @@
-// Décor « Carrousel cosmique » (contexte validé, remplace le ciel bleu/nuages — étape 1/E1) :
-// une nuit étoilée SOLIDAIRE de la rotation du plateau (le ciel est le dôme du planétarium).
-// Deux couches de parallaxe tournent avec le plateau à une fraction de son angle (étoiles
-// 0,85×, nébuleuses 0,7×) pour donner de la profondeur sans jamais recalculer un dégradé par
-// frame : nébuleuses et planète sont des sprites pré-rendus une fois (dégradés radiaux) sur
-// canvas hors écran, dessinés en simple drawImage. Les étoiles sont de simples arcs pleins
-// (pas de dégradé) modulés en alpha, comme les anciennes scintilles — coût constant, aucune
-// allocation par frame. rendu.js garde la boucle rAF active tant que le canvas est visible.
-//
-// Retour test de fumée #1 (2026-09-14) : premier jet trop discret — étoiles minuscules/transparentes,
-// nébuleuses/planète non lisibles. Correctifs : tailles en px CSS ×devicePixelRatio, alpha et
-// couleurs franches pour les étoiles ; nébuleuses/planète dimensionnées en fraction de la LARGEUR
-// du canvas et positionnées aux coins/hors plateau ; rayon du champ étoilé porté à la diagonale
-// complète du canvas pour ne jamais laisser de coin vide pendant la rotation.
-//
-// Retour test de fumée #2 : toujours trop clairsemé (5-10 étoiles visibles) et planète invisible
-// (cachée sous le plateau, qui remplit ~94 % du canvas). Correctifs : 1200 étoiles PRÉ-RENDUES
-// une fois dans une texture carrée (côté = diagonale ×1,03), dessinée en un seul drawImage tourné
-// par frame — coût constant quel que soit le nombre d'étoiles ; le scintillement est simulé par
-// une seconde texture (sous-ensemble d'étoiles « brillantes ») dont seule l'alpha oscille (pas de
-// recalcul par étoile par frame). La planète est positionnée dans la marge RÉELLEMENT visible
-// (au-dessus du plateau, ou latérale) déduite de la taille du plateau rendu, passée par rendu.js.
+// Dôme du Carrousel cosmique : ciel navy, nébuleuses discrètes et étoiles en parallaxe.
+// Deux textures d'étoiles sont pré-rendues au redimensionnement : nombre réduit et
+// scintillement doux pour réserver le contraste aux gemmes. Aucun filtre par frame.
 
 import { ENCRE } from '../data/couleurs.js';
 
-const N_ETOILES = 1200;
+const N_ETOILES = 320;
 // Couleur du ciel et nombre de nébuleuses selon le tiers d'acte (étape 1) : etat.salle.index/total.
 const TIERS_CIEL = [
-  { haut: '#1a1650', bas: '#2b2270', nNebuleuses: 2 }, // tiers 1 : bleu nuit
-  { haut: '#2a1152', bas: '#4a1f78', nNebuleuses: 2 }, // tiers 2 : violet profond
-  { haut: '#0d0a24', bas: '#1a1650', nNebuleuses: 3 }, // tiers 3 : bleu-noir, plus de nébuleuses
+  { haut: '#101d34', bas: '#193347', nNebuleuses: 2 }, // tiers 1 : bleu nuit
+  { haut: '#231c3e', bas: '#34334e', nNebuleuses: 2 }, // tiers 2 : violet profond
+  { haut: '#0b1427', bas: '#1b3044', nNebuleuses: 3 }, // tiers 3 : bleu-noir, plus de nébuleuses
 ];
 // 3 nébuleuses (violet/rose/cyan), grandes (60-90 % de la largeur du canvas), positionnées aux
 // coins du canvas — donc hors du plateau (cadre + champ, ~94 % de la dimension contrainte) —
@@ -39,14 +20,14 @@ const NEBULEUSES = [
   { fx: 0.42, fy: 0.44, variante: 1, tailleFrac: 0.7, rot: -0.6 },  // rose, bas-droite
   { fx: -0.4, fy: 0.42, variante: 2, tailleFrac: 0.75, rot: 1.1 },  // cyan, bas-gauche
 ];
-const COULEURS_NEBULEUSES = ['#b04cff', '#ff5fa2', '#22d3ee'];
-const ALPHA_NEBULEUSES = [0.42, 0.46, 0.5]; // alpha au centre, dans 0,35-0,5
+const COULEURS_NEBULEUSES = ['#668fc8', '#ed998b', '#54c6bc'];
+const ALPHA_NEBULEUSES = [0.18, 0.16, 0.2]; // alpha au centre, dans 0,35-0,5
 // Planète : ~18 % de la largeur du canvas, contour encre, orange/pêche, anneau clair. Sa position
 // est calculée au dessin depuis la marge réellement visible autour du plateau rendu (étape 2).
 const PLANETE_FRAC_LARGEUR = 0.18;
 // Étoiles : 3 tailles en px CSS (×devicePixelRatio, cuites dans la texture), 3 teintes (75 %
 // chaude, 15 % bleutée, 10 % dorée). 1/7 des étoiles sont « brillantes » (texture de scintillement).
-const TAILLES_ETOILES_CSS = [1.5, 2.5, 4];
+const TAILLES_ETOILES_CSS = [.65, 1.1, 1.8];
 const COULEURS_ETOILES = ['#fff3c4', '#bfe6ff', '#ffcc1f'];
 
 function hex2rgb(hex) { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -149,7 +130,7 @@ export function creerDecor() {
   const nebuleuseSprites = COULEURS_NEBULEUSES.map((hex, i) => batirNebuleuse(hex, ALPHA_NEBULEUSES[i]));
   const planeteSprite = batirPlanete();
 
-  // 1200 étoiles, position ET attributs tirés indépendamment d'un mulberry32 seedé (fixe : motif
+  // Étoiles, position ET attributs tirés indépendamment d'un mulberry32 seedé (fixe : motif
   // stable d'un rechargement à l'autre) — deux tirages par étoile pour x,y, uniforme sur le carré,
   // sans aucun lien avec l'index i (c'est ce lien, via modulo, qui créait des « chapelets » en arcs).
   const rng = mulberry32(1337);
@@ -211,7 +192,7 @@ export function creerDecor() {
     // rayons doux derrière le plateau (conservés), rotation propre lente et indépendante
     ctx.save();
     ctx.translate(cw / 2, ch / 2); ctx.rotate(temps * 0.015);
-    ctx.globalAlpha = 0.08; ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.018; ctx.fillStyle = '#ffffff';
     const rayons = 10, rMax = Math.max(cw, ch) * 0.75;
     for (let i = 0; i < rayons; i++) {
       const a0 = (i / rayons) * Math.PI * 2, a1 = a0 + Math.PI / rayons;

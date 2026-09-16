@@ -82,7 +82,7 @@ function entrerSalle(ctx, index) {
   ctx.activesCeTour.clear();
   ctx.emettre({ t: 'salle', index, nom: def.nom });
   if (index === 0 && e.modeGravite === 'collante') ctx.emettre({ t: 'message', texte: 'Les trous restent : tourne le plateau pour tout faire retomber' });
-  if (index === 0 && e.modeGravite === 'vide') ctx.emettre({ t: 'message', texte: 'Rien n’entre : la grille se vide, tourne pour regrouper ce qui reste' });
+  if (index === 0 && e.modeGravite === 'vide') ctx.emettre({ t: 'message', texte: 'Tourne pour regrouper les gemmes et déclencher des cascades' });
   ctx.emettre({ t: 'coups', coups: e.coups, jauge: e.jauge });
   ctx.emettre({ t: 'objectif', progres: 0, cible: e.objectif.cible, atteint: false });
   ctx.bus.emettre('debutSalle', ctx, { salle: def });
@@ -167,7 +167,7 @@ function envelopper(ctx) {
     },
     peutTaper(x, y) { return !e.enAttente && e.coups > 0 && x >= 0 && x < e.grille.w && y >= 0 && y < e.grille.h && estTapable(e.grille, idx(e.grille, x, y)); },
     peutTourner(sens = 1) {
-      if (e.enAttente) return false;
+      if (e.enAttente || ![1, -1, 2].includes(sens)) return false;
       const cout = ctx.bus.reduire('coutRotation', 1, ctx, { sens });
       return cout <= e.jauge || (ROTATION_HORS_JAUGE === 'coup' && e.coups >= cout);
     },
@@ -186,6 +186,13 @@ function envelopper(ctx) {
  * salles : liste d'ids (défaut : ORDRE_PHASE1).
  */
 export function creerRun({ seed = Date.now(), salles = null, competences = [], difficulte = 1, options = {} } = {}) {
+  if (!Array.isArray(salles ?? ORDRE_PHASE1) || !(salles ?? ORDRE_PHASE1).length || (salles ?? ORDRE_PHASE1).some((id) => !SALLES.some((s) => s.id === id))) throw new Error('Liste de salles invalide');
+  if (!Number.isFinite(difficulte) || difficulte <= 0 || difficulte > 5) throw new Error('Difficulté invalide');
+  if (!options || typeof options !== 'object' || (options.couleurs != null && (!Number.isInteger(options.couleurs) || options.couleurs < 2 || options.couleurs > 6))) throw new Error('Options invalides');
+  if (!Array.isArray(competences) || competences.some((id) => !COMPETENCES.some((c) => c.id === id))) throw new Error('Compétences invalides');
+  if (options.jauge != null && (!Number.isInteger(options.jauge) || options.jauge < 0 || options.jauge > 100)) throw new Error('Jauge invalide');
+  if (options.cascadeMin != null && (!Number.isInteger(options.cascadeMin) || options.cascadeMin < 2 || options.cascadeMin > 80)) throw new Error('Seuil de cascade invalide');
+  options = { cascades: 'rotation', cascadeMin: 6, secours: true, ...options };
   const s = seedDepuis(seed);
   const rng = creerRng(s);
   const etat = {
@@ -207,10 +214,40 @@ export function creerRun({ seed = Date.now(), salles = null, competences = [], d
   return run;
 }
 
+/** Rejeter une sauvegarde tronquée avant d'installer des hooks ou d'afficher le plateau. */
+function sauvegardeValide(e) {
+  if (!e || !Array.isArray(e.ordre) || !e.ordre.length || e.ordre.some((id) => !SALLES.some((s) => s.id === id))) return false;
+  if (!Number.isInteger(e.salleIndex) || e.salleIndex < 0 || e.salleIndex >= e.ordre.length || e.salle?.id !== e.ordre[e.salleIndex]) return false;
+  const g = e.grille;
+  if (!g || !Number.isInteger(g.w) || !Number.isInteger(g.h) || g.w < 1 || g.h < 1 || g.w > 30 || g.h > 30) return false;
+  if (!Array.isArray(g.cellules) || g.cellules.length !== g.w * g.h || !Array.isArray(g.forme) || g.forme.length !== g.cellules.length || g.forme.some((v) => v !== 0 && v !== 1)) return false;
+  const ids = new Set();
+  const celluleValide = (c) => {
+    if (c === null) return true;
+    if (!c || !Number.isInteger(c.id) || c.id < 1 || ids.has(c.id) || !['bille', 'pierre', 'element'].includes(c.type)) return false;
+    ids.add(c.id);
+    if (c.type === 'bille' && (!Number.isInteger(c.couleur) || c.couleur < 0 || c.couleur > 5 || ![null, undefined, 'bombe', 'ligne', 'croix', 'couleur', 'magnet'].includes(c.speciale))) return false;
+    if (c.type === 'element' && (!c.element || !['bulle', 'ballon', 'fusee'].includes(c.element.type))) return false;
+    return !c.element?.contenu || celluleValide(c.element.contenu);
+  };
+  if (!g.cellules.every(celluleValide) || !Number.isInteger(g.prochainId) || [...ids].some((id) => id >= g.prochainId)) return false;
+  if (!['seed', 'rngEtat', 'coups', 'coupsMax', 'jauge', 'jaugeMax', 'tour', 'xpSalle', 'xpTotale', 'niveau', 'couleurs'].every((k) => Number.isFinite(e[k]) && e[k] >= 0)) return false;
+  if (!Number.isInteger(e.gravite) || e.gravite < 0 || e.gravite > 3 || !MODES_GRAVITE[e.modeGravite]) return false;
+  if (!e.objectif || !Number.isFinite(e.objectif.cible) || !Number.isFinite(e.objectif.progres) || !e.memo || !e.options) return false;
+  if (!Array.isArray(e.competences) || e.competences.some((id) => !COMPETENCES.some((c) => c.id === id)) || !Array.isArray(e.effetsActifs) || !Array.isArray(e.effetsVus) || !Array.isArray(e.prochainesEntrees)) return false;
+  if (e.enAttente && (!['niveau', 'competence', 'finSalle', 'finRun'].includes(e.enAttente.type) || (['niveau', 'competence'].includes(e.enAttente.type) && !Array.isArray(e.enAttente.propositions)))) return false;
+  return !e.stats || (e.stats.speciales && Array.isArray(e.stats.effets) && Array.isArray(e.stats.salles));
+}
+
 export function chargerRun(json) {
-  const data = typeof json === 'string' ? JSON.parse(json) : json;
+  let data;
+  try { data = JSON.parse(typeof json === 'string' ? json : JSON.stringify(json)); } catch { return null; }
   if (!data || data.version !== VERSION) return null;
+  try {
+  if (!sauvegardeValide(data.etat)) return null;
   const etat = data.etat;
+  // Les anciennes parties conservent leurs règles jusqu'au prochain run.
+  etat.options = { cascades: false, secours: false, ...etat.options };
   etat.relanceGratuite ??= true; // sauvegardes antérieures à D19
   etat.stats ??= { debut: Date.now(), taps: 0, rotations: 0, chaineMax: 0, plusGrosGroupe: 0, billesDetruites: 0, etoilesLiberees: 0, speciales: { bombe: 0, ligne: 0, croix: 0, couleur: 0 }, effets: [], salles: [] };
   etat.stats.rotationsProductives ??= 0; // sauvegardes antérieures à F09
@@ -221,6 +258,7 @@ export function chargerRun(json) {
   for (const a of etat.effetsActifs) appliquerEffet(ctx, a.id, { reprise: true, restant: a.restant });
   ctx.evenements = [];
   return envelopper(ctx);
+  } catch { return null; } // hooks impossibles à restaurer : sauvegarde inutilisable
 }
 
 export { SEUILS_NIVEAU, NIVEAU_MAX };

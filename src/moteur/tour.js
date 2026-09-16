@@ -1,5 +1,5 @@
 // Un tour de jeu : tap ou rotation → destructions → chute → remplissage → règles de salle → niveau → objectif.
-import { idx, coord, groupe, estTapable, existeCoup, nouvelleBille, nouvellePierre, nouvelElement, compter, tousGroupes } from './grille.js';
+import { idx, coord, groupe, estTapable, existeCoup, nouvelleBille, nouvellePierre, nouvelElement, compter, tousGroupes, voisins } from './grille.js';
 import { tourner as tournerGravite, colonnes, vecteur } from './gravite.js';
 import { appliquerGravite, remplir, maree, renforcer } from './chute.js';
 import { resoudre } from './speciales.js';
@@ -30,11 +30,12 @@ export function retomber(ctx, { rotation = false } = {}) {
   const g = ctx.grille, gr = ctx.etat.gravite;
   const mode = MODES_GRAVITE[ctx.etat.modeGravite] ?? MODES_GRAVITE.continue;
   if (rotation || mode.chuteAuTap) {
+    const groupesAvant = signaturesGroupes(g);
     const dep = appliquerGravite(g, gr);
     if (dep.length) ctx.emettre({ t: 'chute', deplacements: dep });
     ctx.bus.emettre('apresChute', ctx, { deplacements: dep });
-    const casc = ctx.etat.options.cascades; // prototype D24 (sim seulement, désactivé par défaut)
-    if (casc === 'toutes' || (casc === 'rotation' && rotation)) cascader(ctx);
+    const casc = ctx.etat.options.cascades;
+    if (casc === 'toutes' || (casc === 'rotation' && rotation)) cascader(ctx, groupesAvant, dep);
   }
   if ((rotation && mode.remplissageRotation !== false) || mode.remplissageAuTap) {
     const entrees = remplir(g, gr, () => tirerEntree(ctx));
@@ -42,36 +43,41 @@ export function retomber(ctx, { rotation = false } = {}) {
   }
 }
 
-/**
- * Prototype D24 (feuille de Martin, F01 — à trancher, mesuré au simulateur, jamais actif par défaut) :
- * `options.cascades` = 'rotation' (après la chute d'une rotation) ou 'toutes' (après toute chute).
- * Les groupes ≥ `options.cascadeMin` (5) explosent d'eux-mêmes comme s'ils étaient tapés : XP de tap
- * × multiplicateur de chaîne, spéciale créée au seuil, éléments activés par adjacence ; puis tout
- * retombe, jusqu'à CASCADES_MAX vagues. Cause `cascade`, profondeur = rang de la vague.
- */
+/** Cascades limitées aux groupes nouvellement assemblés par une chute : les groupes
+ * déjà présents restent disponibles au tap, même quand ils glissent ensemble. */
 const CASCADES_MAX = 4;
-function cascader(ctx) {
-  const e = ctx.etat, g = ctx.grille, min = e.options.cascadeMin ?? 5;
-  for (let vague = 1; vague <= CASCADES_MAX; vague++) {
-    const groupes = tousGroupes(g).filter((gr) => gr.length >= min);
+function signatureGroupe(g, indices) { return indices.map((i) => g.cellules[i].id).sort((a, b) => a - b).join(','); }
+function signaturesGroupes(g) { return new Set(tousGroupes(g).map((gr) => signatureGroupe(g, gr))); }
+function cascader(ctx, avant, deplacements) {
+  const e = ctx.etat, g = ctx.grille, min = e.options.cascadeMin ?? 6;
+  for (let vague = 1; vague <= CASCADES_MAX && deplacements.length; vague++) {
+    const bougees = new Set(deplacements.map((d) => d.id));
+    const groupes = tousGroupes(g).filter((gr) => gr.length >= min &&
+      gr.some((i) => bougees.has(g.cellules[i].id)) && !avant.has(signatureGroupe(g, gr)));
     if (!groupes.length) return;
     e.stats.cascades = (e.stats.cascades ?? 0) + 1;
-    for (const gr of groupes) {
-      const i = gr[0], c = g.cellules[i];
-      if (!c) continue; // déjà soufflé par une spéciale de cette vague
+    for (const candidats of groupes) {
+      // Une explosion précédente peut avoir coupé ce groupe : recalculer, jamais
+      // détruire une liste périmée ou fabriquer une spéciale sur une cellule disparue.
+      const i = candidats.find((k) => g.cellules[k]?.type === 'bille');
+      if (i === undefined) continue;
+      const gr = groupe(g, i), c = g.cellules[i];
+      if (gr.length < min) continue;
       const [x, y] = coord(g, i);
-      const type = c.speciale ? null : typeSpecialePour(ctx, gr.length);
+      let type = c.speciale ? null : typeSpecialePour(ctx, gr.length);
+      if (type) type = ctx.bus.reduire('typeSpeciale', type, ctx, { taille: gr.length });
       resoudre(ctx, { cellules: type ? gr.filter((k) => k !== i) : gr, cause: 'cascade', origine: { x, y }, profondeur: vague, couleur: c.couleur, tapee: type ? i : undefined });
-      if (type) {
+      if (type && g.cellules[i] === c) {
         c.speciale = type; c.rayon = 1;
         e.stats.speciales[type] = (e.stats.speciales[type] ?? 0) + 1;
         ctx.emettre({ t: 'speciale', x, y, id: c.id, type });
         ctx.bus.emettre('specialeCreee', ctx, { i, type, taille: gr.length });
       }
     }
-    const dep = appliquerGravite(g, e.gravite);
-    if (dep.length) ctx.emettre({ t: 'chute', deplacements: dep });
-    ctx.bus.emettre('apresChute', ctx, { deplacements: dep });
+    avant = signaturesGroupes(g);
+    deplacements = appliquerGravite(g, e.gravite);
+    if (deplacements.length) ctx.emettre({ t: 'chute', deplacements });
+    ctx.bus.emettre('apresChute', ctx, { deplacements });
   }
 }
 
@@ -93,6 +99,7 @@ export function detruire(ctx, indices, cause = 'effet') {
 /** Rotation du plateau. Renvoie false si refusée. options : {gratuit, auto}. */
 export function jouerRotation(ctx, sens, options = {}) {
   const e = ctx.etat;
+  if (![1, -1, 2].includes(sens)) return false;
   const cout = options.gratuit || options.auto ? 0 : ctx.bus.reduire('coutRotation', 1, ctx, { sens });
   let enCoups = 0;
   if (cout > e.jauge) {
@@ -123,7 +130,7 @@ function typeSpecialePour(ctx, taille) {
 /** Tap du joueur en (x,y). Renvoie false si refusé. */
 export function jouerTap(ctx, x, y) {
   const e = ctx.etat, g = ctx.grille;
-  if (e.enAttente || e.coups <= 0) return false;
+  if (e.enAttente || e.coups <= 0 || !Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= g.w || y >= g.h) return false;
   const i = idx(g, x, y);
   if (!estTapable(g, i)) return false;
   const c = g.cellules[i];
@@ -162,16 +169,17 @@ function bilanGroupes(g) {
  */
 function evaluerRotation(ctx, avant) {
   const g = ctx.grille, apres = bilanGroupes(g);
-  const productive = apres.taille >= 3 && (apres.taille > avant.taille || apres.nb3 > avant.nb3);
+  const cascade = (ctx.etat.stats.cascades ?? 0) > avant.cascades;
+  const productive = cascade || (apres.taille >= 3 && (apres.taille > avant.taille || apres.nb3 > avant.nb3));
   if (productive) ctx.etat.stats.rotationsProductives = (ctx.etat.stats.rotationsProductives ?? 0) + 1;
-  const cellules = productive ? apres.meilleur.map((i) => { const [x, y] = coord(g, i); return { x, y, id: g.cellules[i].id }; }) : [];
+  const cellules = productive && apres.meilleur ? apres.meilleur.map((i) => { const [x, y] = coord(g, i); return { x, y, id: g.cellules[i].id }; }) : [];
   ctx.emettre({ t: 'rotationResultat', productive, avant: avant.taille, apres: apres.taille, groupes: apres.nb3, groupesAvant: avant.nb3, cellules });
   ctx.bus.emettre('rotationEvaluee', ctx, { productive, avant: avant.taille, apres: apres.taille });
 }
 
 export function jouerRotationJoueur(ctx, sens) {
   if (ctx.etat.enAttente) return false;
-  const avant = bilanGroupes(ctx.grille); // F09 : ce que le plateau offrait avant de tourner
+  const avant = { ...bilanGroupes(ctx.grille), cascades: ctx.etat.stats.cascades ?? 0 }; // F09 : ce que le plateau offrait avant de tourner
   if (!jouerRotation(ctx, sens)) return false;
   finDeTour(ctx, { rotation: true, avant });
   return true;
@@ -277,8 +285,36 @@ export function verifierFin(ctx) {
     if (!compter(ctx.grille, (c) => c.type === 'bille')) finirSalle(ctx, false, 'vide');
     // Sans remplissage, tourner ne sert que si la chute recrée un groupe : sinon la salle est perdue.
     else if (peutTourner && (mode.remplissageRotation !== false || rotationUtile(ctx))) ctx.emettre({ t: 'message', texte: 'Plus aucun groupe : tourne le plateau' });
+    else if (e.options.secours !== false && secourirPlateau(ctx)) return;
     else finirSalle(ctx, false, 'bloque');
   }
+}
+
+/** Secours seulement si aucune rotation ne crée de groupe : une paire de couleurs
+ * convertie, sans déplacement, points ni coût. Une bille isolée reçoit une bombe. */
+export function secourirPlateau(ctx) {
+  const g = ctx.grille;
+  for (let i = 0; i < g.cellules.length; i++) {
+    const c = g.cellules[i];
+    if (c?.type !== 'bille' || c.speciale) continue;
+    const v = voisins(g, i).find((k) => g.cellules[k]?.type === 'bille' && !g.cellules[k].speciale);
+    if (v === undefined) continue;
+    const cible = g.cellules[v]; cible.couleur = c.couleur;
+    const [x, y] = coord(g, v);
+    ctx.emettre({ t: 'conversion', cellules: [{ x, y, id: cible.id, couleur: cible.couleur }] });
+    ctx.emettre({ t: 'message', texte: 'Coup de pouce : une paire offerte !' });
+    ctx.etat.stats.secours = (ctx.etat.stats.secours ?? 0) + 1;
+    return true;
+  }
+  const i = g.cellules.findIndex((c) => c?.type === 'bille');
+  if (i < 0) return false;
+  const c = g.cellules[i], [x, y] = coord(g, i);
+  c.speciale = 'bombe'; c.rayon = 1;
+  ctx.etat.stats.speciales.bombe++;
+  ctx.etat.stats.secours = (ctx.etat.stats.secours ?? 0) + 1;
+  ctx.emettre({ t: 'speciale', x, y, id: c.id, type: 'bombe' });
+  ctx.emettre({ t: 'message', texte: 'Coup de pouce : une bombe offerte !' });
+  return true;
 }
 
 /** Renfort : sous le seuil de billes, chaque tap fait tomber min..max billes au hasard dans la grille. */
