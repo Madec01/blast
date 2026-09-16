@@ -12,8 +12,8 @@ const out = process.env.SHOT_DIR || '/tmp/vertige-qa';
 mkdirSync(out, { recursive: true });
 const errors = [];
 try {
-  for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1440, 900]]) {
-    const context = await browser.newContext({ viewport: { width, height }, isMobile: width < 600, hasTouch: width < 600, deviceScaleFactor: 1 });
+  for (const [width, height, deviceScaleFactor] of [[320, 568, 1], [390, 844, 3], [768, 1024, 2], [1440, 900, 2]]) {
+    const context = await browser.newContext({ viewport: { width, height }, isMobile: width < 600, hasTouch: width < 600, deviceScaleFactor });
     const page = await context.newPage();
     page.on('requestfailed', request => console.error('Requête :', request.url(), request.failure()?.errorText));
     page.on('pageerror', e => errors.push(e.message));
@@ -25,6 +25,10 @@ try {
     await page.getByRole('button', { name: /nouveau run/i }).click();
     await page.waitForFunction(() => window.vertige.run && !window.vertige.occupe);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'jeu déborde');
+    const raster = await page.locator('#plateau').evaluate(c => ({ w:c.width, h:c.height, rect:c.getBoundingClientRect().toJSON() }));
+    assert(raster.w * raster.h <= 2_005_000, 'budget pixels dépassé');
+    assert.equal(raster.rect.width, width, 'canvas non plein écran');
+    assert.equal(raster.rect.height, height, 'canvas non plein écran');
     const state = await page.evaluate(() => {
       const r = window.vertige.run;
       for (let y = 0; y < r.etat.grille.h; y++) for (let x = 0; x < r.etat.grille.w; x++) {
@@ -54,6 +58,20 @@ try {
       await context.setOffline(false);
       console.log('Reprise hors ligne : OK');
     }
+    // Après rotation, les coordonnées tactiles doivent suivre la résolution réelle,
+    // y compris lorsque le DPR natif dépasse le budget du canvas.
+    await page.locator('#btn-rotation-droite').click();
+    await page.waitForFunction(() => !window.vertige.occupe);
+    const cible = await page.evaluate(() => {
+      const v=window.vertige;
+      for(let y=0;y<v.run.etat.grille.h;y++)for(let x=0;x<v.run.etat.grille.w;x++)
+        if(v.run.peutTaper(x,y))return {pos:v.rendu.positionCase(x,y),taps:v.run.etat.stats.taps};
+    });
+    assert(cible, 'aucune cible après rotation');
+    await page.mouse.click(box.x+cible.pos.x,box.y+cible.pos.y);
+    await page.waitForFunction(n=>window.vertige.run.etat.stats.taps===n+1&&!window.vertige.occupe,cible.taps);
+    assert.equal(await page.locator('.decor-planetaire').count(),1,'fond dupliqué');
+    assert.equal(await page.locator('.decor-vignette').count(),1,'vignette dupliquée');
     if (width === 1440) {
       // Provoquer une fin de run et garder son animation en attente : les gains
       // doivent déjà être durables avant le premier await de l'orchestrateur.
@@ -72,7 +90,7 @@ try {
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('vertige.profil')).runs), 1);
       console.log('Récompenses conservées après interruption de la finale : OK');
     }
-    console.log(`${width}×${height} : rendu, interaction, sauvegarde et reprise OK`);
+    console.log(`${width}×${height} @${deviceScaleFactor} : rendu, interaction, sauvegarde et reprise OK`);
     await context.close();
   }
   assert.deepEqual(errors, []);

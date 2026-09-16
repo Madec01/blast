@@ -78,7 +78,10 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   }
   const calcEchelle = (gravite) => (gravite % 2 === 0 ? fitNormalPx : fitSwapPx) / cellPixBase;
   function recalculerEchelles() {
-    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    // Limiter le remplissage GPU sur écrans Retina sans diminuer la netteté du HUD HTML.
+    const natif = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    const surface = Math.max(1, canvas.clientWidth * canvas.clientHeight);
+    const dpr = Math.min(natif, 2, Math.sqrt(2_000_000 / surface));
     const cw = Math.max(1, Math.round((canvas.clientWidth || canvas.width || 1) * dpr));
     const ch = Math.max(1, Math.round((canvas.clientHeight || canvas.height || 1) * dpr));
     if (canvas.width !== cw) canvas.width = cw;
@@ -201,7 +204,8 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   };
   function dessinerFrame() {
     const plateau = sprites.plateau(); // E1/E2 : ciel étoilé tourné avec le plateau ; taille transmise pour placer la planète hors du cadre
-    decor.dessiner(ctx, canvas.width, canvas.height, angleActuel, plateau ? plateau.width * echelleActuelle : 0, plateau ? plateau.height * echelleActuelle : 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    decor.dessiner(ctx, canvas.width, canvas.height, angleActuel);
     finale.dessinerFond(ctx, canvas.width, canvas.height); // item 7 : fond qui s'éclaircit, sous le plateau
     ctx.save();
     ctx.translate(centreX + shakeX, centreY + shakeY); ctx.rotate(angleActuel);
@@ -518,11 +522,11 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   function surligner(cellules) {
     surligneesSet.clear();
     for (const c of cellules || []) surligneesSet.add(`${c.x},${c.y}`);
-    demarrerBoucle(); if (!cellules || cellules.length === 0) dessinerFrame();
+    demarrerBoucle(); // Le prochain RAF regroupe tous les changements du pointeur.
   }
   /** Télégraphe : `a` = run.apercuRotation(sens) ({sens, gravite, deplacements, entrees, eclatent}) ou null pour effacer. */
-  function previsualiserRotation(a) { telegraphe.definir(a); demarrerBoucle(); dessinerFrame(); }
-  function previsualiserCombo(info) { apercuCombo=info;demarrerBoucle();dessinerFrame(); }
+  function previsualiserRotation(a) { telegraphe.definir(a); demarrerBoucle(); }
+  function previsualiserCombo(info) { apercuCombo=info;demarrerBoucle(); }
   function redimensionner() { if (etatCourant) { recalculerEchelles(); dessinerFrame(); } }
   let observateur = null; // suit les changements de taille CSS du canvas après mise en page (HUD, couche masquée)
   if (typeof ResizeObserver !== 'undefined') { observateur = new ResizeObserver(redimensionner); observateur.observe(canvas); for (const id of ['hud', 'commandes']) { const element = document.getElementById(id); if (element) observateur.observe(element); } }
@@ -534,13 +538,13 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (typeof document !== 'undefined' && document.removeEventListener) document.removeEventListener('visibilitychange', surVisibilite);
     if (rafId != null) cancelAnimationFrame(rafId); rafId = null;
     canvas.removeEventListener('pointerup',surPointerUp);canvas.removeEventListener('pointercancel',surPointerLeave);canvas.removeEventListener('pointerdown', surPointerDown); canvas.removeEventListener('pointermove', surPointerMove); canvas.removeEventListener('pointerleave', surPointerLeave);
-    particules.vider(); juice.vider(); impact.vider(); specialesFx.vider(); finale.vider(); billes.clear();
+    decor.detruire(); particules.vider(); juice.vider(); impact.vider(); specialesFx.vider(); finale.vider(); billes.clear();
   }
   return {
     synchroniser, jouer, surligner, previsualiserRotation, previsualiserCombo, redimensionner, detruire, pause, reprendre,
     get enAnimation() { return !rienNAnime(); },
     /** Centre d'une case en pixels CSS du canvas (tests, télégraphe externe). */
-    positionCase(cx, cy) { const p = localVersEcran(cx, cy), dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1; return { x: p.x / dpr, y: p.y / dpr }; },
+    positionCase(cx, cy) { const p = localVersEcran(cx, cy); return { x: p.x * canvas.clientWidth / canvas.width, y: p.y * canvas.clientHeight / canvas.height }; },
     get apercuActif() { return telegraphe.actif; },
   };
 }

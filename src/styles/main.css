@@ -1404,3 +1404,9 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px 
   #commandes .touche { height:52px; }
 }
 .toast { background:#10212eea; color:#e0eff4; border:1px solid #aacbd84d; border-radius:10px; box-shadow:0 6px 25px #0005; font-size:12px; font-weight:500; line-height:1.45; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+
+/* Le verre conserve sa transparence sans refiltrer le canvas à chaque image. */
+#scene { overflow:hidden; }
+#plateau { position:relative; z-index:1; }
+#hud .hud-menu, #hud .hud-carnet summary, #hud .hud-coups,
+#commandes .touche, .toast { backdrop-filter:none; -webkit-backdrop-filter:none; }
