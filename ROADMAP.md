@@ -8,6 +8,7 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 
 - [x] Refonte visuelle mobile, silhouettes distinctes, HUD/menu/cartes et réglages séparés.
 - [x] Cascades de rotation sur nouveaux groupes 6+, secours plateau, sauvegardes validées.
+- [x] Hélios 0.5 : décor plein écran, cristaux sci-fi, animations continues et récit progressif.
 - [x] PWA hors ligne, tests Node et vérifications navigateur multi-résolutions.
 - [ ] Playtester sur iPhone et Android physiques ; mesurer cadence et durée des longues chaînes.
 - [x] Trois recettes de combos et campagne de 24 niveaux sur huit planètes.

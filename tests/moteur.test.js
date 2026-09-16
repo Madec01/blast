@@ -272,8 +272,9 @@ test('F08 paliers de feel : 2 → 0, 3-4 → 1, 5-7 → 2, 8-9 → 3, 10+ → 4 
   for (const cle of ['particules', 'impact', 'shake', 'anticipation', 'squash', 'plateau', 'hitstop', 'xp', 'onde', 'rafale']) {
     for (let p = 1; p < FEEL.length; p++) assert.ok(FEEL[p][cle] >= FEEL[p - 1][cle], `${cle} décroît au palier ${p}`);
   }
-  assert.equal(FEEL[2].hitstop, 0); // pas de micro-pause sous 8
-  assert.ok(FEEL[3].hitstop >= 0.06 && FEEL[4].hitstop <= 0.09); // 60-90 ms dès 8 (feuille de Martin, étape 1)
+  assert.ok(FEEL.slice(0, 4).every(f => f.hitstop === 0)); // aucune coupure sur les actions courantes
+  assert.ok(FEEL[4].hitstop > 0 && FEEL[4].hitstop <= 0.03); // accent exceptionnel borné
+  assert.ok(FEEL.slice(0, 2).every(f => f.shake === 0 && f.plateau === 0));
 });
 
 test('F09 rotationResultat : émis après la chute d’une rotation du joueur, jamais pour une rotation automatique ; productive cohérente', () => {

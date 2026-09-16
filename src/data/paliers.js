@@ -21,10 +21,11 @@ export function palierGroupe(taille) {
  *   hitstop : micro-pause (s) juste avant l'explosion — 60-90 ms dès 8 (feuille de Martin, étape 1)
  *   xp : taille du texte +XP en multiple de case
  */
+// Small groups stay crisp. Only exceptional discharges briefly accent the whole matrix.
 export const FEEL = [
-  { particules: 5, rafale: 0, impact: 0.75, onde: 0, shake: 0.1, anticipation: 0.06, squash: 0.05, recul: 0.04, plateau: 0, hitstop: 0, xp: 0.42 },
-  { particules: 6, rafale: 0, impact: 1.0, onde: 0, shake: 0.25, anticipation: 0.08, squash: 0.08, recul: 0.055, plateau: 0, hitstop: 0, xp: 0.45 },
-  { particules: 8, rafale: 12, impact: 1.35, onde: 1.0, shake: 0.45, anticipation: 0.1, squash: 0.11, recul: 0.07, plateau: 0.03, hitstop: 0, xp: 0.55 },
-  { particules: 10, rafale: 24, impact: 1.8, onde: 1.4, shake: 0.7, anticipation: 0.12, squash: 0.14, recul: 0.09, plateau: 0.05, hitstop: 0.06, xp: 0.65 },
-  { particules: 12, rafale: 40, impact: 2.3, onde: 2.0, shake: 1.0, anticipation: 0.14, squash: 0.17, recul: 0.11, plateau: 0.07, hitstop: 0.09, xp: 0.8 },
+  { particules: 3, rafale: 0, impact: .55, onde: 0, shake: 0, anticipation: .025, squash: .018, recul: .008, plateau: 0, hitstop: 0, xp: .42 },
+  { particules: 4, rafale: 0, impact: .7, onde: 0, shake: 0, anticipation: .035, squash: .022, recul: .012, plateau: 0, hitstop: 0, xp: .45 },
+  { particules: 5, rafale: 6, impact: 1, onde: .7, shake: .08, anticipation: .045, squash: .028, recul: .018, plateau: 0, hitstop: 0, xp: .55 },
+  { particules: 7, rafale: 12, impact: 1.35, onde: 1, shake: .22, anticipation: .06, squash: .035, recul: .025, plateau: 0, hitstop: 0, xp: .65 },
+  { particules: 9, rafale: 22, impact: 1.8, onde: 1.5, shake: .5, anticipation: .075, squash: .045, recul: .035, plateau: .012, hitstop: .025, xp: .8 },
 ];

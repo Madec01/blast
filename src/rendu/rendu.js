@@ -1,4 +1,4 @@
-// Rendu Canvas 2D — style « Cartoon pop » (Toon Blast pour le dessin, Candy Crush pour le juice — §2).
+// Rendu Canvas 2D — matrice Hélios : mouvement continu et réactions lumineuses.
 // Ne connaît rien au moteur : ne lit que `etat` (§3) et les événements du journal (§4).
 import { creerSprites } from './sprites.js';
 import { creerParticules } from './particules.js';
@@ -13,11 +13,11 @@ import { COULEURS } from '../data/couleurs.js';
 import { FEEL, palierGroupe } from '../data/paliers.js';
 const HEX = COULEURS.map((c) => c.hex);
 const couleurHex = (i) => HEX[i] ?? '#8a857b';
-// durées (s) rotation/chute (§5) · accél. chute (cases/s²) · restitution au rebond · shake max (px) · marge plateau
-const DUREE_ROTATION = 0.38, DUREE_CHUTE = 0.35, GRAVITE_CASES = 78, RESTITUTION = 0.25, SHAKE_MAX = 10, MARGE = 0.94;
+// Rotation (s), secousse exceptionnelle maximale (px), marge de la matrice.
+const DUREE_ROTATION = 0.42, SHAKE_MAX = 6, MARGE = 0.94;
 const CAUSES_EXPLOSION = new Set(['bombe', 'ligne', 'croix', 'couleur', 'fusee']); // anneau d'onde de choc (§2)
-// a1 (anticipation : durée, squash et recul lus dans FEEL[palier], F08) · a3 (overshoot d'atterrissage 0,10→0,14) · a4 (pulsation spéciales, 1,2 s)
-const AMPLI_ATTERRISSAGE = 0.14;
+// Contact discret : la position ne rebondit pas, seule la silhouette absorbe 2,5 %.
+const AMPLI_ATTERRISSAGE = 0.025;
 const FINALE_PAS_MS = 70; // F07 : cadence des coups convertis pendant la finale (30 coups ≈ 2 s)
 const clamp01 = (t) => Math.max(0, Math.min(1, t)), lerp = (a, b, t) => a + (b - a) * t;
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2), easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
@@ -46,6 +46,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   // --- état de la grille / plateau, et de la transform écran (centre+secousse, rotation, échelle)
   let w = 8, h = 10, forme = null, graviteCourante = 0, etatCourant = null;
   const billes = new Map(); // id -> billeVis
+  let centreX = canvas.width / 2, centreY = canvas.height / 2, espaceW = canvas.width, espaceH = canvas.height;
   let cellPixBase = 40, fitNormalPx = 40, fitSwapPx = 40, angleActuel = 0, echelleActuelle = 1;
   let angleTween = null; // {angleDebut,angleFin,echelleDebut,echelleFin,t,duree}
   let shakeMag = 0, shakeX = 0, shakeY = 0, tempsTotal = 0; // tempsTotal : micro-animations vivantes (sucette, étincelle)
@@ -67,10 +68,10 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   function localVersEcran(cx, cy) {
     const lx = (cx - w / 2 + 0.5) * cellPixBase * echelleActuelle, ly = (cy - h / 2 + 0.5) * cellPixBase * echelleActuelle;
     const ca = Math.cos(angleActuel), sa = Math.sin(angleActuel);
-    return { x: canvas.width / 2 + shakeX + lx * ca - ly * sa, y: canvas.height / 2 + shakeY + lx * sa + ly * ca };
+    return { x: centreX + shakeX + lx * ca - ly * sa, y: centreY + shakeY + lx * sa + ly * ca };
   }
   function ecranVersCase(px, py) {
-    const dx = px - (canvas.width / 2 + shakeX), dy = py - (canvas.height / 2 + shakeY);
+    const dx = px - (centreX + shakeX), dy = py - (centreY + shakeY);
     const ca = Math.cos(-angleActuel), sa = Math.sin(-angleActuel);
     const lx = (dx * ca - dy * sa) / echelleActuelle, ly = (dx * sa + dy * ca) / echelleActuelle;
     return { x: lx / cellPixBase + w / 2 - 0.5, y: ly / cellPixBase + h / 2 - 0.5 };
@@ -82,11 +83,19 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     const ch = Math.max(1, Math.round((canvas.clientHeight || canvas.height || 1) * dpr));
     if (canvas.width !== cw) canvas.width = cw;
     if (canvas.height !== ch) canvas.height = ch;
+    const cadre = canvas.getBoundingClientRect();
+    const hud = document.getElementById('hud')?.getBoundingClientRect();
+    const commandes = document.getElementById('commandes')?.getBoundingClientRect();
+    const haut = Math.max(0, Math.min(ch * .4, ((hud?.bottom ?? cadre.top) - cadre.top) * dpr + 8 * dpr));
+    const bas = Math.max(haut + 100 * dpr, Math.min(ch, ((commandes?.top ?? cadre.bottom) - cadre.top) * dpr - 8 * dpr));
+    const hauteurJeu = bas - haut;
+    centreX = cw / 2; centreY = haut + hauteurJeu / 2;
+    espaceW = cw * MARGE; espaceH = hauteurJeu * MARGE;
     // Le sprite de plateau ajoute 2 × (rebord .42 + ombre .32) cases.
     // Les compter évite de rogner le cadre, notamment sur téléphone.
     const bord = 1.48;
-    fitNormalPx = Math.min((cw * MARGE) / (w + bord), (ch * MARGE) / (h + bord));
-    fitSwapPx = Math.min((cw * MARGE) / (h + bord), (ch * MARGE) / (w + bord));
+    fitNormalPx = Math.min((cw * MARGE) / (w + bord), (hauteurJeu * MARGE) / (h + bord));
+    fitSwapPx = Math.min((cw * MARGE) / (h + bord), (hauteurJeu * MARGE) / (w + bord));
     cellPixBase = Math.max(8, Math.floor(Math.max(fitNormalPx, fitSwapPx)));
     juice.definirCadre(cellPixBase, cw, ch); // les textes flottants s'étalent et se bornent dans ce cadre
     sprites.regenererCases(cellPixBase); sprites.regenererPlateau(w, h, cellPixBase, forme); decor.regenerer(cellPixBase, cw, ch);
@@ -102,7 +111,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     return { x: rx, y: ry };
   }
   let appui = null;
-  const surPointerDown = (e) => { if (e.isPrimary === false || (e.button != null && e.button !== 0)) return; const p=pointDepuisEvenement(e);appui=p?{...p,id:e.pointerId}:null;if(p)canvas.setPointerCapture?.(e.pointerId);if(onSurvol)onSurvol(p?.x??null,p?.y??null); };
+  const surPointerDown = (e) => { if (e.isPrimary === false || (e.button != null && e.button !== 0)) return; const p=pointDepuisEvenement(e);appui=p?{...p,id:e.pointerId}:null;if(p){canvas.setPointerCapture?.(e.pointerId);for(const bv of billes.values())if(Math.round(bv.x)===p.x&&Math.round(bv.y)===p.y){bv.pulse={t:0,duree:.12,ampli:-.045};break;}demarrerBoucle();}if(onSurvol)onSurvol(p?.x??null,p?.y??null); };
   const surPointerMove = (e) => { const p=pointDepuisEvenement(e); if(appui && (!p || p.x!==appui.x || p.y!==appui.y))appui=null;if(onSurvol)onSurvol(p?.x??null,p?.y??null); };
   const surPointerUp = (e) => { const p=pointDepuisEvenement(e),a=appui;appui=null;if(onSurvol)onSurvol(null);if(a&&a.id===e.pointerId&&p&&p.x===a.x&&p.y===a.y&&onTap)onTap(p.x,p.y); };
   const surPointerLeave = () => { appui=null;if(onSurvol)onSurvol(null); };
@@ -114,26 +123,40 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (axeX) { bv.y = vers.y; bv.x = de.x; } else { bv.x = vers.x; bv.y = de.y; }
     const delta = axeX ? vers.x - de.x : vers.y - de.y;
     const dir = delta === 0 ? 1 : Math.sign(delta);
-    bv.chute = { axe: axeX ? 'x' : 'y', origine: axeX ? de.x : de.y, dir, distance: Math.abs(delta), v: 0, pos: 0, t: 0, rebondFait: false, retard };
+    // Distance-aware duration: distant entries accelerate longer, then settle without reversing.
+    const distance = Math.abs(delta);
+    bv.chute = { axe: axeX ? 'x' : 'y', origine: axeX ? de.x : de.y, dir, distance,
+      t: 0, duree: mouvementReduit ? .12 : Math.min(.42, .13 + Math.sqrt(distance) * .07), retard };
   }
   function avancerChute(bv, dt) {
     const c = bv.chute; if (!c) return;
     if (c.retard > 0) { c.retard -= dt; if (c.retard > 0) return; dt += c.retard; c.retard = 0; }
-    c.v += GRAVITE_CASES * dt; c.pos += c.v * dt; c.t += dt;
-    let fini = false;
-    if (!c.rebondFait && c.pos >= c.distance) {
-      c.pos = c.distance - (c.pos - c.distance) * RESTITUTION;
-      c.v = -c.v * RESTITUTION; c.rebondFait = true;
-      // a3 : squash à l'atterrissage, overshoot amplifié (0,10 → 0,14), + poussière d'impact
-      bv.squash = { t: 0, duree: 0.18, ampli: AMPLI_ATTERRISSAGE };
-      const ei = localVersEcran(c.axe === 'x' ? c.origine + c.dir * c.distance : bv.x, c.axe === 'y' ? c.origine + c.dir * c.distance : bv.y);
-      particules.emettrePoussiere(ei.x, ei.y);
-      if (courantAudio) courantAudio.jouer('rebond', { n: 1 });
-    } else if (c.rebondFait && c.v <= 0) fini = true;
-    if (c.t > 0.6) fini = true;
-    if (fini) { c.pos = c.distance; bv.chute = null; }
-    const val = c.origine + c.dir * c.pos;
-    if (c.axe === 'x') bv.x = val; else bv.y = val;
+    c.t += dt;
+    const p = clamp01(c.t / c.duree);
+    // Accelerate through 80% of the time, ease the final contact with continuous velocity.
+    const progression = p < .8 ? 1.25 * p * p : 1 - 5 * (1 - p) * (1 - p);
+    bv[c.axe] = c.origine + c.dir * c.distance * progression;
+    if (p >= 1) {
+      bv[c.axe] = c.origine + c.dir * c.distance;
+      bv.chute = null;
+      if (!mouvementReduit) bv.squash = { t: 0, duree: .12, ampli: AMPLI_ATTERRISSAGE };
+    }
+  }
+  // Resolve only position changes. Particle tails, labels and small settling effects stay alive
+  // while the next input is accepted. Background tabs must not hold a run indefinitely.
+  async function attendrePositions() {
+    const debut = Date.now();
+    while (angleTween || [...billes.values()].some(bv => bv.chute || bv.glisse)) {
+      if (Date.now() - debut > 1400 || (typeof document !== 'undefined' && document.hidden)) {
+        if (angleTween) { angleActuel=angleTween.angleFin;echelleActuelle=angleTween.echelleFin;angleTween=null; }
+        for (const [id,bv] of billes) {
+          if (bv.chute) { const c=bv.chute;bv[c.axe]=c.origine+c.dir*c.distance;bv.chute=null; }
+          if (bv.glisse) { const gl=bv.glisse;bv.x=gl.vers.x;bv.y=gl.vers.y;bv.glisse=null;if(gl.retirerApres)billes.delete(id); }
+        }
+        break;
+      }
+      await attend(16);
+    }
   }
   function demarrerGlisse(bv, de, vers, duree, retirerApres, retrecir = false) { // retrecir : la bille fond en glissant (naissance de spéciale)
     bv.x = de.x; bv.y = de.y;
@@ -160,7 +183,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   // groupe reste figé en plein pré-squash, puis explose. Une seule par appel de jouer() pour ne pas
   // ralentir une chaîne (le ralenti de chaîne, item 5, prend le relais dès la profondeur 2).
   async function gelerHitstop(duree) {
-    if (hitstopFait || !(duree > 0)) return;
+    if (mouvementReduit || hitstopFait || !(duree > 0)) return;
     hitstopFait = true; hitstopRestant = duree;
     demarrerBoucle(); await attend(duree * 1000);
     hitstopRestant = 0;
@@ -173,7 +196,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   // Lot B : environnement passé à speciales-fx.js/finale.js — lit l'état courant via ces closures (jamais figé), comme localVersEcran.
   const env = {
     billes, particules, impact, juice, sprites, couleurHex, ecran: localVersEcran, glisser: demarrerGlisse, shake: declencherShake,
-    cellPix: () => cellPixBase, w: () => w, h: () => h, G: () => vecteurG(graviteCourante), cw: () => canvas.width, ch: () => canvas.height, audio: () => courantAudio,
+    mouvementReduit: () => mouvementReduit, cellPix: () => cellPixBase, w: () => w, h: () => h, G: () => vecteurG(graviteCourante), cw: () => canvas.width, ch: () => canvas.height, audio: () => courantAudio,
     squashPlateau: (amplitude) => squashPlateau.declencher(amplitude), // F08 : le plateau encaisse une explosion 8+
   };
   function dessinerFrame() {
@@ -181,7 +204,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     decor.dessiner(ctx, canvas.width, canvas.height, angleActuel, plateau ? plateau.width * echelleActuelle : 0, plateau ? plateau.height * echelleActuelle : 0);
     finale.dessinerFond(ctx, canvas.width, canvas.height); // item 7 : fond qui s'éclaircit, sous le plateau
     ctx.save();
-    ctx.translate(canvas.width / 2 + shakeX, canvas.height / 2 + shakeY); ctx.rotate(angleActuel);
+    ctx.translate(centreX + shakeX, centreY + shakeY); ctx.rotate(angleActuel);
     if (mouvementReduit) ctx.scale(echelleActuelle, echelleActuelle);
     else specialesFx.appliquerZoom(ctx, echelleActuelle * squashPlateau.sx * squashRebond.sx, echelleActuelle * squashPlateau.sy * squashRebond.sy); // item 5 : chaîne
     if (plateau) ctx.drawImage(plateau, -plateau.width / 2, -plateau.height / 2);
@@ -224,7 +247,9 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
       angleTween.t += dt;
       const p = clamp01(angleTween.t / angleTween.duree), e = easeInOut(p);
       angleActuel = lerp(angleTween.angleDebut, angleTween.angleFin, e);
-      echelleActuelle = lerp(angleTween.echelleDebut, angleTween.echelleFin, e);
+      const ca = Math.abs(Math.cos(angleActuel)), sa = Math.abs(Math.sin(angleActuel));
+      const fit = Math.min(espaceW / ((w + 1.48) * ca + (h + 1.48) * sa), espaceH / ((h + 1.48) * ca + (w + 1.48) * sa)) / cellPixBase;
+      echelleActuelle = Math.min(lerp(angleTween.echelleDebut, angleTween.echelleFin, e), fit);
       if (p >= 1) angleTween = null;
     }
     for (const [id, bv] of billes) {
@@ -269,8 +294,8 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     juice.emettreCombo(ecran.x, ecran.y, evt.taille || 0);
     if (courantAudio) courantAudio.jouer('tap', { taille: evt.taille });
     if (detruitSuivant && detruitSuivant.cellules && detruitSuivant.cellules.length) {
-      demarrerAnticipation(detruitSuivant.cellules, f);
-      demarrerBoucle(); await attend(f.anticipation * 1000); // les `detruit` qui suivent attendent l'anticipation (60-140 ms selon le palier)
+      if (!mouvementReduit) demarrerAnticipation(detruitSuivant.cellules, f);
+      demarrerBoucle(); await attend(mouvementReduit ? 16 : f.anticipation * 1000); // les `detruit` qui suivent attendent l'anticipation (60-140 ms selon le palier)
       await gelerHitstop(f.hitstop); // 8+ : micro-pause, le groupe tenu en plein squash, puis l'explosion
     } else demarrerBoucle();
   }
@@ -283,7 +308,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   // plateau encaisse ; puis chaque coup converti est un pop rapide (surDetruitFinale), les spéciales
   // gardent leur activation dédiée et les rotations leur vent.
   async function surFinale(evt) {
-    const cx = canvas.width / 2 + shakeX, cy = canvas.height / 2 + shakeY, s = (n) => (n > 1 ? 's' : '');
+    const cx = centreX + shakeX, cy = centreY + shakeY, s = (n) => (n > 1 ? 's' : '');
     const parts = [];
     if (evt.coups) parts.push(`${evt.coups} coup${s(evt.coups)}`);
     if (evt.jauge) parts.push(`${evt.jauge} rotation${s(evt.jauge)}`);
@@ -316,7 +341,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     if (evt.cause === 'finale') { await surDetruitFinale(evt); return; } // F07 : un coup converti, pop rapide
     dernierPalier = palierGroupe((evt.cellules || []).length);
     if (evt.cause !== 'groupe') await gelerHitstop(FEEL[dernierPalier].hitstop); // F08 : explosion 8+ (le tap a déjà eu la sienne dans surTap)
-    if ((evt.profondeur || 0) >= 2) specialesFx.declencherChaine(evt, env); // item 5 : chaîne, quelle que soit la cause
+    if (!mouvementReduit && (evt.profondeur || 0) === 2) specialesFx.declencherChaine(evt, env); // item 5 : chaîne, quelle que soit la cause
     demarrerBoucle();
     const nomFx = GESTIONNAIRES_FX[evt.cause];
     if (nomFx) { await specialesFx[nomFx](evt, env, combo); return; } // items 1-4 : activation dédiée
@@ -327,14 +352,14 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   async function surSpeciale(evt) {
     const bv = billes.get(evt.id);
     if (bv) {
-      bv.speciale = evt.type; bv.pulse = { t: 0, duree: 0.34, ampli: 0.5 };
+      bv.speciale = evt.type; bv.pulse = { t: 0, duree: 0.24, ampli: 0.12 };
       const e = localVersEcran(bv.x, bv.y);
       impact.emettreImpact(e.x, e.y, bv.couleur, 1.2);
       juice.emettreOnde(e.x, e.y, cellPixBase * 1.8, 1.2);
       particules.emettreDestruction(e.x, e.y, couleurHex(bv.couleur), 10);
     }
     if (courantAudio) courantAudio.jouer('speciale', { type: evt.type });
-    demarrerBoucle(); await attend(150);
+    demarrerBoucle(); // birth glow continues during the fall
   }
   async function surConversion(evt) {
     for (const c of evt.cellules) {
@@ -342,13 +367,13 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
       if (c.type) bv.type = c.type; // ex : pierre convertie en bille
       bv.fondu = { de: bv.couleur != null ? bv.couleur : c.couleur, vers: c.couleur, t: 0, duree: 0.3 }; bv.couleur = c.couleur;
     }
-    demarrerBoucle(); await attend(300);
+    demarrerBoucle(); await attend(100);
   }
   async function surElement(evt) {
     const bv = billes.get(evt.id);
     if (bv) {
       bv.element = { type: evt.type, activations: evt.activations, max: evt.max, contenu: bv.element ? bv.element.contenu : null };
-      if (evt.action === 'activation' || evt.action === 'libere') bv.pulse = { t: 0, duree: 0.2 };
+      if (evt.action === 'activation' || evt.action === 'libere') bv.pulse = { t: 0, duree: 0.2, ampli: .07 };
       else if (evt.action === 'sauvee') { const p=localVersEcran(bv.x,bv.y);particules.emettreConfettis(p.x,p.y,18);juice.emettreMot(p.x,p.y,'BALISE SAUVÉE',.8);billes.delete(evt.id); }
       else if (evt.action === 'eclate') {
         const ecran = localVersEcran(bv.x, bv.y);
@@ -363,18 +388,19 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
       }
     }
     if (courantAudio) courantAudio.jouer('element', { type: evt.type, action: evt.action });
-    demarrerBoucle(); await attend(evt.action === 'monte' ? 200 : evt.action === 'fusee' ? 300 : 150);
+    demarrerBoucle();
+    if (evt.action === 'monte') await attendrePositions();
+    else if (evt.action === 'fusee') await attend(160); // departure overlaps the outgoing energy trail
+    // Activation, release and rescue labels don't block the next event.
   }
   async function surRotation(evt) {
     const avant = graviteCourante;
     graviteCourante = evt.vers != null ? evt.vers : ((avant + evt.sens + 4) % 4);
     const delta = evt.sens === 2 ? Math.PI : evt.sens * (Math.PI / 2);
-    angleTween = { angleDebut: angleActuel, angleFin: angleActuel + delta, echelleDebut: calcEchelle(avant), echelleFin: calcEchelle(graviteCourante), t: 0, duree: DUREE_ROTATION };
+    angleTween = { angleDebut: angleActuel, angleFin: angleActuel + delta, echelleDebut: calcEchelle(avant), echelleFin: calcEchelle(graviteCourante), t: 0, duree: mouvementReduit ? .16 : DUREE_ROTATION };
     if (courantAudio) courantAudio.jouer('rotation', { sens: evt.sens });
-    specialesFx.declencherVent(evt.sens, DUREE_ROTATION, canvas.width / 2 + shakeX, canvas.height / 2 + shakeY, Math.min(canvas.width, canvas.height) * 0.42); // item 8 : vent
-    demarrerBoucle(); await attend(DUREE_ROTATION * 700); // la chute qui suit démarre pendant la fin (ease-out) de la rotation
-    setTimeout(() => squashPlateau.declencher(), DUREE_ROTATION * 300); // squash élastique du plateau en fin de rotation (§2)
-    setTimeout(() => squashRebond.declencher(), DUREE_ROTATION * 300 + 250); // item 8 : second rebond, juste après le premier
+    if (!mouvementReduit) specialesFx.declencherVent(evt.sens, DUREE_ROTATION, centreX + shakeX, centreY + shakeY, Math.min(canvas.width, canvas.height) * 0.42); // item 8 : vent
+    demarrerBoucle(); await attend(mouvementReduit ? 100 : DUREE_ROTATION * 580); // falling overlaps the smooth deceleration
   }
   // F09 : résultat d'une rotation du joueur, joué après la chute — le groupe formé pulse bille par
   // bille, « Bon angle ! » (ou « ALIGNEMENT ! » dès 8) au barycentre, la taille en dessous. Rien si
@@ -384,15 +410,15 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     let sx = 0, sy = 0, n = 0;
     for (const c of evt.cellules) {
       const bv = billes.get(c.id); if (!bv) continue;
-      bv.pulse = { t: -n * 0.035, duree: 0.28 }; // t négatif = départ différé, une bille après l'autre
+      bv.pulse = { t: -Math.min(n * 0.012, .09), duree: 0.22, ampli: .055 }; // t négatif = départ différé, une bille après l'autre
       const e = localVersEcran(bv.x, bv.y); sx += e.x; sy += e.y; n++;
     }
     if (!n) return;
     const cx = sx / n, cy = sy / n, grand = evt.apres >= 8;
     juice.emettreMot(cx, cy, grand ? 'ALIGNEMENT !' : 'Bon angle !', grand ? 1.1 : 1);
-    juice.emettreInfo(cx, cy - cellPixBase * 1.05, evt.apres + ' billes', 0.5); // au-dessus du mot, monte en s'éloignant
+    juice.emettreInfo(cx, cy - cellPixBase * 1.05, evt.apres + ' cristaux', 0.5); // au-dessus du mot, monte en s'éloignant
     if (courantAudio) courantAudio.jouer('bonAngle', { taille: evt.apres });
-    demarrerBoucle(); await attend(200 + n * 35);
+    demarrerBoucle(); // alignment is feedback, never an input lock
   }
   function lancerChute(evt) {
     for (const d of evt.deplacements || []) {
@@ -403,14 +429,14 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     demarrerBoucle();
   }
   async function surChute(evt) { // squash élastique du plateau à l'atterrissage des billes (§2)
-    lancerChute(evt); await attend(DUREE_CHUTE * 1000); squashPlateau.declencher();
+    lancerChute(evt); await attendrePositions();
   }
   async function surRemplissage(evt) {
     for (const c of evt.cellules || []) {
       const bv = creerBilleVis(c, c.depuis.x, c.depuis.y);
       billes.set(c.id, bv); demarrerChute(bv, c.depuis, { x: c.x, y: c.y });
     }
-    demarrerBoucle(); await attend(DUREE_CHUTE * 1000); squashPlateau.declencher();
+    demarrerBoucle(); await attendrePositions();
   }
   async function surMaree(evt) {
     const duree = 0.3;
@@ -424,13 +450,11 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   }
   async function surSalle() {
     const G = vecteurG(graviteCourante);
-    let retardMax = 0;
     for (const [, bv] of billes) {
       const cible = { x: bv.x, y: bv.y }, depart = { x: cible.x - G.x * 3, y: cible.y - G.y * 3 }, retard = (bv.x + bv.y) * 0.015;
-      if (retard > retardMax) retardMax = retard;
       demarrerChute(bv, depart, cible, retard);
     }
-    demarrerBoucle(); await attend(450 + Math.round(retardMax * 1000)); // la dernière bille (grandes grilles) atterrit avant que jouer() ne résolve
+    demarrerBoucle(); await attendrePositions(); // la dernière bille (grandes grilles) atterrit avant que jouer() ne résolve
   }
   async function surApparition(evt) {
     for (const c of evt.cellules || []) { const bv = creerBilleVis(c, c.x, c.y); bv.echelle = 0; bv.pop = { t: 0, duree: 0.18 }; billes.set(c.id, bv); }
@@ -466,8 +490,8 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     for (let i = 0; i < liste.length; i++) {
       const evt = liste[i], suivant = liste[i + 1];
       switch (evt.t) {
-        case 'combo': { const p=localVersEcran(evt.x,evt.y);juice.emettreMot(p.x,p.y,evt.nom || 'FUSION !',1.15);juice.emettreOnde(p.x,p.y,cellPixBase*2,1.2);apercuCombo=evt;demarrerBoucle();await attend(220);apercuCombo=null;break; }
-        case 'resonance': if(evt.actions===3){juice.emettreMot(canvas.width/2,canvas.height/2,'RÉSONANCE !',1.2);demarrerBoucle();} break;
+        case 'combo': { const p=localVersEcran(evt.x,evt.y);juice.emettreMot(p.x,p.y,evt.nom || 'FUSION !',1.15);juice.emettreOnde(p.x,p.y,cellPixBase*2,1.2);apercuCombo=evt;demarrerBoucle();await attend(mouvementReduit ? 30 : 100);apercuCombo=null;break; }
+        case 'resonance': if(evt.actions===3){juice.emettreMot(centreX,centreY,'RÉSONANCE !',1.2);demarrerBoucle();} break;
         case 'tap': await surTap(evt, suivant && suivant.t === 'detruit' ? suivant : null); break; // a1 : attend l'anticipation (80 ms) avant le detruit qui suit
         case 'detruit': await surDetruit(evt, estCombo(evt), evt.cause === 'groupe' && suivant && suivant.t === 'speciale' ? suivant : null); break; // étape 3 : le groupe converge vers la spéciale qu'il crée
         case 'speciale': await surSpeciale(evt); break;
@@ -489,6 +513,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
         default: break; // événement ignoré par le rendu (UI/audio/moteur uniquement)
       }
     }
+    await attendrePositions();
   }
   function surligner(cellules) {
     surligneesSet.clear();
@@ -500,7 +525,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   function previsualiserCombo(info) { apercuCombo=info;demarrerBoucle();dessinerFrame(); }
   function redimensionner() { if (etatCourant) { recalculerEchelles(); dessinerFrame(); } }
   let observateur = null; // suit les changements de taille CSS du canvas après mise en page (HUD, couche masquée)
-  if (typeof ResizeObserver !== 'undefined') { observateur = new ResizeObserver(redimensionner); observateur.observe(canvas); }
+  if (typeof ResizeObserver !== 'undefined') { observateur = new ResizeObserver(redimensionner); observateur.observe(canvas); for (const id of ['hud', 'commandes']) { const element = document.getElementById(id); if (element) observateur.observe(element); } }
   const surVisibilite = () => { if (typeof document !== 'undefined' && !document.hidden) demarrerBoucle(); }; // décor en continu tant que visible (§2)
   if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('visibilitychange', surVisibilite);
   function detruire() {

@@ -30,7 +30,7 @@ Après une mise à jour, fermer tous les onglets du jeu (et l’application inst
 
 ## Jouer
 
-- Tapez au moins deux gemmes voisines de même couleur. Une spéciale seule peut aussi être activée.
+- Tapez au moins deux cristaux voisines de même couleur. Une spéciale seule peut aussi être activée.
 - Groupes de 4 / 6 / 7 / 10 : bombe / ligne / croix / bombe de couleur.
 - Tournez à gauche, à droite ou d'un demi-tour. Maintenez la commande pour prévisualiser la chute.
 - Une rotation consomme une énergie ; à jauge vide, un coup. Les groupes de 6+ rechargent l'énergie.
@@ -42,6 +42,8 @@ Après une mise à jour, fermer tous les onglets du jeu (et l’application inst
 - Le rang des cartes dépend de l’XP active : plafond I sur Mercure/Vénus, II de la Terre à Jupiter, III à partir de Saturne.
 - Chaque sauvetage final demande de guider deux noyaux vers la sortie avec la gravité.
 - Les planètes réalistes, lunes et soleil tournent avec le plateau ; les textures sont embarquées pour jouer hors ligne.
+- Le décor spatial occupe tout l’écran, derrière les instruments transparents.
+- Découvrez la rupture du réseau Hélios dans le journal facultatif et les transmissions entre niveaux.
 - Le bouton Menu sauvegarde la partie. Continuer restaure le plateau, les pouvoirs et le hasard.
 - Réglages séparés : effets sonores, ambiance musicale (désactivée initialement), vibrations.
 - Clavier : Q / D / S pour tourner ; avec le plateau sélectionné par Tab, flèches puis Entrée pour jouer.

@@ -97,6 +97,9 @@ function demarrer(evenements) {
 async function jouer(evenements) {
   evenements = evenements ?? [];
   occupe = true;
+  canvas.setAttribute('aria-busy', 'true');
+  // Les compteurs répondent au geste sans attendre la fin de ses effets visuels.
+  if (run) ui.majHud(run.etat);
   sauvegarder();
   // Une seule annonce par action : les effets d'un build ne doivent pas empiler des fenêtres.
   const messages = evenements.filter(ev => ev.t === 'message');
@@ -104,6 +107,7 @@ async function jouer(evenements) {
   if (evenements.some((ev) => ev.t === 'salle')) rendu.synchroniser(run.etat); // nouvelle salle : le rendu repart de l'état
   if (evenements.length) { try { await rendu.jouer(evenements, { audio }); } catch (err) { console.error('rendu', err); rendu.synchroniser(run.etat); } }
   occupe = false;
+  canvas.setAttribute('aria-busy', 'false');
   if (!run) return;
   ui.majHud(run.etat);
   gererAttente();

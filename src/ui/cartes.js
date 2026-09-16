@@ -1,3 +1,4 @@
+import { transmissionFin, TRANSMISSIONS } from '../data/histoire.js';
 // Écrans d'attente construits depuis etat.enAttente (§3/§7 CONTRATS) :
 // montée de niveau, choix de compétence, fin de salle, fin de run.
 import { COMPETENCES } from '../data/competences.js';
@@ -19,10 +20,10 @@ const LIBELLE_RAISON = {
 // Unité affichée dans « À {manque} {unité} de l'objectif » selon le type d'objectif.
 const UNITE_OBJECTIF = {
   score: 'points',
-  couleur: 'billes',
+  couleur: 'cristaux',
   ballons: 'étoiles filantes',
   pierres: 'astéroïdes',
-  billes: 'billes',
+  billes: 'cristaux',
   reliques: 'noyaux',
 };
 
@@ -118,11 +119,13 @@ export function creerCartes(conteneur, actions) {
   const pied = document.createElement('div');
   pied.className = 'attente-pied';
 
-  panneau.append(titre, sousTitre, quasiVictoireEl, finaleEl, badgeEncourageEl, grille, statsGrille, escalierXp, competencesFin, pied);
+  const transmission = document.createElement('p'); transmission.className = 'transmission-helios'; transmission.hidden = true;
+  panneau.append(titre, sousTitre, transmission, quasiVictoireEl, finaleEl, badgeEncourageEl, grille, statsGrille, escalierXp, competencesFin, pied);
   conteneur.appendChild(panneau);
 
   function vider() {
     titre.textContent = '';
+    transmission.hidden = true; transmission.textContent = '';
     sousTitre.hidden = true;
     sousTitre.textContent = '';
     quasiVictoireEl.hidden = true;
@@ -279,7 +282,7 @@ export function creerCartes(conteneur, actions) {
           boutonRelance.disabled = !relance.possible;
         }
       } else if (enAttente.type === 'competence') {
-        titre.textContent = 'Un pouvoir pour la suite';
+        titre.textContent = 'Améliorer VERTIGE';
         sousTitre.hidden = false;
         sousTitre.textContent = `${formatNombre(enAttente.xpReference ?? 0)} XP gagnée dans ce niveau · Gain : +${enAttente.palier ?? 1} rang${(enAttente.palier ?? 1) > 1 ? 's' : ''}, plafond actuel : rang ${enAttente.plafond ?? 3}. Pouvoirs et contreparties restent actifs toute l’expédition.`;
         grille.classList.add('grille-build');
@@ -299,6 +302,8 @@ export function creerCartes(conteneur, actions) {
         });
         boutonPied('Continuer sans carte', () => actions.choisir(null));
       } else if (enAttente.type === 'finSalle') {
+        const recit = transmissionFin(enAttente);
+        if (recit) { transmission.hidden = false; transmission.textContent = recit; }
         const planeteSauvee = enAttente.planeteSauvee ?? !enAttente.totalNiveauxPlanete;
         titre.textContent = enAttente.victoire ? (planeteSauvee ? 'Planète sauvée !' : 'Niveau terminé !') : 'Mission interrompue';
         sousTitre.hidden = false;
@@ -341,6 +346,7 @@ export function creerCartes(conteneur, actions) {
         titre.textContent = enAttente.victoire ? ((enAttente.totalPlanetes === 8 || enAttente.totalSalles === 8) ? 'Le système solaire est sauvé !' : 'Expédition accomplie !') : 'Fin de l’expédition';
         sousTitre.hidden = false;
         sousTitre.textContent = titreDeBuild(enAttente);
+        if (enAttente.victoire && (enAttente.totalPlanetes === 8 || enAttente.totalSalles === 8)) { transmission.hidden = false; transmission.textContent = TRANSMISSIONS[7].fin; }
 
         const stats = enAttente.stats ?? {};
         const speciales = stats.speciales ?? {};

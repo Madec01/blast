@@ -1,11 +1,9 @@
-// Sprites pré-rendus sur canvas hors écran — gemmes du Carrousel cosmique.
-// Six silhouettes, biseaux doux et reflets nets, jamais de dégradé recalculé par frame. Régénérés uniquement quand la taille de case change :
+// Sprites pré-rendus sur canvas hors écran — cristaux et instruments d’Hélios.
+// Six silhouettes, facettes minérales et reflets fins, jamais de dégradé recalculé par frame. Régénérés uniquement quand la taille de case change :
 // rendu.js ne fait que des drawImage + transformations sur ces sprites.
 
 import { COULEURS, ENCRE } from '../data/couleurs.js';
 
-const CADRE = '#28495c', CADRE_CLAIR = '#4a7882', CADRE_FONCE = '#142738';
-const CHAMP_HAUT = '#13283f', CHAMP_BAS = '#091728';
 
 // --- petits utilitaires couleur -----------------------------------------------------
 function hex2rgb(hex) { const n = parseInt(hex.slice(1), 16); return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }; }
@@ -49,57 +47,47 @@ function cheminEtoile(ctx, cx, cy, r, branches, ratioCreux) {
 // Six silhouettes indépendantes de la couleur : lecture du groupe même sans perception
 // des teintes. Toute la matière est cuite au redimensionnement, aucun filtre par frame.
 function cheminGemme(ctx, cx, cy, r, forme) {
+  // Contours francs, six silhouettes identifiables à petite taille.
+  const formes = [
+    [[-.63,-.86],[.63,-.86],[.86,-.63],[.86,.63],[.63,.86],[-.63,.86],[-.86,.63],[-.86,-.63]],
+    [[-.78,.72],[-.9,-.12],[-.38,-.84],[.78,-.72],[.9,.12],[.38,.84]],
+    [[0,-.96],[.68,-.68],[.96,0],[.68,.68],[0,.96],[-.68,.68],[-.96,0],[-.68,-.68]],
+    [[0,-1],[.86,0],[0,1],[-.86,0]],
+    [[-1,0],[-.5,-.86],[.5,-.86],[1,0],[.5,.86],[-.5,.86]],
+    [[0,-1],[.77,.08],[.7,.65],[0,.96],[-.7,.65],[-.77,.08]],
+  ];
   ctx.beginPath();
-  if (forme === 0) { // coussin corail
-    chemineRectArrondi(ctx, cx-r*.89, cy-r*.89, r*1.78, r*1.78, r*.42);
-  } else if (forme === 1) { // feuille verte, asymétrique même après rotation
-    ctx.moveTo(cx-r*.78, cy+r*.73);
-    ctx.bezierCurveTo(cx-r*1.2, cy-r*.65, cx-r*.12, cy-r*1.04, cx+r*.77, cy-r*.77);
-    ctx.bezierCurveTo(cx+r*1.11, cy+r*.62, cx+r*.12, cy+r*1.09, cx-r*.78, cy+r*.73);
-  } else if (forme === 3) { // losange solaire aux pointes adoucies
-    ctx.moveTo(cx, cy-r);
-    ctx.quadraticCurveTo(cx+r*.13, cy-r, cx+r*.9, cy-r*.12);
-    ctx.quadraticCurveTo(cx+r, cy, cx+r*.9, cy+r*.12);
-    ctx.lineTo(cx+r*.12, cy+r*.9); ctx.quadraticCurveTo(cx, cy+r, cx-r*.12, cy+r*.9);
-    ctx.lineTo(cx-r*.9, cy+r*.12); ctx.quadraticCurveTo(cx-r, cy, cx-r*.9, cy-r*.12);
-    ctx.lineTo(cx-r*.12, cy-r*.9); ctx.quadraticCurveTo(cx, cy-r, cx, cy-r);
-  } else if (forme === 4) { // hexagone améthyste
-    for (let i=0; i<6; i++) {
-      const a=i*Math.PI/3, x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;
-      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-    }
-  } else if (forme === 5) { // goutte de comète
-    ctx.moveTo(cx, cy-r);
-    ctx.bezierCurveTo(cx+r*.26,cy-r*.56,cx+r*.86,cy-r*.18,cx+r*.86,cy+r*.28);
-    ctx.bezierCurveTo(cx+r*.86,cy+r*1.1,cx-r*.86,cy+r*1.1,cx-r*.86,cy+r*.28);
-    ctx.bezierCurveTo(cx-r*.86,cy-r*.18,cx-r*.26,cy-r*.56,cx,cy-r);
-  } else ctx.arc(cx, cy, r*.93, 0, Math.PI*2); // perle bleue
+  formes[forme % 6].forEach(([x,y],i) => i ? ctx.lineTo(cx+x*r,cy+y*r) : ctx.moveTo(cx+x*r,cy+y*r));
   ctx.closePath();
 }
 
 function dessinerBille(ctx, cx, cy, cellPix, hex, contour, forme) {
-  const r=cellPix*.435;
+  const r=cellPix*.424;
   ctx.save();
-  // Talon sombre : la gemme paraît posée dans son logement.
-  cheminGemme(ctx,cx,cy+r*.09,r,forme);
-  ctx.fillStyle=assombrir(hex,.64); ctx.fill();
-  cheminGemme(ctx,cx,cy-r*.035,r,forme);
-  const g=ctx.createLinearGradient(cx-r,cy-r,cx+r*.6,cy+r);
-  g.addColorStop(0,eclaircir(hex,.57)); g.addColorStop(.32,eclaircir(hex,.16));
-  g.addColorStop(.67,hex); g.addColorStop(1,assombrir(hex,.26));
-  ctx.fillStyle=g; ctx.fill();
-  ctx.lineWidth=Math.max(1,cellPix*.025); ctx.lineJoin='round';
-  ctx.strokeStyle=contour || assombrir(hex,.45); ctx.stroke();
-  ctx.clip();
-  // Biseau intérieur et reflet large, translucide : un éclairage commun à toute la série.
-  cheminGemme(ctx,cx,cy-r*.035,r*.87,forme);
-  ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=Math.max(.8,cellPix*.018); ctx.stroke();
-  const reflet=ctx.createLinearGradient(cx,cy-r,cx,cy+r*.15);
-  reflet.addColorStop(0,'rgba(255,255,255,.57)'); reflet.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.beginPath(); ctx.ellipse(cx-r*.15,cy-r*.59,r*.87,r*.48,-.2,0,Math.PI*2);
-  ctx.fillStyle=reflet; ctx.fill();
-  ctx.beginPath(); ctx.ellipse(cx-r*.32,cy-r*.5,r*.21,r*.09,-.4,0,Math.PI*2);
-  ctx.fillStyle='rgba(255,255,255,.8)'; ctx.fill();
+  cheminGemme(ctx,cx,cy+r*.06,r,forme);
+  ctx.fillStyle='#040b17'; ctx.fill();
+  cheminGemme(ctx,cx,cy,r,forme);
+  const g=ctx.createLinearGradient(cx-r,cy-r,cx+r*.7,cy+r);
+  g.addColorStop(0,eclaircir(hex,.36)); g.addColorStop(.2,hex);
+  g.addColorStop(.57,assombrir(hex,.24)); g.addColorStop(1,assombrir(hex,.62));
+  ctx.fillStyle=g;ctx.fill();
+  ctx.lineWidth=Math.max(.8,cellPix*.018);ctx.lineJoin='round';
+  ctx.strokeStyle=eclaircir(hex,.36);ctx.stroke();ctx.clip();
+  // Plans minéraux et lumière interne : ni reflet ovale ni biseau gonflé.
+  ctx.beginPath();ctx.moveTo(cx-r,cy-r);ctx.lineTo(cx+r,cy-r);
+  ctx.lineTo(cx+r*.52,cy-r*.5);ctx.lineTo(cx-r*.42,cy-r*.42);ctx.closePath();
+  ctx.fillStyle='rgba(239,251,255,.2)';ctx.fill();
+  ctx.beginPath();ctx.moveTo(cx-r,cy-r);ctx.lineTo(cx-r*.42,cy-r*.42);
+  ctx.lineTo(cx-r*.42,cy+r*.4);ctx.lineTo(cx-r,cy+r);ctx.closePath();
+  ctx.fillStyle='rgba(213,247,255,.12)';ctx.fill();
+  const core=ctx.createRadialGradient(cx-r*.1,cy+r*.06,0,cx,cy,r*.83);
+  core.addColorStop(0,eclaircir(hex,.65));core.addColorStop(.2,hex);core.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.globalAlpha=.48;ctx.fillStyle=core;ctx.fillRect(cx-r,cy-r,r*2,r*2);ctx.globalAlpha=1;
+  cheminGemme(ctx,cx,cy,r*.57,forme);
+  ctx.strokeStyle='rgba(224,252,255,.25)';ctx.lineWidth=Math.max(.5,cellPix*.011);ctx.stroke();
+  // Une arête spéculaire fine relie les facettes, direction commune à la série.
+  ctx.beginPath();ctx.moveTo(cx-r*.68,cy-r*.48);ctx.lineTo(cx-r*.39,cy-r*.65);ctx.lineTo(cx+r*.28,cy-r*.65);
+  ctx.strokeStyle='rgba(246,255,255,.78)';ctx.lineWidth=Math.max(.7,cellPix*.02);ctx.stroke();
   ctx.restore();
 }
 
@@ -148,64 +136,35 @@ export function creerSprites() {
 
   function batirBombe() {
     const { canvas, ctx } = creerCanvas(cellPix, cellPix);
-    const cx = cellPix / 2, cy = cellPix * 0.56, r = cellPix * 0.33;
-    ctx.save();
-    ctx.beginPath(); ctx.ellipse(cx + r * 0.16, cy + r * 0.32, r * 0.82, r * 0.36, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(8,4,26,0.32)'; ctx.filter = 'blur(2px)'; ctx.fill(); ctx.filter = 'none';
-    ctx.restore();
-    ctx.save();
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    const g = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.08, cx, cy, r * 1.05);
-    g.addColorStop(0, '#678797'); g.addColorStop(0.55, '#263e55'); g.addColorStop(1, '#101d31');
-    ctx.fillStyle = g; ctx.fill();
-    ctx.lineWidth = Math.max(1.5, cellPix * 0.06); ctx.strokeStyle = ENCRE; ctx.stroke();
-    ctx.restore();
-    ctx.save();
-    ctx.beginPath(); ctx.ellipse(cx - r * 0.34, cy - r * 0.38, r * 0.3, r * 0.16, -0.55, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
-    ctx.restore();
-    // mèche qui part du sommet, en courbe
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineWidth = Math.max(2, r * 0.16); ctx.strokeStyle = '#caa15a';
-    ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.92); ctx.quadraticCurveTo(cx + r * 0.5, cy - r * 1.22, cx + r * 0.12, cy - r * 1.5); ctx.stroke();
-    ctx.lineWidth = Math.max(1, r * 0.07); ctx.strokeStyle = ENCRE; ctx.stroke();
-    ctx.restore();
-    mecheOffset = { ox: r * 0.12, oy: cy - cellPix / 2 - r * 1.5 }; // relu par rendu.js pour l'étincelle vivante (flicker par frame)
-    ctx.save(); ctx.translate(cellPix / 2 + mecheOffset.ox, cellPix / 2 + mecheOffset.oy);
-    cheminEtoile(ctx, 0, 0, r * 0.22, 4, 0.4); ctx.fillStyle = '#ffd23f'; ctx.fill();
-    ctx.restore();
-    return canvas;
+    const cx=cellPix/2, cy=cellPix/2, r=cellPix*.42;
+    // Réacteur à implosion : le point lumineux remplace la mèche historique.
+    ctx.save();cheminGemme(ctx,cx,cy,r,4);
+    const g=ctx.createLinearGradient(cx-r,cy-r,cx+r,cy+r);
+    g.addColorStop(0,'#708d9d');g.addColorStop(.25,'#263d51');g.addColorStop(1,'#081420');
+    ctx.fillStyle=g;ctx.fill();ctx.strokeStyle='#a4c5d1';ctx.lineWidth=Math.max(.8,cellPix*.025);ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,r*.67,0,Math.PI*2);ctx.strokeStyle='#ffb467';ctx.lineWidth=cellPix*.065;ctx.stroke();
+    const core=ctx.createRadialGradient(cx,cy,0,cx,cy,r*.53);
+    core.addColorStop(0,'#fff6db');core.addColorStop(.3,'#ffcd7b');core.addColorStop(1,'rgba(255,120,36,0)');
+    ctx.fillStyle=core;ctx.fillRect(cx-r,cy-r,r*2,r*2);
+    for(let i=0;i<3;i++){const a=i*Math.PI*2/3-Math.PI/2;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r*.76,cy+Math.sin(a)*r*.76);ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.strokeStyle='#d9e8eb';ctx.lineWidth=cellPix*.035;ctx.stroke();}
+    ctx.restore();mecheOffset={ox:0,oy:0};return canvas;
   }
 
   function batirSucette() {
-    // bombe de couleur = sucette arc-en-ciel : spirale conique (repli radial pastel sinon)
-    const { canvas, ctx } = creerCanvas(cellPix, cellPix);
-    const cx = cellPix / 2, cy = cellPix / 2, r = cellPix * 0.44;
-    ctx.save();
-    ctx.beginPath(); ctx.ellipse(cx + r * 0.16, cy + r * 0.3, r * 0.82, r * 0.36, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(8,4,26,0.32)'; ctx.filter = 'blur(2px)'; ctx.fill(); ctx.filter = 'none';
-    ctx.restore();
-    const conique = ctx.createConicGradient ? ctx.createConicGradient(0, cx, cy) : null;
-    ctx.save();
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    if (conique) {
-      const teintes = COULEURS.map((c) => c.hex);
-      teintes.forEach((c, i) => conique.addColorStop(i / teintes.length, c));
-      conique.addColorStop(1, teintes[0]);
-      ctx.fillStyle = conique;
-    } else {
-      const gr = ctx.createRadialGradient(cx, cy, r * 0.1, cx, cy, r);
-      gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.5, COULEURS[3].hex); gr.addColorStop(1, COULEURS[0].hex);
-      ctx.fillStyle = gr;
+    // Noyau spectral : six segments d'énergie dans une cage optique.
+    const { canvas, ctx }=creerCanvas(cellPix,cellPix);
+    const cx=cellPix/2,cy=cellPix/2,r=cellPix*.425;
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle='#071626';ctx.fill();
+    ctx.strokeStyle='#bedbe7';ctx.lineWidth=Math.max(.8,cellPix*.018);ctx.stroke();
+    for(let i=0;i<6;i++){
+      const a=i*Math.PI/3;
+      ctx.beginPath();ctx.arc(cx,cy,r*.76,a+.065,a+Math.PI/3-.065);
+      ctx.lineWidth=r*.3;ctx.strokeStyle=COULEURS[i].hex;ctx.stroke();
     }
-    ctx.fill();
-    ctx.lineWidth = Math.max(1.5, cellPix * 0.06); ctx.strokeStyle = ENCRE; ctx.stroke();
-    ctx.restore();
-    ctx.save();
-    ctx.beginPath(); ctx.ellipse(cx - r * 0.34, cy - r * 0.38, r * 0.28, r * 0.15, -0.55, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.fill();
-    ctx.restore();
+    const core=ctx.createRadialGradient(cx,cy,0,cx,cy,r*.55);
+    core.addColorStop(0,'#ffffff');core.addColorStop(.22,'#bdefff');core.addColorStop(1,'rgba(122,201,255,0)');
+    ctx.fillStyle=core;ctx.fillRect(cx-r,cy-r,r*2,r*2);
+    cheminGemme(ctx,cx,cy,r*.32,3);ctx.strokeStyle='#e8fbff';ctx.lineWidth=Math.max(.7,cellPix*.016);ctx.stroke();
     return canvas;
   }
 
@@ -219,7 +178,7 @@ export function creerSprites() {
     ctx.lineTo(-s * 0.24, -s * 1.05); ctx.lineTo(s * 0.24, -s * 1.05); ctx.lineTo(s * 0.24, s * 0.15);
     ctx.lineTo(s * 0.62, s * 0.15); ctx.closePath();
     ctx.fillStyle = '#ffffff'; ctx.fill();
-    ctx.lineWidth = Math.max(1.5, cellPix * 0.045); ctx.strokeStyle = ENCRE; ctx.stroke();
+    ctx.lineWidth = Math.max(.8, cellPix * 0.022); ctx.strokeStyle = '#183345'; ctx.stroke();
     ctx.restore();
     return canvas;
   }
@@ -230,7 +189,7 @@ export function creerSprites() {
     ctx.save();
     cheminEtoile(ctx, cx, cy, r, 4, 0.42);
     ctx.fillStyle = '#ffffff'; ctx.fill();
-    ctx.lineWidth = Math.max(1.5, cellPix * 0.045); ctx.strokeStyle = ENCRE; ctx.stroke();
+    ctx.lineWidth = Math.max(.8, cellPix * 0.022); ctx.strokeStyle = '#183345'; ctx.stroke();
     ctx.restore();
     return canvas;
   }
@@ -238,7 +197,7 @@ export function creerSprites() {
   // Contexte « Carrousel cosmique » : la pierre devient un morceau d'astéroïde (id/comportement
   // inchangés) — même polygone jitté gris-bleu remplacé par un gris-brun rocheux + 2-3 cratères.
   function batirPierre() {
-    // rocher cartoon gris-brun, facetté — polygone déterministe (stable entre régénérations)
+    // fragment minéral gris-brun, facetté — polygone déterministe (stable entre régénérations)
     const { canvas, ctx } = creerCanvas(cellPix, cellPix);
     const cx = cellPix / 2, cy = cellPix / 2, r = cellPix * 0.42;
     const jitter = [1, 0.84, 0.96, 0.78, 1, 0.86, 0.9, 0.8];
@@ -256,7 +215,7 @@ export function creerSprites() {
     const g = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r); // gris-brun astéroïde
     g.addColorStop(0, '#b79c7a'); g.addColorStop(0.5, '#8a7259'); g.addColorStop(1, '#4a3c2c');
     ctx.fillStyle = g; ctx.fill();
-    ctx.lineWidth = Math.max(1.5, cellPix * 0.055); ctx.strokeStyle = ENCRE; ctx.stroke(); ctx.restore();
+    ctx.lineWidth = Math.max(.8, cellPix * 0.025); ctx.strokeStyle = ENCRE; ctx.stroke(); ctx.restore();
     // cratères : creux ombré + liseré clair (2-3, positions déterministes)
     const crateres = [{ x: cx - r * 0.3, y: cy - r * 0.16, rr: r * 0.22 }, { x: cx + r * 0.26, y: cy + r * 0.1, rr: r * 0.17 }, { x: cx - r * 0.02, y: cy + r * 0.36, rr: r * 0.13 }];
     for (const c of crateres) {
@@ -290,19 +249,19 @@ export function creerSprites() {
   }
 
   function batirFusee() {
-    // élément fusée dormante : cartoon rouge et blanc, pointe canonique vers le bas (contre-rotée)
+    // Sonde dormante en titane, pointe canonique vers le bas (contre-rotée)
     const { canvas, ctx } = creerCanvas(cellPix, cellPix);
-    const s = cellPix * 0.4, rouge = COULEURS[0].hex;
+    const s = cellPix * 0.4, rouge = '#78afb9';
     ctx.save(); ctx.translate(cellPix / 2, cellPix / 2);
     ctx.beginPath();
     ctx.moveTo(0, s * 1.05); ctx.lineTo(-s * 0.4, s * 0.15);
     ctx.quadraticCurveTo(-s * 0.4, -s * 0.85, 0, -s * 1.05);
     ctx.quadraticCurveTo(s * 0.4, -s * 0.85, s * 0.4, s * 0.15); ctx.closePath();
-    ctx.fillStyle = '#f4f2ee'; ctx.fill();
+    const metal=ctx.createLinearGradient(-s,0,s,0);metal.addColorStop(0,'#496575');metal.addColorStop(.45,'#edf4f5');metal.addColorStop(1,'#607985');ctx.fillStyle = metal; ctx.fill();
     ctx.beginPath(); ctx.moveTo(0, -s * 1.05); ctx.quadraticCurveTo(s * 0.4, -s * 0.85, s * 0.4, -s * 0.35);
     ctx.lineTo(-s * 0.4, -s * 0.35); ctx.quadraticCurveTo(-s * 0.4, -s * 0.85, 0, -s * 1.05); ctx.closePath();
     ctx.fillStyle = rouge; ctx.fill();
-    ctx.lineWidth = Math.max(1.5, s * 0.06); ctx.strokeStyle = ENCRE;
+    ctx.lineWidth = Math.max(.7, s * 0.035); ctx.strokeStyle = ENCRE;
     ctx.beginPath();
     ctx.moveTo(0, s * 1.05); ctx.lineTo(-s * 0.4, s * 0.15); ctx.quadraticCurveTo(-s * 0.4, -s * 0.85, 0, -s * 1.05);
     ctx.quadraticCurveTo(s * 0.4, -s * 0.85, s * 0.4, s * 0.15); ctx.closePath(); ctx.stroke();
@@ -331,26 +290,15 @@ export function creerSprites() {
     fusee = batirFusee();
   }
 
-  // boulon/étoile peint à chaque coin du cadre
-  function dessinerBoulon(ctx, cx, cy, r) {
-    ctx.save();
-    cheminEtoile(ctx, cx, cy, r, 4, 0.5);
-    const g = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.1, cx, cy, r);
-    g.addColorStop(0, '#fff1cb'); g.addColorStop(1, '#b59053');
-    ctx.fillStyle = g; ctx.fill();
-    ctx.lineWidth = Math.max(1, r * 0.18); ctx.strokeStyle = ENCRE; ctx.stroke();
-    ctx.restore();
-  }
-
   // Logements discrets : ne concurrencent pas les six silhouettes des gemmes.
   function dessinerCuvette(ctx, cx, cy, taille) {
     const s = taille * 0.445;
-    chemineRectArrondi(ctx,cx-s,cy-s,s*2,s*2,taille*.16);
-    ctx.fillStyle='rgba(0,5,17,.24)'; ctx.fill();
-    ctx.strokeStyle='rgba(166,220,225,.055)'; ctx.lineWidth=Math.max(1,taille*.018); ctx.stroke();
+    chemineRectArrondi(ctx,cx-s,cy-s,s*2,s*2,taille*.06);
+    ctx.fillStyle='rgba(0,5,17,.12)'; ctx.fill();
+    ctx.strokeStyle='rgba(166,220,225,.075)'; ctx.lineWidth=Math.max(1,taille*.018); ctx.stroke();
   }
 
-  // (re)construit la texture du plateau : cadre peint épais + champ indigo + cuvettes. Une
+  // (re)construit la texture du plateau : verre fumé + repères métalliques + cuvettes. Une
   // fois par taille de plateau — jamais recalculé par frame.
   function regenererPlateau(w, h, taille, forme) {
     taille = Math.max(4, Math.round(taille));
@@ -359,27 +307,27 @@ export function creerSprites() {
     const rim = taille * 0.42, pad = taille * 0.32;
     const largeur = w * taille + rim * 2 + pad * 2, hauteur = h * taille + rim * 2 + pad * 2;
     const { canvas, ctx } = creerCanvas(largeur, hauteur);
-    const bx = pad, by = pad, bw = largeur - pad * 2, bh = hauteur - pad * 2, rCoin = rim * 1.4;
+    const bx = pad, by = pad, bw = largeur - pad * 2, bh = hauteur - pad * 2, rCoin = rim * .45;
 
     // ombre portée douce sous le plateau
     ctx.save(); ctx.filter = 'blur(6px)';
     chemineRectArrondi(ctx, bx + rim * 0.3, by + rim * 0.5, bw, bh, rCoin);
     ctx.fillStyle = 'rgba(8,4,26,0.3)'; ctx.fill(); ctx.filter = 'none'; ctx.restore();
 
-    // cadre peint épais : bord clair en haut, foncé en bas, contour encre
+    // Cadre optique fin, presque transparent devant le paysage spatial.
     chemineRectArrondi(ctx, bx, by, bw, bh, rCoin);
     const gc = ctx.createLinearGradient(bx, by, bx, by + bh);
-    gc.addColorStop(0, 'rgba(102,158,198,.30)'); gc.addColorStop(0.5, 'rgba(15,31,55,.25)'); gc.addColorStop(1, 'rgba(7,16,37,.40)');
+    gc.addColorStop(0, 'rgba(132,173,190,.15)'); gc.addColorStop(0.5, 'rgba(15,31,45,.08)'); gc.addColorStop(1, 'rgba(7,16,28,.2)');
     ctx.fillStyle = gc; ctx.fill();
-    ctx.lineWidth = Math.max(1, taille * 0.025); ctx.strokeStyle = 'rgba(161,208,243,.5)'; ctx.stroke();
+    ctx.lineWidth = Math.max(1, taille * 0.025); ctx.strokeStyle = 'rgba(161,208,223,.38)'; ctx.stroke();
 
-    // champ intérieur indigo
+    // Verre fumé pour garder les cristaux lisibles devant la planète.
     const ix = bx + rim, iy = by + rim, iw = bw - rim * 2, ih = bh - rim * 2;
     chemineRectArrondi(ctx, ix, iy, iw, ih, rCoin * 0.55);
     const gf = ctx.createLinearGradient(ix, iy, ix, iy + ih);
-    gf.addColorStop(0, 'rgba(3,12,30,.55)'); gf.addColorStop(1, 'rgba(3,12,30,.67)');
+    gf.addColorStop(0, 'rgba(3,10,20,.49)'); gf.addColorStop(1, 'rgba(3,10,20,.58)');
     ctx.fillStyle = gf; ctx.fill();
-    ctx.lineWidth = Math.max(2, taille * 0.03); ctx.strokeStyle = ENCRE; ctx.globalAlpha = 0.6; ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.lineWidth = Math.max(.6, taille * 0.013); ctx.strokeStyle = 'rgba(156,209,227,.18)'; ctx.stroke();
 
     // cuvettes en losange, à l'intérieur du champ (clip)
     ctx.save();
@@ -391,12 +339,12 @@ export function creerSprites() {
     }
     ctx.restore();
 
-    // boulons/étoiles aux quatre coins
-    const rb = rim * 0.42;
-    dessinerBoulon(ctx, bx + rim * 0.7, by + rim * 0.7, rb);
-    dessinerBoulon(ctx, bx + bw - rim * 0.7, by + rim * 0.7, rb);
-    dessinerBoulon(ctx, bx + rim * 0.7, by + bh - rim * 0.7, rb);
-    dessinerBoulon(ctx, bx + bw - rim * 0.7, by + bh - rim * 0.7, rb);
+    // Repères instrumentaux fins ; aucun boulon décoratif.
+    ctx.strokeStyle='rgba(177,226,238,.7)';ctx.lineWidth=Math.max(.8,taille*.022);
+    const marge=rim*.3, repere=taille*.35;
+    for(const [x,y,sx,sy] of [[bx+marge,by+marge,1,1],[bx+bw-marge,by+marge,-1,1],[bx+marge,by+bh-marge,1,-1],[bx+bw-marge,by+bh-marge,-1,-1]]) {
+      ctx.beginPath();ctx.moveTo(x+sx*repere,y);ctx.lineTo(x,y);ctx.lineTo(x,y+sy*repere);ctx.stroke();
+    }
 
     plateauCanvas = canvas;
   }

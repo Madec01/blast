@@ -1320,3 +1320,87 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px 
 
 .menu-systeme-solaire { display:block; aspect-ratio:520 / 370; height:auto; }
 .menu-explications a { color:#a4deee; text-underline-offset:3px; }
+
+/* Hélios : le ciel occupe tout l’écran ; seuls les instruments ont une surface. */
+:root { --nuit-haut:#060c15; --nuit-milieu:#0b1420; --nuit-bas:#04080f; --texte-nuit:#edf4f8; --corail:#9ed8e6; --menthe:#98e1d0; }
+#app { display:block; overflow:hidden; background:#040810; }
+#scene { position:absolute; inset:0; width:100%; height:100%; display:block; }
+#plateau { width:100%; height:100%; }
+#hud.hud { position:absolute; top:0; left:50%; transform:translateX(-50%); width:min(620px,100%); padding:max(12px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 8px max(16px,env(safe-area-inset-left)); background:transparent; border:0; border-radius:0; box-shadow:none; gap:7px 12px; }
+.hud-ligne-haut { gap:9px; }
+.hud-salle-bloc { padding:5px 9px; background:linear-gradient(90deg,#05101cc9,#05101c35); border-radius:5px; }
+.hud-salle { text-shadow:0 1px 5px #000; }
+.hud-parcours { color:#c2d3df; font-size:8px; }
+.hud-menu,.hud-carnet summary,.hud-coups { background:#09131fd6; border:1px solid #9fc1d23d; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); box-shadow:inset 0 1px #ffffff0b; border-radius:9px; color:#e9f6fa; }
+.hud-menu { height:36px; width:36px; }
+.hud-carnet summary { min-height:36px; padding:10px; }
+.hud-coups { font-variant-numeric:tabular-nums; padding:8px 10px; }
+.hud-coups.urgence { background:#421925de; border-color:#fa94a963; color:#ffdce2; }
+.route-solaire { padding:4px 8px 5px; background:linear-gradient(90deg,transparent,#030b148f 20%,#030b148f 80%,transparent); border-radius:8px; }
+.route-solaire::before { top:11px; background:#bfd1df35; }
+.route-planete small { text-shadow:0 1px 4px #000; color:#d6e3ed; }
+.route-planete { opacity:.68; }
+.hud-objectif { padding:5px 10px; background:linear-gradient(90deg,#05101ce6,#05101c90 75%,#05101c26); border:1px solid #bad7e41c; border-radius:8px; }
+.objectif-badge { min-height:26px; gap:7px; }
+.objectif-texte { font-size:13px; letter-spacing:.015em; }
+.objectif-badge.pop { animation:objectif-signal .22s ease-out; }
+@keyframes objectif-signal { 45% { opacity:.65; } }
+.objectif-barre { height:4px; background:#04101ad9; }
+.objectif-icone { filter:none; }
+.bille-mini { border:1px solid #dbf4ff77; border-radius:4px; transform:rotate(45deg) scale(.8); box-shadow:inset 0 0 5px #fff5,0 0 5px #96d9fa33; }
+.hud-jauge { padding:5px 7px; border-radius:6px; background:#05101cc4; }
+#hud .hud-xp { padding:4px 7px; border-radius:6px; background:#05101cc4; }
+.niveau-pastille { border-radius:5px; background:#7899ad23; color:#daeaf2; }
+.xp-label { color:#d8e6ed; }
+.hud-resonance { padding:5px 8px; background:linear-gradient(90deg,#05101cc4,#05101c50); border-radius:6px; color:#c0d5e2; }
+.hud-mission-hint { padding:4px 8px; background:#05101cad; border-radius:5px; }
+.hud-annonce { background:#102332de; color:#c9e4ef; border:1px solid #a2cbd648; border-radius:6px; box-shadow:none; animation:none; }
+#commandes { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:min(420px,100%); padding:10px max(18px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left)); gap:12px; background:none; border:0; box-shadow:none; }
+#commandes .touche { height:60px; border:1px solid #a5c4d452; border-radius:11px; color:#e0f0f6; background:linear-gradient(150deg,#182e3de0,#07111edc); backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:inset 0 1px #effaff12,0 5px 22px #0005; font-size:27px; }
+#commandes .touche:hover { background:#213c4ce6; }
+#commandes .touche:active { transform:translateY(1px) scale(.97); }
+#commandes .touche small { color:#c4d8e3; letter-spacing:.025em; font-weight:500; }
+#commandes .touche-payante::after { background:#203844; border-color:#a7c5d270; color:#e6f1f6; }
+.touche { border-radius:10px; box-shadow:inset 0 1px #e6f8ff15,0 4px 16px #0003; }
+.touche-accent { background:linear-gradient(145deg,#b5e5e7,#8cbfcb); color:#10212c; border-color:#d0eef1; box-shadow:0 5px 25px #6dced41a; }
+.touche-accent:hover { background:#c4eef0; }
+.touche-accent:active { box-shadow:0 1px 8px #0003; }
+.couche { align-items:safe center; }
+.couche-menu { background:radial-gradient(ellipse at 70% 35%,#192e3d77,transparent 65%),linear-gradient(155deg,#07111c,#03070d); }
+.menu-description { max-width:43em; line-height:1.65; }
+.menu-explications,.menu-reglages,.carnet-contenu { background:#081522f5; border-color:#a6c6d23d; border-radius:10px; }
+.carnet-contenu { max-height:min(72dvh,580px); }
+.carnet-contenu h3,.carnet-contenu h4 { color:#dfedf4; }
+.carnet-contenu .mission-phase { text-transform:uppercase; letter-spacing:.08em; color:#9edbdc; font-size:10px; margin-bottom:10px; }
+.carnet-fermer { background:#203440; border-color:#7e9ba64d; }
+.panneau-attente { border-radius:16px; background:#0b1826ed; border-color:#9fc1ce40; }
+.transmission-helios { margin:14px 0 20px; padding:12px 14px; border-left:2px solid #8cd1da; background:#9ccee509; font-size:13px; line-height:1.6; color:#c8dce7; text-align:left; }
+.transmission-helios::before { content:'TRANSMISSION · HÉLIOS'; display:block; font-size:8px; letter-spacing:.15em; color:#94d5df; margin-bottom:6px; }
+.carte { background:linear-gradient(150deg,#203647,#122330); border:1px solid #a1c6d14f; border-radius:10px; box-shadow:0 5px 18px #0004; }
+.carte h3 { color:#eaf5fa; }
+.carte p,.carte-archetype { color:#b7d0df; }
+.carte .carte-benefice strong,.carte-sans-malus { color:#9bddca; }
+.carte .carte-malus { color:#edb4a8; border-color:#dfaa9433; }
+.carte .carte-malus strong { color:#edb4a8; }
+.carte-bandeau { opacity:.85; }
+@media(max-width:420px) {
+  #hud.hud { padding:max(8px,env(safe-area-inset-top)) 10px 5px; gap:5px 7px; }
+  .hud-parcours { font-size:7px; }
+  .hud-salle-bloc { padding:4px 5px; }
+  .hud-carnet summary { padding:10px 7px; }
+  .hud-coups { font-size:12px; padding:8px; }
+  .route-solaire { padding:3px 5px 4px; }
+  .route-solaire::before { top:8px; }
+  .hud-objectif { padding:3px 7px; }
+  .objectif-texte { font-size:12px; }
+  .menu-description { font-size:12px; }
+  .transmission-helios { font-size:12px; }
+}
+@media(max-height:640px) and (max-width:700px) {
+  .menu-illustration { width:46%; }
+  .menu-kicker { margin-bottom:7px; }
+  .titre-vertige { margin-bottom:12px; }
+  .menu-hero { padding-bottom:16px; }
+  #commandes .touche { height:52px; }
+}
+.toast { background:#10212eea; color:#e0eff4; border:1px solid #aacbd84d; border-radius:10px; box-shadow:0 6px 25px #0005; font-size:12px; font-weight:500; line-height:1.45; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }

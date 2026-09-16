@@ -1,3 +1,4 @@
+import { INTRO_HELIOS, missionHelios, TRANSMISSIONS } from '../data/histoire.js';
 // Construit et met à jour l'en-tête de jeu (#hud) : coups restants, jauge de
 // rotation, XP/niveau de salle, objectif, nom de salle, annonce de rotation,
 // bande « Prochaines entrées » (compétence Prévoyance) et effets actifs.
@@ -17,7 +18,7 @@ function texteObjectif(objectif) {
     case 'ballons': return `Étoiles filantes ${progres} / ${cible}`;
     case 'pierres': return `Astéroïdes ${progres} / ${cible}`;
     case 'reliques': return `Noyaux sauvés ${progres} / ${cible}`;
-    case 'billes':  return `Billes ${progres} / ${cible}`;
+    case 'billes':  return `Cristaux ${progres} / ${cible}`;
     default:        return `${progres} / ${cible}`;
   }
 }
@@ -52,6 +53,9 @@ export function creerHud(elHud, actions = {}) {
   const carnetContenu = document.createElement('div'); carnetContenu.className = 'carnet-contenu';
   const fermer = document.createElement('button'); fermer.type = 'button'; fermer.className = 'carnet-fermer'; fermer.textContent = 'Fermer ×';
   fermer.addEventListener('click', () => { carnet.open = false; carnetBouton.focus(); });
+  carnet.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && carnet.open) { event.preventDefault(); event.stopPropagation(); carnet.open = false; carnetBouton.focus(); }
+  });
   const carnetTexte = document.createElement('div');
   carnetContenu.append(fermer, carnetTexte); carnet.append(carnetBouton, carnetContenu);
   ligneHaut.append(retour, salleBloc, carnet, coupsEl);
@@ -205,21 +209,26 @@ export function creerHud(elHud, actions = {}) {
         node.setAttribute('aria-label', node.title);
       });
       const build = etat.build ?? [];
-      carnetBouton.textContent = `Mission · ${build.length}`;
+      carnetBouton.textContent = 'Mission';
+      carnetBouton.setAttribute('aria-label', 'Mission et journal de bord');
       const cleCarnet = JSON.stringify([etat.salle?.id, build]);
       if (cleCarnet !== dernierCarnet) {
         dernierCarnet = cleCarnet; carnet.open = false; carnetTexte.replaceChildren();
         function ligne(tag, texte, classe = '') { const e = document.createElement(tag); e.textContent = texte; e.className = classe; carnetTexte.appendChild(e); }
         ligne('h3', etat.salle?.nom ?? planete?.nom ?? 'Mission');
-        if (etat.salle?.phase) ligne('p', `${etat.salle.phase} · niveau ${niveauPlanete} / ${niveauxPlanete}`);
-        if (planete) { ligne('p', `+ ${planete.bonus}`, 'mission-bonus'); ligne('p', `− ${planete.malus}`, 'mission-malus'); }
-        ligne('h4', 'Votre collection · active toute l’expédition');
+        const mission = missionHelios(planeteIndex, niveauxPlanete === 1 ? 3 : niveauPlanete);
+        if (mission) { ligne('p', `${mission.phase} · niveau ${niveauPlanete} / ${niveauxPlanete}`, 'mission-phase'); ligne('p', mission.entree); }
+        else if (etat.salle?.phase) ligne('p', etat.salle.phase);
+        if (planete) { ligne('p', `+ ${planete.bonus}`, 'mission-bonus'); ligne('p', `− ${etat.salle?.malus ?? planete.malus}`, 'mission-malus'); }
+        ligne('h4', 'Modules de VERTIGE · actifs toute l’expédition');
         if (!build.length) ligne('p', 'Votre première carte vous attend après ce niveau. L’XP gagnée détermine sa puissance.');
         build.forEach((b) => { const c = carteBuildParId(b.id); ligne('h4', `${c?.nom ?? b.id} · rang ${b.rang}`); ligne('p', c?.bonus ?? c?.desc ?? ''); if(c?.malus) ligne('p', c.malus, 'mission-malus'); });
         ligne('h4', 'Préparez vos combinaisons');
-        ligne('p', 'Fusée + fusée : grande croix. Bombe + fusée : trois lignes. Couleur + fusée : une flotte de fusées. Touchez deux boosters voisins pour les combiner.');
-        ligne('h4', 'Les noyaux stellaires');
-        ligne('p', 'Libérez leur passage, puis tournez : ils sont sauvés lorsque le bord lumineux rejoint le bas et que le noyau l’atteint.');
+        ligne('p', 'Fusée + fusée : grande croix. Bombe + fusée : trois lignes. Couleur + fusée : une flotte de fusées. Touchez un booster adjacent à un autre pour les combiner.');
+        ligne('h4', 'Les stabilisateurs');
+        ligne('p', 'Les noyaux sont les stabilisateurs des relais. Libérez leur passage, puis tournez : ils sont sauvés lorsque le bord lumineux rejoint le bas et que le noyau l’atteint.');
+        ligne('h4', 'Journal de bord · Hélios'); ligne('p', INTRO_HELIOS);
+        for (const entree of TRANSMISSIONS.slice(0, Math.max(0, planeteIndex))) { ligne('h4', `${entree.planete} · relais rétabli`); ligne('p', entree.fin); }
       }
       missionHint.hidden = etat.objectif?.type !== 'reliques';
       missionHint.textContent = '◇ Libérez les noyaux et tournez le bord lumineux vers le bas.';

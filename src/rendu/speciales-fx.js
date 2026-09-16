@@ -131,9 +131,9 @@ export function creerSpecialesFx() {
     for (let i = 0; i < nRecul; i++) {
       rt2[i] += dt;
       const p = clamp01(rt2[i] / REC_DUREE), s = Math.sin(p * Math.PI), bv = rBv[i];
-      if (bv) { bv.x = rx0[i] + rdx[i] * s; bv.y = ry0[i] + rdy[i] * s; }
+      if (bv && !bv.chute && !bv.glisse) { bv.x = rx0[i] + rdx[i] * s; bv.y = ry0[i] + rdy[i] * s; }
       if (p >= 1) {
-        if (bv) { bv.x = rx0[i]; bv.y = ry0[i]; }
+        if (bv && !bv.chute && !bv.glisse) { bv.x = rx0[i]; bv.y = ry0[i]; }
         const l = nRecul - 1; rBv[i]=rBv[l]; rx0[i]=rx0[l]; ry0[i]=ry0[l]; rdx[i]=rdx[l]; rdy[i]=rdy[l]; rt2[i]=rt2[l]; nRecul--; i--;
       }
     }
@@ -177,7 +177,7 @@ export function creerSpecialesFx() {
   // zoom caméra ×1,04 centré sur l'origine, retour en ~200 ms. Piloté au temps RÉEL (pas le dt
   // déjà ralenti) — sinon le ralenti s'auto-prolongerait. Au 3e maillon (profondeur === 2, 0-indexé
   // dans le journal, §4), texte « RÉACTION EN CHAÎNE ».
-  const CHAINE_RALENTI = 0.15, CHAINE_DUREE = 0.35, CHAINE_PIC = 1.04;
+  const CHAINE_RALENTI = 0.07, CHAINE_DUREE = 0.24, CHAINE_PIC = 1.015;
   let chaineActif = false, chaineT = 0, chaineLx = 0, chaineLy = 0;
   function declencherChaine(evt, env) {
     chaineActif = true; chaineT = 0;
@@ -217,12 +217,12 @@ export function creerSpecialesFx() {
     env.juice.emettreOnde(centre.x, centre.y, env.cellPix() * (0.8 + Math.min(1.4, cellules.length * 0.07)));
     env.juice.emettreBoom(oE.x, oE.y);
     if (combo) env.juice.emettreMot(centre.x, centre.y, MOT_COMBO_FORCE, 1.3);
-    const amp = 4 / env.cellPix(), rayon = Math.sqrt(cellules.length) + 1.2;
+    const amp = (env.mouvementReduit?.() ? 0 : 2) / env.cellPix(), rayon = Math.sqrt(cellules.length) + 1.2;
     for (const [, bv] of env.billes) {
       const dx = bv.x - origine.x, dy = bv.y - origine.y, d = Math.hypot(dx, dy);
       if (d > 0 && d <= rayon) declencherRecul(bv, (dx / d) * amp, (dy / d) * amp);
     }
-    env.shake(Math.min(1, cellules.length / 10) * (combo ? 1.4 : 1));
+    env.shake(Math.min(1, cellules.length / 10) * (combo ? 1 : .45));
     jouerSon(env, 'detruit', { taille: cellules.length, cause: 'bombe', profondeur: evt.profondeur || 0 });
     await attend(110);
   }
@@ -258,9 +258,9 @@ export function creerSpecialesFx() {
       await attend(16);
     }
     if (combo) env.juice.emettreMot(oE.x, oE.y, MOT_COMBO_FORCE, 1.3);
-    env.shake(0.35 * (combo ? 1.4 : 1));
+    env.shake(0.35 * (combo ? 1 : .45));
     jouerSon(env, 'detruit', { taille: cellules.length, cause: 'ligne', profondeur: evt.profondeur || 0 });
-    await attend(60);
+    // Trail fade continues during gravity.
   }
 
   // --- item 3 : bombe de couleur — rayons puis aspiration en cascade, la sucette pulse
@@ -278,7 +278,7 @@ export function creerSpecialesFx() {
     const pas = Math.max(1, Math.ceil(parDistance.length / nRayonsCible));
     for (let i = 0; i < parDistance.length; i += pas) { const e = env.ecran(parDistance[i].c.x, parDistance[i].c.y); emettreRayon(oE.x, oE.y, e.x, e.y, 0.12); }
     await attend(120);
-    const stagger = Math.max(8, Math.min(40, 900 / Math.max(1, parDistance.length)));
+    const stagger = Math.max(8, Math.min(22, 220 / Math.max(1, parDistance.length)));
     let i = 0;
     for (const it of parDistance) {
       const bv = env.billes.get(it.c.id);
@@ -301,7 +301,7 @@ export function creerSpecialesFx() {
     else if (oCell) env.billes.delete(oCell.id);
     env.impact.emettreImpact(oE.x, oE.y, null, (combo ? 1.5 : 1) * 1.1);
     if (combo) env.juice.emettreMot(oE.x, oE.y, MOT_COMBO_FORCE, 1.3);
-    env.shake(0.5 * (combo ? 1.4 : 1));
+    env.shake(0.5 * (combo ? 1 : .45));
     jouerSon(env, 'detruit', { taille: cellules.length, cause: 'couleur', profondeur: evt.profondeur || 0 });
     await attend(90);
   }
@@ -330,7 +330,7 @@ export function creerSpecialesFx() {
     while (idx < cellules.length) { const c = cellules[idx++], e = env.ecran(c.x, c.y); env.particules.emettreDestruction(e.x, e.y, env.couleurHex(c.couleur), 5); env.billes.delete(c.id); }
     env.impact.emettreImpact(fE.x, fE.y, null, (combo ? 1.5 : 1) * 0.7);
     if (combo) env.juice.emettreMot(fE.x, fE.y, MOT_COMBO_FORCE, 1.3);
-    env.shake(0.4 * (combo ? 1.4 : 1));
+    env.shake(0.4 * (combo ? 1 : .45));
     jouerSon(env, 'detruit', { taille: cellules.length, cause: 'fusee', profondeur: evt.profondeur || 0 });
     await attend(40);
   }
@@ -367,10 +367,10 @@ export function creerSpecialesFx() {
       if (f.plateau) env.squashPlateau(f.plateau); // le plateau encaisse le coup (8+)
       if (combo) env.juice.emettreMot(centre.x, centre.y, MOT_COMBO_FORCE, 1.3); // item 6 : mot forcé
     }
-    env.shake(f.shake * (combo ? 1.4 : 1)); // item 6 : secousse +40 % en combo
+    env.shake(f.shake * (combo ? 1 : .45)); // item 6 : secousse +40 % en combo
     if (CAUSES_EXPLOSION.has(evt.cause)) jouerSon(env, 'speciale', { type: evt.cause }); // item 9 : activation (croix)
     jouerSon(env, 'detruit', { taille, cause: evt.cause, profondeur: evt.profondeur || 0 });
-    await attend(naissance ? NAISSANCE_DUREE * 1000 : 90);
+    await attend(naissance ? NAISSANCE_DUREE * 1000 : 28);
     return naissance ? env.ecran(naissance.x, naissance.y) : centre;
   }
 
@@ -380,7 +380,7 @@ export function creerSpecialesFx() {
     dessiner(ctx, cellPix) { dessinerRayons(ctx, cellPix); dessinerTrail(ctx, cellPix); dessinerFusee(ctx); dessinerVent(ctx, cellPix); },
     jouerBombe, jouerLigne, jouerCouleur, jouerFusee,
     declencherVent, declencherChaine, appliquerZoom,
-    get dtScale() { return chaineActif && chaineT < CHAINE_RALENTI ? 0.5 : 1; },
+    get dtScale() { return chaineActif && chaineT < CHAINE_RALENTI ? .85 : 1; },
     get enCours() { return nRayons > 0 || nTrail > 0 || nFusee > 0 || nRecul > 0 || nVent > 0 || chaineActif; },
     vider() { nRayons = 0; nTrail = 0; nFusee = 0; nRecul = 0; nVent = 0; chaineActif = false; ventActif = false; },
   };
