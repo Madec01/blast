@@ -54,7 +54,7 @@ async function main() {
   await page.waitForFunction(() => window.vertige.run !== null);
 
   const attendre = () => page.waitForFunction(() => !window.vertige.occupe, null, { timeout: 20000 });
-  let taps = 0, rotations = 0, choix = 0, shotsNiveau = 0, shotJeu = 0;
+  let taps = 0, rotations = 0, choix = 0, shotsNiveau = 0, shotJeu = 0, termine = false;
   const tapsRates = []; // un tap sur un bord pendant une secousse peut rater d'un pixel : seul un cumul est une erreur
   for (let i = 0; i < 160; i++) {
     await attendre();
@@ -65,7 +65,7 @@ async function main() {
       return { attente: e.enAttente?.type ?? null, meilleur, coups: e.coups, taps: e.stats.taps, jauge: e.jauge, w: g.w, h: g.h, gravite: e.gravite, salle: e.salle.nom };
     });
     if (!etat) break;
-    if (etat.attente === 'finRun') { await shot('07-fin-run'); break; }
+    if (etat.attente === 'finRun') { termine = true; await shot('07-fin-run'); break; }
     if (etat.attente) {
       if (etat.attente === 'niveau' && shotsNiveau++ === 0) await shot('03-niveau');
       if (etat.attente === 'finSalle') await shot('05-fin-salle');
@@ -104,6 +104,7 @@ async function main() {
   }
   await attendre();
   await shot('04-fin');
+  if (!termine) erreurs.push('Le scénario n’a pas atteint la fin du run');
   // Panneau Test
   await page.evaluate(() => window.vertige.ui.afficherMenu({ profil: { runs: 1 }, runEnCours: false }));
   await page.getByRole('button', { name: /mode test/i }).click();

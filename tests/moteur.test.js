@@ -276,7 +276,7 @@ test('F08 paliers de feel : 2 → 0, 3-4 → 1, 5-7 → 2, 8-9 → 3, 10+ → 4 
 test('F09 rotationResultat : émis après la chute d’une rotation du joueur, jamais pour une rotation automatique ; productive cohérente', () => {
   let productives = 0, muettes = 0;
   for (let seed = 1; seed <= 40; seed++) {
-    const run = creerRun({ seed, salles: ['vestibule'], options: { jauge: 9 } });
+    const run = creerRun({ seed, salles: ['vestibule'], options: { jauge: 9, couleurs: 5, cascades: false } });
     const e = run.etat;
     // deux taps d'abord pour creuser la grille, puis une rotation
     for (let k = 0; k < 2; k++) { const g = tousGroupes(e.grille).sort((a, b) => b.length - a.length)[0]; if (g) run.tap(g[0] % e.grille.w, (g[0] / e.grille.w) | 0); }
@@ -302,7 +302,7 @@ test('F09 rotationResultat : émis après la chute d’une rotation du joueur, j
   assert.ok(!ev.some((v) => v.t === 'rotationResultat'));
 });
 
-test('prototype D24 (sim seulement) : options.cascades = "rotation" fait exploser les groupes ≥ cascadeMin formés par la chute ; jamais par défaut', () => {
+test('cascades : groupes nouvellement formés par rotation, désactivation explicite possible', () => {
   // diagonale de rouges (rangées 2..9, x = y-2) sur un remplissage alterné : la rotation +1 aligne 8 rouges à droite
   const preparer = (options) => {
     const run = creerRun({ seed: 1, salles: ['vestibule'], options: { jauge: 5, ...options } });
@@ -312,7 +312,7 @@ test('prototype D24 (sim seulement) : options.cascades = "rotation" fait explose
     for (let y = 2; y < g.h; y++) { for (let x = 0; x < y - 2; x++) g.cellules[y * g.w + x] = bille((y - x) % 2 ? 2 : 1); g.cellules[y * g.w + (y - 2)] = bille(0); }
     return run;
   };
-  const sans = preparer({});
+  const sans = preparer({ cascades: false });
   const evSans = sans.tourner(1);
   assert.ok(!evSans.some((v) => v.t === 'detruit'), 'aucune cascade par défaut');
   assert.equal(tousGroupes(sans.etat.grille).reduce((m, g) => Math.max(m, g.length), 0), 8);

@@ -2,7 +2,7 @@
 export const SALLES = [
   { id: 'vestibule', nom: 'Le Vestibule', type: 'normale', acteMin: 1,
     desc: 'Une salle calme pour prendre le plateau en main. Vide-la.',
-    grille: { w: 8, h: 10 }, couleurs: 5, coups: 25, jauge: 2,
+    grille: { w: 8, h: 10 }, couleurs: 4, coups: 25, jauge: 2,
     objectif: { type: 'billes', cible: 60 },
     elements: [{ type: 'bulle', n: 2 }, { type: 'fusee', n: 1 }], regles: {} },
   { id: 'puits', nom: 'Le Puits', type: 'normale', acteMin: 1,

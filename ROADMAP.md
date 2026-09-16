@@ -4,7 +4,20 @@ Tableau de bord du projet. Tenu à jour en direct. Voir `CLAUDE.md` pour le cadr
 
 ---
 
-## À faire maintenant
+## À faire maintenant — 2026-09-16
+
+- [x] Refonte visuelle mobile, silhouettes distinctes, HUD/menu/cartes et réglages séparés.
+- [x] Cascades de rotation sur nouveaux groupes 6+, secours plateau, sauvegardes validées.
+- [x] PWA hors ligne, tests Node et vérifications navigateur multi-résolutions.
+- [ ] Playtester sur iPhone et Android physiques ; mesurer cadence et durée des longues chaînes.
+- [ ] Concevoir les recettes de combos dédiées puis enrichir la progression.
+- [ ] Préparer les exigences natives/légales/commerciales avant soumission store.
+
+Bilan détaillé et limites : `docs/REFONTE_2026-09-16.md`. La demande du 16 septembre autorise cette
+refonte autonome ; les décisions historiques ci-dessous sont conservées comme historique.
+
+## Historique des priorités — 2026-09-14
+
 
 **Feuille web des décisions (2026-09-14, reprise)** : https://claude.ai/code/artifact/146f2bd7-bb12-4ca5-8acf-66a884747deb — document `retours/partie2`, 30 points (feel livré à juger, D24 cascades, D25 frénésie, D26 les 6 recettes de combos, titre / salles / Krator / format du sprite Cosmo, D21-D23, D27 carte, audio, D7). Lire avec `read_db` avant de coder. L'ancienne feuille (https://claude.ai/code/artifact/0aae216f-64a0-44c3-949d-482473879eb2, `retours/phase15`) reste consultable mais n'est plus alimentée.
 

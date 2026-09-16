@@ -27,7 +27,7 @@ const AVEC_BILLE = new Set(['couleur', 'billes']);
 // sens de rotation → symbole affiché dans l'annonce.
 const SYMBOLE_ROTATION = { '-1': '⟲', '1': '⟳', '2': '↻' };
 
-export function creerHud(elHud) {
+export function creerHud(elHud, actions = {}) {
   elHud.innerHTML = '';
   elHud.classList.add('hud');
 
@@ -37,7 +37,14 @@ export function creerHud(elHud) {
   nomSalle.className = 'hud-salle';
   const coupsEl = document.createElement('span');
   coupsEl.className = 'hud-coups';
-  ligneHaut.append(nomSalle, coupsEl);
+  const retour = document.createElement('button');
+  retour.type = 'button'; retour.className = 'hud-menu'; retour.textContent = '‹';
+  retour.setAttribute('aria-label', 'Menu — sauvegarder la partie');
+  retour.addEventListener('click', () => actions.quitter?.());
+  const salleBloc = document.createElement('div'); salleBloc.className = 'hud-salle-bloc';
+  const progression = document.createElement('small'); progression.className = 'hud-parcours';
+  salleBloc.append(progression, nomSalle);
+  ligneHaut.append(retour, salleBloc, coupsEl);
 
   const jaugeEl = document.createElement('div');
   jaugeEl.className = 'hud-jauge';
@@ -135,6 +142,9 @@ export function creerHud(elHud) {
     // Met à jour l'ensemble du HUD depuis l'état du moteur (etat, §3 CONTRATS).
     maj(etat) {
       nomSalle.textContent = etat.salle?.nom ?? '';
+      progression.textContent = `SALLE ${(etat.salleIndex ?? 0) + 1} / ${etat.ordre?.length ?? 5}`;
+      coupsEl.classList.toggle('urgence', (etat.coups ?? 0) <= 5);
+      retour.disabled = !!etat.enAttente;
       coupsEl.textContent = `${etat.coups ?? 0} coups`;
       majJauge(etat.jauge ?? 0, etat.jaugeMax ?? 0);
 

@@ -26,6 +26,14 @@ const TABLE_G = [{ x: 0, y: 1 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: -1, y: 0 
 const vecteurG = (g) => TABLE_G[((g % 4) + 4) % 4];
 export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   const ctx = canvas.getContext('2d');
+  const preferenceMouvement = typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  let mouvementReduit = preferenceMouvement?.matches ?? false;
+  const actualiserMouvement = () => {
+    mouvementReduit = preferenceMouvement.matches;
+    if (mouvementReduit) { shakeMag = 0; shakeX = 0; shakeY = 0; }
+  };
+  preferenceMouvement?.addEventListener?.('change', actualiserMouvement);
   const sprites = creerSprites(), particules = creerParticules(), decor = creerDecor();
   const juice = creerJuice(), impact = creerImpact(), telegraphe = creerTelegraphe();
   const specialesFx = creerSpecialesFx(), finale = creerFinale(); // Lot B (RECHERCHE_VFX §4)
@@ -73,7 +81,11 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     const ch = Math.max(1, Math.round((canvas.clientHeight || canvas.height || 1) * dpr));
     if (canvas.width !== cw) canvas.width = cw;
     if (canvas.height !== ch) canvas.height = ch;
-    fitNormalPx = Math.min((cw * MARGE) / w, (ch * MARGE) / h); fitSwapPx = Math.min((cw * MARGE) / h, (ch * MARGE) / w);
+    // Le sprite de plateau ajoute 2 × (rebord .42 + ombre .32) cases.
+    // Les compter évite de rogner le cadre, notamment sur téléphone.
+    const bord = 1.48;
+    fitNormalPx = Math.min((cw * MARGE) / (w + bord), (ch * MARGE) / (h + bord));
+    fitSwapPx = Math.min((cw * MARGE) / (h + bord), (ch * MARGE) / (w + bord));
     cellPixBase = Math.max(8, Math.floor(Math.max(fitNormalPx, fitSwapPx)));
     juice.definirCadre(cellPixBase, cw, ch); // les textes flottants s'étalent et se bornent dans ce cadre
     sprites.regenererCases(cellPixBase); sprites.regenererPlateau(w, h, cellPixBase, forme); decor.regenerer(cellPixBase, cw, ch);
@@ -150,7 +162,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     demarrerBoucle(); await attend(duree * 1000);
     hitstopRestant = 0;
   }
-  const declencherShake = (intensite) => { shakeMag = Math.min(SHAKE_MAX, Math.max(shakeMag, SHAKE_MAX * intensite)); };
+  const declencherShake = (intensite) => { if (mouvementReduit) return; shakeMag = Math.min(SHAKE_MAX, Math.max(shakeMag, SHAKE_MAX * intensite)); };
   function majShake(dt) {
     if (shakeMag > 0.05) { shakeMag *= Math.exp(-dt * 8); shakeX = (Math.random() * 2 - 1) * shakeMag; shakeY = (Math.random() * 2 - 1) * shakeMag; }
     else { shakeMag = 0; shakeX = 0; shakeY = 0; }
@@ -163,18 +175,20 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   };
   function dessinerFrame() {
     const plateau = sprites.plateau(); // E1/E2 : ciel étoilé tourné avec le plateau ; taille transmise pour placer la planète hors du cadre
-    decor.dessiner(ctx, canvas.width, canvas.height, angleActuel, plateau ? plateau.width * echelleActuelle : 0, plateau ? plateau.height * echelleActuelle : 0);
+    decor.dessiner(ctx, canvas.width, canvas.height, mouvementReduit ? 0 : angleActuel, plateau ? plateau.width * echelleActuelle : 0, plateau ? plateau.height * echelleActuelle : 0);
     finale.dessinerFond(ctx, canvas.width, canvas.height); // item 7 : fond qui s'éclaircit, sous le plateau
     ctx.save();
     ctx.translate(canvas.width / 2 + shakeX, canvas.height / 2 + shakeY); ctx.rotate(angleActuel);
-    specialesFx.appliquerZoom(ctx, echelleActuelle * squashPlateau.sx * squashRebond.sx, echelleActuelle * squashPlateau.sy * squashRebond.sy); // item 5 : chaîne
+    if (mouvementReduit) ctx.scale(echelleActuelle, echelleActuelle);
+    else specialesFx.appliquerZoom(ctx, echelleActuelle * squashPlateau.sx * squashRebond.sx, echelleActuelle * squashPlateau.sy * squashRebond.sy); // item 5 : chaîne
     if (plateau) ctx.drawImage(plateau, -plateau.width / 2, -plateau.height / 2);
     for (const [, bv] of billes) {
       const lx = (bv.x - w / 2 + 0.5) * cellPixBase, ly = (bv.y - h / 2 + 0.5) * cellPixBase;
       if (surligneesSet.size && surligneesSet.has(`${Math.round(bv.x)},${Math.round(bv.y)}`)) dessinerSurlignage(lx, ly); // pas de chaîne allouée sans survol
       ctx.save();
       ctx.translate(lx, ly); ctx.globalAlpha = bv.alpha * (telegraphe.ids && telegraphe.ids.has(bv.id) ? 0.28 : 1); // en aperçu, ce qui bouge s'estompe
-      ctx.scale(bv.echelle * bv.squashX, bv.echelle * bv.squashY);
+      if (mouvementReduit) { const e = bv.pulse ? 1 : bv.echelle; ctx.scale(e, e); }
+      else ctx.scale(bv.echelle * bv.squashX, bv.echelle * bv.squashY);
       dessinerCellule(bv);
       ctx.restore();
     }
@@ -194,7 +208,9 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
     return true;
   }
   function majAnimations(dt) {
-    tempsTotal += dt; decor.maj(dt); squashPlateau.maj(dt); squashRebond.maj(dt); juice.majTextes(dt); juice.majOndes(dt); impact.maj(dt);
+// Les chutes et rotations gardent leur chronologie ; seul le décor et le mouvement décoratif cessent.
+    if (!mouvementReduit) { tempsTotal += dt; decor.maj(dt); }
+    squashPlateau.maj(dt); squashRebond.maj(dt); juice.majTextes(dt); juice.majOndes(dt); impact.maj(dt);
     if (angleTween) {
       angleTween.t += dt;
       const p = clamp01(angleTween.t / angleTween.duree), e = easeInOut(p);
@@ -474,6 +490,7 @@ export function creerRendu(canvas, { onTap, onSurvol } = {}) {
   const surVisibilite = () => { if (typeof document !== 'undefined' && !document.hidden) demarrerBoucle(); }; // décor en continu tant que visible (§2)
   if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('visibilitychange', surVisibilite);
   function detruire() {
+    preferenceMouvement?.removeEventListener?.('change', actualiserMouvement);
     if (observateur) { observateur.disconnect(); observateur = null; }
     if (typeof document !== 'undefined' && document.removeEventListener) document.removeEventListener('visibilitychange', surVisibilite);
     if (rafId != null) cancelAnimationFrame(rafId); rafId = null;

@@ -4,7 +4,7 @@
 import { creerHud } from './hud.js';
 import { creerCartes } from './cartes.js';
 import { creerTest } from './test.js';
-import { formatNombre } from './utils.js';
+import { construireMenu as creerMenu } from './menu.js';
 import { ROTATION_HORS_JAUGE } from '../data/salles.js';
 
 const DUREE_TOAST = 1600; // ms
@@ -32,10 +32,12 @@ export function creerUI(racine, actions) {
 
   const coucheToasts = doc.createElement('div');
   coucheToasts.className = 'couche-toasts';
+  coucheToasts.setAttribute('role', 'status');
+  coucheToasts.setAttribute('aria-live', 'polite');
 
   racine.append(coucheMenu, coucheAttente, coucheTest, coucheToasts);
 
-  const hud = creerHud(elHud);
+  const hud = creerHud(elHud, actions);
   const cartes = creerCartes(coucheAttente, actions);
   const test = creerTest(coucheTest, actions);
 
@@ -48,82 +50,7 @@ export function creerUI(racine, actions) {
   // =====================================================================
   // Menu principal
   // =====================================================================
-  function construireMenu({ profil, runEnCours } = {}) {
-    coucheMenu.innerHTML = '';
-    const p = profil ?? {};
-
-    const panneau = doc.createElement('div');
-    panneau.className = 'panneau-menu';
-
-    const titre = doc.createElement('h1');
-    titre.className = 'titre-vertige';
-    titre.textContent = 'VERTIGE';
-    panneau.appendChild(titre);
-
-    const boutons = doc.createElement('div');
-    boutons.className = 'menu-boutons';
-
-    const btnNouveau = doc.createElement('button');
-    btnNouveau.type = 'button';
-    btnNouveau.className = 'touche touche-accent touche-large';
-    btnNouveau.textContent = 'Nouveau run';
-    btnNouveau.addEventListener('click', () => actions.nouveauRun());
-    boutons.appendChild(btnNouveau);
-
-    if (runEnCours) {
-      const btnContinuer = doc.createElement('button');
-      btnContinuer.type = 'button';
-      btnContinuer.className = 'touche touche-large';
-      btnContinuer.textContent = 'Continuer';
-      btnContinuer.addEventListener('click', () => actions.continuerRun());
-      boutons.appendChild(btnContinuer);
-    }
-
-    const btnTest = doc.createElement('button');
-    btnTest.type = 'button';
-    btnTest.className = 'touche touche-orange touche-large';
-    btnTest.textContent = 'Mode Test';
-    // Le contrat §7 ne définit pas d'action dédiée pour ouvrir le panneau
-    // Test depuis le menu (seul actions.lancerTest(config) existe, pour le
-    // bouton « Lancer » du panneau). On appelle un hook optionnel : si le
-    // module applicatif ne le fournit pas, le clic ne fait rien plutôt que
-    // de lever une erreur.
-    btnTest.addEventListener('click', () => actions.ouvrirModeTest?.());
-    boutons.appendChild(btnTest);
-
-    panneau.appendChild(boutons);
-
-    const ligneSon = doc.createElement('label');
-    ligneSon.className = 'menu-son';
-    const caseSon = doc.createElement('input');
-    caseSon.type = 'checkbox';
-    caseSon.checked = !!p.muet;
-    caseSon.addEventListener('change', () => actions.muet(caseSon.checked));
-    ligneSon.append(caseSon, doc.createTextNode(' Couper le son'));
-    panneau.appendChild(ligneSon);
-
-    const stats = doc.createElement('div');
-    stats.className = 'menu-stats';
-    [
-      ['Runs joués', formatNombre(p.runs ?? 0)],
-      ['Meilleure salle', p.meilleureSalle ?? '—'],
-      ['Monnaie méta', formatNombre(p.monnaieMeta ?? 0)],
-    ].forEach(([libelle, valeur]) => {
-      const item = doc.createElement('div');
-      item.className = 'menu-stat';
-      const l = doc.createElement('span');
-      l.className = 'menu-stat-label';
-      l.textContent = libelle;
-      const v = doc.createElement('span');
-      v.className = 'menu-stat-valeur';
-      v.textContent = valeur;
-      item.append(l, v);
-      stats.appendChild(item);
-    });
-    panneau.appendChild(stats);
-
-    coucheMenu.appendChild(panneau);
-  }
+  function construireMenu(donnees) { creerMenu(coucheMenu, actions, donnees); }
 
   // =====================================================================
   // Commandes de rotation (footer #commandes, déjà présent dans index.html)
@@ -162,6 +89,10 @@ export function creerUI(racine, actions) {
       cacher(); actions.tourner(sens);
     });
   }
+  [[btnGauche, 'Gauche'], [btnDroite, 'Droite'], [btn180, 'Demi-tour']].forEach(([bouton, label]) => {
+    if (!bouton) return;
+    const legende = doc.createElement('small'); legende.textContent = label; bouton.appendChild(legende);
+  });
   brancherRotation(btnGauche, -1);
   brancherRotation(btnDroite, 1);
   brancherRotation(btn180, 2);
@@ -182,6 +113,7 @@ export function creerUI(racine, actions) {
   // =====================================================================
   const surClavier = (evt) => {
     if (evt.repeat) return;
+    if (!coucheMenu.hidden || !coucheTest.hidden || !coucheAttente.hidden || /INPUT|SELECT|TEXTAREA|BUTTON/.test(evt.target?.tagName ?? '')) return;
     const touche = evt.key.toLowerCase();
     if (touche === 'q' || touche === 'arrowleft') actions.tourner(-1);
     else if (touche === 'd' || touche === 'arrowright') actions.tourner(1);

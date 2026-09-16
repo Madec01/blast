@@ -25,21 +25,123 @@ let gainMuet = null;        // GainNode : 0 si muet, 1 sinon
 
 let volumeCourant = 0.8;
 let estMuetCourant = false;
+const reglages = { effets: true, musique: false, vibrations: true };
+let enPause = false;
+let minuteurMusique = null;
+let pasMusique = 0;
+let derniereVibration = 0;
 let voixActives = [];       // voix en cours, de la plus ancienne à la plus récente
 
 // --- Cycle de vie du contexte ------------------------------------------------
 
 // Crée l'AudioContext au premier geste utilisateur. Idempotent : un second appel
 // se contente de reprendre le contexte s'il est suspendu (politique d'autoplay).
+function estCache() {
+  return typeof document !== 'undefined' && document.hidden;
+}
+
 function init() {
-  if (contexte) {
-    if (contexte.state === 'suspended') contexte.resume();
-    return;
+  if (!contexte) {
+    const AC = (typeof window !== 'undefined') && (window.AudioContext || window.webkitAudioContext);
+    if (!AC) return;
+    try {
+      contexte = new AC();
+      construireGraphe();
+    } catch (_) { contexte = null; return; }
   }
-  const AC = (typeof window !== 'undefined') && (window.AudioContext || window.webkitAudioContext);
-  if (!AC) return; // Web Audio indisponible : jouer() restera silencieux, sans erreur
-  contexte = new AC();
-  construireGraphe();
+  if (enPause || estCache()) return;
+  if (contexte.state === 'suspended') {
+    try {
+      Promise.resolve(contexte.resume()).then(() => {
+        if (enPause || estCache()) suspendre();
+        else synchroniserMusique();
+      }).catch(() => {});
+    } catch (_) { /* navigateur ne permettant pas encore la reprise */ }
+  } else synchroniserMusique();
+}
+
+function configurer(options = {}) {
+  for (const cle of Object.keys(reglages)) {
+    if (typeof options[cle] === 'boolean') reglages[cle] = options[cle];
+  }
+  if (!reglages.effets) voixActives.filter(v => v.canal === 'effets').forEach(couperVoix);
+  if (!reglages.vibrations) vibrer(0);
+  synchroniserMusique();
+  return { ...reglages };
+}
+
+function vibrer(motif) {
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(motif);
+  } catch (_) { /* retour haptique facultatif */ }
+}
+
+function retourHaptique(nom, params) {
+  if (!reglages.vibrations || enPause || estCache()) return;
+  const motifs = { speciale: 18, victoire: [20, 55, 30], bonAngle: 12, competence: 20 };
+  const motif = motifs[nom] || (nom === 'detruit' && (params.taille >= 8 || params.cause === 'bombe') ? 15 : 0);
+  const maintenant = Date.now();
+  if (motif && maintenant - derniereVibration > 100) {
+    derniereVibration = maintenant;
+    vibrer(motif);
+  }
+}
+
+// Une phrase originale, lente et pentatonique. Deux notes peuvent se recouvrir ;
+// aucune piste distante, aucun chargement, aucun minuteur en arrière-plan.
+function jouerPasMusique() {
+  if (!contexte || contexte.state !== 'running' || enPause || estCache() || !reglages.musique || estMuetCourant) return;
+  const notes = [0, 7, 12, 4, 9, 7, 4, 2, 0, 7, 14, 12, 9, 4, 7, 2];
+  const t = contexte.currentTime;
+  const sortie = contexte.createGain();
+  sortie.gain.setValueAtTime(0.0001, t);
+  sortie.gain.exponentialRampToValueAtTime(0.035, t + 0.22);
+  sortie.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
+  const note = contexte.createOscillator();
+  note.type = 'sine';
+  note.frequency.value = 220 * Math.pow(2, notes[pasMusique++ % notes.length] / 12);
+  note.connect(sortie);
+  note.start(t);
+  note.stop(t + 2.9);
+  jouerVoix({ sortie, noeuds: [note, sortie], duree: 3 }, 'musique');
+  minuteurMusique = setTimeout(() => {
+    minuteurMusique = null;
+    jouerPasMusique();
+  }, 1800);
+}
+
+function synchroniserMusique() {
+  const active = contexte && contexte.state === 'running' && reglages.musique && !enPause && !estCache() && !estMuetCourant;
+  if (!active) {
+    clearTimeout(minuteurMusique);
+    minuteurMusique = null;
+    voixActives.filter(v => v.canal === 'musique').forEach(couperVoix);
+  } else if (minuteurMusique === null) jouerPasMusique();
+}
+
+function suspendre() {
+  clearTimeout(minuteurMusique);
+  minuteurMusique = null;
+  // Nettoyage immédiat : un contexte suspendu ne fait plus avancer les enveloppes.
+  for (const voix of [...voixActives]) {
+    clearTimeout(voix.minuteur);
+    voix.actif = false;
+    nettoyerVoix(voix);
+  }
+  vibrer(0);
+  if (contexte && contexte.state === 'running') {
+    try { Promise.resolve(contexte.suspend()).catch(() => {}); } catch (_) {}
+  }
+}
+
+function pause() { enPause = true; suspendre(); }
+function reprendre() { enPause = false; if (contexte) init(); }
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (estCache()) suspendre();
+    else if (!enPause && contexte) init();
+  });
 }
 
 // Construit le bus master une seule fois : deux départs (sec / réverb), un
@@ -81,6 +183,7 @@ function construireGraphe() {
 
 // Volume général, 0..1.
 function volume(v) {
+  if (!Number.isFinite(v)) return;
   volumeCourant = Math.min(1, Math.max(0, v));
   if (gainVolume) gainVolume.gain.setTargetAtTime(volumeCourant, contexte.currentTime, 0.01);
 }
@@ -89,6 +192,7 @@ function volume(v) {
 function muet(b) {
   estMuetCourant = !!b;
   if (gainMuet) gainMuet.gain.setTargetAtTime(estMuetCourant ? 0 : 1, contexte.currentTime, 0.01);
+  synchroniserMusique();
 }
 
 function estMuet() { return estMuetCourant; }
@@ -97,13 +201,13 @@ function estMuet() { return estMuetCourant; }
 
 // Connecte la voix au bus master et l'enregistre ; coupe la plus ancienne voix si
 // la polyphonie maximale est atteinte, puis programme son propre nettoyage.
-function jouerVoix({ sortie, noeuds, duree }) {
+function jouerVoix({ sortie, noeuds, duree }, canal = 'effets') {
   if (voixActives.length >= POLYPHONIE_MAX) {
     couperVoix(voixActives.shift());
   }
   sortie.connect(busSec);
   sortie.connect(busReverbSend);
-  const voix = { sortie, noeuds, actif: true, minuteur: null };
+  const voix = { sortie, noeuds, canal, actif: true, minuteur: null };
   voix.minuteur = setTimeout(() => terminerVoix(voix), Math.ceil(duree * 1000) + 80);
   voixActives.push(voix);
 }
@@ -162,7 +266,9 @@ const FABRIQUES = {
 // été appelé, si le nom est inconnu, ou si la synthèse échoue pour une raison
 // quelconque — un son ne doit jamais interrompre le jeu.
 function jouer(nom, params = {}) {
-  if (!contexte) return;
+  if (enPause || estCache()) return;
+  retourHaptique(nom, params);
+  if (!contexte || contexte.state !== 'running' || !reglages.effets || estMuetCourant) return;
   const fabrique = FABRIQUES[nom];
   if (!fabrique) return;
   let construction;
@@ -174,4 +280,4 @@ function jouer(nom, params = {}) {
   if (construction) jouerVoix(construction);
 }
 
-export const audio = { init, jouer, volume, muet, estMuet };
+export const audio = { init, jouer, volume, muet, estMuet, configurer, pause, reprendre };

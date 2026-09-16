@@ -1,13 +1,14 @@
-// Sprites pré-rendus sur canvas hors écran — style « Cartoon pop » (docs/CONTRATS.md §2).
-// Toon Blast pour le dessin : aplats saturés, contours encre épais, reflets nets, jamais de
-// dégradé recalculé par frame. Régénérés uniquement quand la taille de case change :
+// Sprites pré-rendus sur canvas hors écran — gemmes du Carrousel cosmique.
+// Six silhouettes, biseaux doux et reflets nets, jamais de dégradé recalculé par frame. Régénérés uniquement quand la taille de case change :
 // rendu.js ne fait que des drawImage + transformations sur ces sprites.
 
-import { COULEURS, ENCRE, CADRE, CADRE_CLAIR, CADRE_FONCE, CHAMP_HAUT, CHAMP_BAS } from '../data/couleurs.js';
+import { COULEURS, ENCRE } from '../data/couleurs.js';
+
+const CADRE = '#28495c', CADRE_CLAIR = '#4a7882', CADRE_FONCE = '#142738';
+const CHAMP_HAUT = '#13283f', CHAMP_BAS = '#091728';
 
 // --- petits utilitaires couleur -----------------------------------------------------
 function hex2rgb(hex) { const n = parseInt(hex.slice(1), 16); return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }; }
-function rgbaHex(hex, a) { const { r, g, b } = hex2rgb(hex); return `rgba(${r},${g},${b},${a})`; }
 function melangeHex(hex1, hex2, t) {
   const a = hex2rgb(hex1), b = hex2rgb(hex2);
   return `rgb(${Math.round(a.r + (b.r - a.r) * t)},${Math.round(a.g + (b.g - a.g) * t)},${Math.round(a.b + (b.b - a.b) * t)})`;
@@ -45,32 +46,60 @@ function cheminEtoile(ctx, cx, cy, r, branches, ratioCreux) {
   ctx.closePath();
 }
 
-// --- bille « gomme brillante » : aplat saturé, contour encre épais, reflet allongé --------
-function dessinerBille(ctx, cx, cy, cellPix, hex, contour) {
-  const r = cellPix * 0.44; // 88 % de la case
-  ctx.save();
-  ctx.beginPath(); ctx.ellipse(cx + r * 0.16, cy + r * 0.3, r * 0.82, r * 0.36, 0, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(8,4,26,0.32)'; ctx.filter = 'blur(2px)'; ctx.fill(); ctx.filter = 'none';
-  ctx.restore();
+// Six silhouettes indépendantes de la couleur : lecture du groupe même sans perception
+// des teintes. Toute la matière est cuite au redimensionnement, aucun filtre par frame.
+function cheminGemme(ctx, cx, cy, r, forme) {
+  ctx.beginPath();
+  if (forme === 0) { // coussin corail
+    chemineRectArrondi(ctx, cx-r*.89, cy-r*.89, r*1.78, r*1.78, r*.42);
+  } else if (forme === 1) { // feuille verte, asymétrique même après rotation
+    ctx.moveTo(cx-r*.78, cy+r*.73);
+    ctx.bezierCurveTo(cx-r*1.2, cy-r*.65, cx-r*.12, cy-r*1.04, cx+r*.77, cy-r*.77);
+    ctx.bezierCurveTo(cx+r*1.11, cy+r*.62, cx+r*.12, cy+r*1.09, cx-r*.78, cy+r*.73);
+  } else if (forme === 3) { // losange solaire aux pointes adoucies
+    ctx.moveTo(cx, cy-r);
+    ctx.quadraticCurveTo(cx+r*.13, cy-r, cx+r*.9, cy-r*.12);
+    ctx.quadraticCurveTo(cx+r, cy, cx+r*.9, cy+r*.12);
+    ctx.lineTo(cx+r*.12, cy+r*.9); ctx.quadraticCurveTo(cx, cy+r, cx-r*.12, cy+r*.9);
+    ctx.lineTo(cx-r*.9, cy+r*.12); ctx.quadraticCurveTo(cx-r, cy, cx-r*.9, cy-r*.12);
+    ctx.lineTo(cx-r*.12, cy-r*.9); ctx.quadraticCurveTo(cx, cy-r, cx, cy-r);
+  } else if (forme === 4) { // hexagone améthyste
+    for (let i=0; i<6; i++) {
+      const a=i*Math.PI/3, x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+  } else if (forme === 5) { // goutte de comète
+    ctx.moveTo(cx, cy-r);
+    ctx.bezierCurveTo(cx+r*.26,cy-r*.56,cx+r*.86,cy-r*.18,cx+r*.86,cy+r*.28);
+    ctx.bezierCurveTo(cx+r*.86,cy+r*1.1,cx-r*.86,cy+r*1.1,cx-r*.86,cy+r*.28);
+    ctx.bezierCurveTo(cx-r*.86,cy-r*.18,cx-r*.26,cy-r*.56,cx,cy-r);
+  } else ctx.arc(cx, cy, r*.93, 0, Math.PI*2); // perle bleue
+  ctx.closePath();
+}
 
+function dessinerBille(ctx, cx, cy, cellPix, hex, contour, forme) {
+  const r=cellPix*.435;
   ctx.save();
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  const g = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.1, cx, cy, r * 1.05);
-  g.addColorStop(0, eclaircir(hex, 0.24)); g.addColorStop(0.55, hex); g.addColorStop(1, assombrir(hex, 0.18));
-  ctx.fillStyle = g; ctx.fill();
-  const gi = ctx.createRadialGradient(cx + r * 0.32, cy + r * 0.38, r * 0.15, cx + r * 0.1, cy + r * 0.1, r * 1.1);
-  gi.addColorStop(0, 'rgba(0,0,0,0.3)'); gi.addColorStop(0.55, 'rgba(0,0,0,0)');
-  ctx.fillStyle = gi; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-  ctx.lineWidth = Math.max(1.5, cellPix * 0.06); ctx.strokeStyle = contour || assombrir(hex, 0.5); ctx.stroke(); // contour ≈ 6 % de la case
-  ctx.restore();
-
-  // reflet : goutte allongée + petit point. Planchers en px pour rester une forme nette (pas un
-  // gribouillis anti-aliasé) même à très petite case — cause identifiée du reflet déformé (Puits 5×14).
-  ctx.save();
-  ctx.beginPath(); ctx.ellipse(cx - r * 0.36, cy - r * 0.4, Math.max(1.4, r * 0.34), Math.max(0.9, r * 0.18), -0.55, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill();
-  ctx.beginPath(); ctx.arc(cx - r * 0.02, cy - r * 0.04, Math.max(0.7, r * 0.1), 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fill();
+  // Talon sombre : la gemme paraît posée dans son logement.
+  cheminGemme(ctx,cx,cy+r*.09,r,forme);
+  ctx.fillStyle=assombrir(hex,.64); ctx.fill();
+  cheminGemme(ctx,cx,cy-r*.035,r,forme);
+  const g=ctx.createLinearGradient(cx-r,cy-r,cx+r*.6,cy+r);
+  g.addColorStop(0,eclaircir(hex,.57)); g.addColorStop(.32,eclaircir(hex,.16));
+  g.addColorStop(.67,hex); g.addColorStop(1,assombrir(hex,.26));
+  ctx.fillStyle=g; ctx.fill();
+  ctx.lineWidth=Math.max(1,cellPix*.025); ctx.lineJoin='round';
+  ctx.strokeStyle=contour || assombrir(hex,.45); ctx.stroke();
+  ctx.clip();
+  // Biseau intérieur et reflet large, translucide : un éclairage commun à toute la série.
+  cheminGemme(ctx,cx,cy-r*.035,r*.87,forme);
+  ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=Math.max(.8,cellPix*.018); ctx.stroke();
+  const reflet=ctx.createLinearGradient(cx,cy-r,cx,cy+r*.15);
+  reflet.addColorStop(0,'rgba(255,255,255,.57)'); reflet.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.beginPath(); ctx.ellipse(cx-r*.15,cy-r*.59,r*.87,r*.48,-.2,0,Math.PI*2);
+  ctx.fillStyle=reflet; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx-r*.32,cy-r*.5,r*.21,r*.09,-.4,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,.8)'; ctx.fill();
   ctx.restore();
 }
 
@@ -83,9 +112,9 @@ export function creerSprites() {
   let pierre = null, bulleOverlay = null, fusee = null;
   let plateauCanvas = null, plateauInfo = null;
 
-  function batirBille(hex, contour) {
+  function batirBille(hex, contour, forme) {
     const { canvas, ctx } = creerCanvas(cellPix, cellPix);
-    dessinerBille(ctx, cellPix / 2, cellPix / 2, cellPix, hex, contour);
+    dessinerBille(ctx, cellPix / 2, cellPix / 2, cellPix, hex, contour, forme);
     return canvas;
   }
 
@@ -119,7 +148,7 @@ export function creerSprites() {
 
   function batirBombe() {
     const { canvas, ctx } = creerCanvas(cellPix, cellPix);
-    const cx = cellPix / 2, cy = cellPix / 2, r = cellPix * 0.4;
+    const cx = cellPix / 2, cy = cellPix * 0.56, r = cellPix * 0.33;
     ctx.save();
     ctx.beginPath(); ctx.ellipse(cx + r * 0.16, cy + r * 0.32, r * 0.82, r * 0.36, 0, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(8,4,26,0.32)'; ctx.filter = 'blur(2px)'; ctx.fill(); ctx.filter = 'none';
@@ -127,7 +156,7 @@ export function creerSprites() {
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
     const g = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.08, cx, cy, r * 1.05);
-    g.addColorStop(0, '#3d3a4a'); g.addColorStop(0.55, '#17141f'); g.addColorStop(1, '#050408');
+    g.addColorStop(0, '#678797'); g.addColorStop(0.55, '#263e55'); g.addColorStop(1, '#101d31');
     ctx.fillStyle = g; ctx.fill();
     ctx.lineWidth = Math.max(1.5, cellPix * 0.06); ctx.strokeStyle = ENCRE; ctx.stroke();
     ctx.restore();
@@ -142,8 +171,8 @@ export function creerSprites() {
     ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.92); ctx.quadraticCurveTo(cx + r * 0.5, cy - r * 1.22, cx + r * 0.12, cy - r * 1.5); ctx.stroke();
     ctx.lineWidth = Math.max(1, r * 0.07); ctx.strokeStyle = ENCRE; ctx.stroke();
     ctx.restore();
-    mecheOffset = { ox: r * 0.12, oy: -r * 1.5 }; // relu par rendu.js pour l'étincelle vivante (flicker par frame)
-    ctx.save(); ctx.translate(cx + mecheOffset.ox, cy + mecheOffset.oy);
+    mecheOffset = { ox: r * 0.12, oy: cy - cellPix / 2 - r * 1.5 }; // relu par rendu.js pour l'étincelle vivante (flicker par frame)
+    ctx.save(); ctx.translate(cellPix / 2 + mecheOffset.ox, cellPix / 2 + mecheOffset.oy);
     cheminEtoile(ctx, 0, 0, r * 0.22, 4, 0.4); ctx.fillStyle = '#ffd23f'; ctx.fill();
     ctx.restore();
     return canvas;
@@ -292,7 +321,7 @@ export function creerSprites() {
     if (taille === cellPix) return;
     cellPix = taille;
     billes.clear(); ballons.clear();
-    for (const c of COULEURS) { billes.set(c.id, batirBille(c.hex, c.contour)); ballons.set(c.id, batirEtoileFilante(c.hex, c.contour)); }
+    for (const c of COULEURS) { billes.set(c.id, batirBille(c.hex, c.contour, c.id)); ballons.set(c.id, batirEtoileFilante(c.hex, c.contour)); }
     bombe = batirBombe();
     flecheLigne = batirFlecheLigne();
     etoileCroix = batirEtoileCroix();
@@ -307,29 +336,26 @@ export function creerSprites() {
     ctx.save();
     cheminEtoile(ctx, cx, cy, r, 4, 0.5);
     const g = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.1, cx, cy, r);
-    g.addColorStop(0, CADRE_CLAIR); g.addColorStop(1, CADRE_FONCE);
+    g.addColorStop(0, '#fff1cb'); g.addColorStop(1, '#b59053');
     ctx.fillStyle = g; ctx.fill();
     ctx.lineWidth = Math.max(1, r * 0.18); ctx.strokeStyle = ENCRE; ctx.stroke();
     ctx.restore();
   }
 
-  // cuvette en losange, un ton plus clair que le champ à cet endroit
-  function dessinerCuvette(ctx, cx, cy, taille, teinteFond) {
-    const s = taille * 0.32, clair = eclaircir(teinteFond, 0.16);
-    ctx.save();
-    ctx.translate(cx, cy); ctx.rotate(Math.PI / 4);
-    ctx.beginPath(); ctx.rect(-s, -s, s * 2, s * 2);
-    ctx.fillStyle = rgbaHex(clair, 0.55); ctx.fill();
-    ctx.strokeStyle = rgbaHex(assombrir(teinteFond, 0.25), 0.4); ctx.lineWidth = Math.max(1, taille * 0.03); ctx.stroke();
-    ctx.restore();
+  // Logements discrets : ne concurrencent pas les six silhouettes des gemmes.
+  function dessinerCuvette(ctx, cx, cy, taille) {
+    const s = taille * 0.445;
+    chemineRectArrondi(ctx,cx-s,cy-s,s*2,s*2,taille*.16);
+    ctx.fillStyle='rgba(0,5,17,.24)'; ctx.fill();
+    ctx.strokeStyle='rgba(166,220,225,.055)'; ctx.lineWidth=Math.max(1,taille*.018); ctx.stroke();
   }
 
   // (re)construit la texture du plateau : cadre peint épais + champ indigo + cuvettes. Une
   // fois par taille de plateau — jamais recalculé par frame.
   function regenererPlateau(w, h, taille, forme) {
     taille = Math.max(4, Math.round(taille));
-    if (plateauInfo && plateauInfo.w === w && plateauInfo.h === h && plateauInfo.cellPix === taille) return;
-    plateauInfo = { w, h, cellPix: taille };
+    if (plateauInfo && plateauInfo.w === w && plateauInfo.h === h && plateauInfo.cellPix === taille && plateauInfo.forme === forme) return;
+    plateauInfo = { w, h, cellPix: taille, forme };
     const rim = taille * 0.42, pad = taille * 0.32;
     const largeur = w * taille + rim * 2 + pad * 2, hauteur = h * taille + rim * 2 + pad * 2;
     const { canvas, ctx } = creerCanvas(largeur, hauteur);
@@ -361,8 +387,7 @@ export function creerSprites() {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       if (forme && forme[y * w + x] === 0) continue;
       const cx = ix + (x + 0.5) * taille, cy = iy + (y + 0.5) * taille;
-      const t = ih > 0 ? (cy - iy) / ih : 0;
-      dessinerCuvette(ctx, cx, cy, taille, melangeHex(CHAMP_HAUT, CHAMP_BAS, t));
+      dessinerCuvette(ctx, cx, cy, taille);
     }
     ctx.restore();
 

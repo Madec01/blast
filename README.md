@@ -1,33 +1,71 @@
-# VERTIGE
+# VERTIGE — Carrousel cosmique
 
-Tap-blast roguelite à plateau rotatif. Tape un groupe de billes de même couleur pour l'éliminer ;
-tourne le plateau pour changer la gravité et tout faire retomber. Enchaîne les salles, monte de niveau
-dans chaque salle, choisis des compétences entre les salles.
+Puzzle tap-blast à gravité rotative, en français, mobile et ordinateur. Éclatez des groupes,
+créez des boosters et tournez le plateau pour assembler de nouvelles cascades.
+
+![Menu mobile](docs/captures/menu-mobile.png)
+
+## Lancer
+
+Node.js 20 ou supérieur et npm :
+
+```sh
+npm ci
+npm run dev                 # http://localhost:5174
+npm run build               # version de production dans dist/
+npm run preview             # http://localhost:4174
+```
+
+Servir `dist/` sur un hébergement statique HTTPS. Les chemins sont relatifs : un sous-dossier
+convient également. Ne pas ouvrir index.html directement en file://.
+La PWA est installable depuis les navigateurs compatibles ; une première visite en ligne complète
+met les ressources en cache. Les mises à jour s'activent après fermeture des anciens onglets.
+Aucun compte, aucune requête tierce à l'exécution.
 
 ## Jouer
 
-```
-npm install
-npm run dev        # http://localhost:5174
-npm run build      # dist/ à servir en statique (aucun appel réseau à l'exécution)
+- Tapez au moins deux gemmes voisines de même couleur. Une spéciale seule peut aussi être activée.
+- Groupes de 4 / 6 / 7 / 10 : bombe / ligne / croix / bombe de couleur.
+- Tournez à gauche, à droite ou d'un demi-tour. Maintenez la commande pour prévisualiser la chute.
+- Une rotation consomme une énergie ; à jauge vide, un coup. Les groupes de 6+ rechargent l'énergie.
+- Un nouveau groupe de 6+ assemblé par la chute d'une rotation déclenche une cascade ; une grappe
+  qui glisse sans changer ne se déclenche pas. Maximum quatre vagues par résolution.
+- Si aucun tap ni rotation ne peut aider, une paire ou une bombe est offerte, sans coût ni points.
+- Cinq salles : collecte de gemmes, puits, astéroïdes, étoiles filantes et boss à score.
+- Les choix de pouvoirs et les finales de salle restent au cœur de l'expédition.
+- Le bouton Menu sauvegarde la partie. Continuer restaure le plateau, les pouvoirs et le hasard.
+- Réglages séparés : effets sonores, ambiance musicale (désactivée initialement), vibrations.
+- Clavier : Q / D / S pour tourner ; avec le plateau sélectionné par Tab, flèches puis Entrée pour jouer.
+
+Le mode Test permet de sélectionner salle, pouvoirs, seed, difficulté, gravité et cascades.
+Les anciennes sauvegardes conservent leurs anciennes règles jusqu'au prochain run.
+
+## Vérifier
+
+```sh
+npm test
+npm run sim -- --runs 200 --seed 123 --politique avisee
+npx playwright install chromium
+npm run smoke:shot           # partie complète par vrais clics, captures dans /tmp/vertige-shots
+npm run qa:mobile            # 4 résolutions, tactile, souris, sauvegarde, reprise hors ligne
 ```
 
-- Tap / clic sur un groupe ≥ 2 billes. Une spéciale seule se tape aussi. Les trous restent.
-- Objectif atteint : la **finale** convertit ce qu'il te reste — chaque spéciale explose, chaque coup fait sauter une bille (+XP), chaque point de jauge tourne le plateau — avant la supernova.
-- ⟲ ⟳ ↻ (ou Q / D / S, flèches) : rotation 90° gauche, 90° droite, 180°. Tout retombe et se remplit à la rotation.
-  Chaque rotation consomme la jauge ; un groupe de 6+ en rend une ; à jauge vide, elle coûte un coup.
-  Appui maintenu (ou survol) sur une touche : aperçu de la chute avant de tourner.
-- Mode Test depuis le menu : salle, compétences, seed, difficulté, couleurs, jauge, gravité (collante / mixte / continue).
+`CHROMIUM_PATH` peut désigner un Chromium déjà installé. `SHOT_DIR` permet de changer le dossier
+des captures. Pour un serveur existant, `QA_URL` remplace celui lancé automatiquement par qa:mobile.
 
-## Développement
+## Architecture et ressources
 
-```
-npm test           # tests du moteur (node --test)
-npm run sim        # simulateur headless, statistiques d'équilibrage (--runs, --seed, --competences, --politique gourmande|aleatoire|avisee, --gravite)
-npm run smoke      # build + Chromium headless + scénario joué ; --shot pour des captures
-node tools/seuils.mjs   # distribution des tailles de groupes
-```
+- `src/moteur/` : logique déterministe indépendante du DOM et journal d'événements.
+- `src/data/` : salles, seuils, pouvoirs et palette. Ajouter un niveau dans `salles.js`, puis son ID à l'ordre.
+- `src/rendu/` : Canvas 2D, atlas de sprites pré-rendus, chutes, particules et finales.
+- `src/ui/` : menus HTML accessibles, illustration SVG originale, HUD et cartes.
+- `src/audio/` : sons et ambiance générés localement via Web Audio.
+- `src/persistence.js` : stockage tolérant aux erreurs et migration des préférences.
+- `vite.config.js`, `public/` : manifeste, icônes originales et génération du cache hors ligne.
 
-Le moteur (`src/moteur/`) ne touche jamais au DOM : il renvoie un journal d'événements que le rendu
-(`src/rendu/`, Canvas 2D), l'interface (`src/ui/`) et l'audio (`src/audio/`, synthèse Web Audio) consomment.
-Contrats entre modules : `docs/CONTRATS.md`. Cadrage : `CLAUDE.md`. Feuille de route : `ROADMAP.md`.
+Vite et Playwright sont les seules dépendances de développement. Aucune bibliothèque de rendu
+supplémentaire : le moteur Canvas existant sépare déjà les règles du rendu, utilise des sprites
+mis en cache et ne nécessite pas de migration WebGL pour cette taille de plateau.
+
+Bilan, charte, ressources et limites : [docs/REFONTE_2026-09-16.md](docs/REFONTE_2026-09-16.md).
+Cette version est une base web jouable ; elle n'est pas encore validée pour les stores.

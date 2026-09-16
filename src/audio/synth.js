@@ -92,12 +92,12 @@ function creerOscillateursDesaccordes(ctx, frequence, type = 'sine', detuneCents
 // --- Gestion d'une « construction » (un son en cours d'assemblage) ----------
 
 function nouvelleConstruction(ctx) {
-  return { sortie: ctx.createGain(), noeuds: [], finMax: 0.05 };
+  return { sortie: ctx.createGain(), noeuds: [], debut: ctx.currentTime, finMax: ctx.currentTime + 0.05 };
 }
 function ajouterFin(c, temps) { if (temps > c.finMax) c.finMax = temps; }
 function finaliser(c) {
   c.noeuds.push(c.sortie);
-  return { sortie: c.sortie, noeuds: c.noeuds, duree: c.finMax };
+  return { sortie: c.sortie, noeuds: c.noeuds, duree: c.finMax - c.debut };
 }
 
 // --- Matières réutilisées : verre, bois, bruit filtré, glissando ------------
