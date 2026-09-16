@@ -4,12 +4,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  # Compatibilité avec les dépôts encore réglés sur « Deploy from a branch » :
-  # republier le vrai build APRÈS la publication automatique des sources par Jekyll.
-  workflow_run:
-    workflows: [pages build and deployment]
-    types: [completed]
-    branches: [main]
 
 permissions:
   contents: read
@@ -40,12 +34,26 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # La publication historique peut écraser dist si elle termine après nous.
+      - name: Attendre la publication historique éventuelle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          for attempt in {1..60}; do
+            pending=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" --jq '[.workflow_runs[] | select(.path == "dynamic/pages/pages-build-deployment" and .status != "completed")] | length')
+            if [ "$pending" = "0" ]; then exit 0; fi
+            sleep 5
+          done
+          echo "La publication historique n’a pas terminé dans le délai prévu."
+          exit 1
       - name: Publier le jeu compilé
         id: deployment
         uses: actions/deploy-pages@v5
