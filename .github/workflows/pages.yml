@@ -17,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -47,9 +45,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          build_type=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq '.build_type')
+          if [ "$build_type" != "legacy" ]; then exit 0; fi
           for attempt in {1..60}; do
-            pending=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" --jq '[.workflow_runs[] | select(.path == "dynamic/pages/pages-build-deployment" and .status != "completed")] | length')
-            if [ "$pending" = "0" ]; then exit 0; fi
+            runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" --jq '[.workflow_runs[] | select(.path == "dynamic/pages/pages-build-deployment" )]')
+            total=$(jq 'length' <<< "$runs")
+            pending=$(jq '[.[] | select(.status != "completed")] | length' <<< "$runs")
+            if [ "$total" != "0" ] && [ "$pending" = "0" ]; then exit 0; fi
             sleep 5
           done
           echo "La publication historique n’a pas terminé dans le délai prévu."
